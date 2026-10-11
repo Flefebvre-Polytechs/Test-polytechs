@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: polytechs
+    runtime: node
+    region: frankfurt
+    plan: starter
+    branch: render-production
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm exec next build --webpack
+    startCommand: npm run start:render
+    healthCheckPath: /api/auth
+    disk:
+      name: polytechs-data
+      mountPath: /var/data/polytechs
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: POLYTECHS_DATA_DIR
+        value: /var/data/polytechs
+      - key: RENDER_INITIAL_ADMIN_USERNAME
+        sync: false
+      - key: RENDER_INITIAL_ADMIN_PASSWORD
+        sync: false
