@@ -69,6 +69,13 @@ assert.equal((await post(boards,{action:'create',teamId:'production',scope:'',bo
 assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'member',level:'contributor'},{cookie:leadCookie})).status,200);
 assert.equal((await accessibleTeams({id:'member',role:'editor'},true)).has('production'),true);
 assert.equal((await teamSettings.GET(req({cookie:memberCookie}))).status,403,'Coordinator cannot manage members');
+assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'member',level:'viewer',expectedLevel:'user'},{cookie:leadCookie})).status,409,'Stale membership changes must not overwrite newer rights');
+assert.equal(db.prepare("SELECT level FROM team_members WHERE team_id='production' AND user_id='member'").get().level,'contributor');
+assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'member',level:'viewer',expectedLevel:'contributor'},{cookie:leadCookie})).status,200);
+assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'member',level:'none',expectedLevel:'contributor'},{cookie:leadCookie})).status,409,'Stale removals are rejected');
+assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'member',level:'none',expectedLevel:'viewer'},{cookie:leadCookie})).status,200);
+assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'member',level:'user',expectedLevel:'none'},{cookie:leadCookie})).status,200);
+assert.equal((await post(teamSettings,null,{cookie:adminCookie})).status,400,'Invalid bodies are client errors');
 assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'lead',level:'user'},{cookie:adminCookie})).status,200);
 assert.equal((await teamSettings.GET(req({cookie:leadCookie}))).status,403,'Role revocation is immediate');
 console.log('Team roles: scoped administration, visibility/global-role protection, immediate revocation, user data entry, coordinator separation and dashboard conflicts passed.');
