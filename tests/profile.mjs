@@ -11,13 +11,13 @@ const objects=new Map();
 function statement(sql,args=[]){return {bind(...values){return statement(sql,values)},async first(){return db.prepare(sql).get(...args)||null},async run(){return {meta:{changes:Number(db.prepare(sql).run(...args).changes)}}}}}
 globalThis.profileDb={prepare:statement};
 globalThis.profileBucket={async put(key,bytes){objects.set(key,bytes)},async get(key){return objects.has(key)?{body:objects.get(key)}:null},async delete(key){objects.delete(key)}};
-function compile(name,file){const source=fs.readFileSync(file,'utf8').replaceAll("'@/db/raw'","'./raw.mjs'").replaceAll("'@/lib/access'","'./access.mjs'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
+function compile(name,file){const source=fs.readFileSync(file,'utf8').replaceAll("'@/db/raw'","'./raw.mjs'").replaceAll("'@/lib/access'","'./access.mjs'").replaceAll("'./interface-locale-extra'","'./interface-locale-extra.mjs'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 try{
  db.exec('PRAGMA foreign_keys=ON; CREATE TABLE users(id TEXT PRIMARY KEY,role TEXT); INSERT INTO users VALUES (\'one\',\'reader\'),(\'two\',\'admin\');');
  db.exec(fs.readFileSync('drizzle/0019_tense_butterfly.sql','utf8'));
  fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.profileDb;export const bucket=()=>globalThis.profileBucket;');
  fs.writeFileSync(path.join(dir,'access.mjs'),`export const checkOrigin=req=>req.headers.get('origin')===new URL(req.url).origin;export async function requireRole(req){const id=req.headers.get('x-test-user');return ['one','two'].includes(id)?{user:{id}}:{error:new Response(null,{status:401})}}`);
- compile('profile','app/api/profile/route.ts');compile('photo','app/api/profile/photo/route.ts');compile('locale','lib/interface-locale.ts');
+ compile('profile','app/api/profile/route.ts');compile('photo','app/api/profile/photo/route.ts');compile('interface-locale-extra','lib/interface-locale-extra.ts');compile('locale','lib/interface-locale.ts');
  const api=await import(path.join(dir,'profile.mjs')),photo=await import(path.join(dir,'photo.mjs')),locale=await import(path.join(dir,'locale.mjs'));
  const req=(method='GET',user='one',body,headers={})=>new Request('https://example.test/api/profile',{method,headers:{'x-test-user':user,origin:'https://example.test',...headers},body});
  assert.equal((await api.GET(req('GET',''))).status,401);

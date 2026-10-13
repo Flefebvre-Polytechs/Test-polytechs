@@ -11,6 +11,13 @@ const protectedTables=new Set(['render_schema_migrations','sessions','site_ident
 const tables=new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(x=>x.name));
 const checkName=name=>typeof name==='string'&&/^[a-z_][a-z0-9_]*$/.test(name)&&tables.has(name)&&!protectedTables.has(name);
 if(source.tables.some(x=>!checkName(x.name)||!Array.isArray(x.rows)||!Array.isArray(x.columns)||x.columns.some(c=>typeof c!=='string'||!/^[a-z_][a-z0-9_]*$/.test(c))))throw Error('Invalid table or column name');
+// Older Sites exports predate invitations. An empty additive table can be restored
+// safely on a fresh target; pending invitations must never be overwritten.
+if(tables.has('team_invitations')&&!source.tables.some(t=>t.name==='team_invitations')){
+ if(db.prepare('SELECT count(*) n FROM team_invitations').get().n)throw Error('Target contains invitations; import refused');
+ source.tables.push({name:'team_invitations',columns:db.prepare('PRAGMA table_info(team_invitations)').all().map(c=>c.name),rows:[]});
+}
+if(new Set(source.tables.map(t=>t.name)).size!==source.tables.length)throw Error('Duplicate tables in export');
 if(source.tables.length!==tables.size-protectedTables.size)throw Error('Incomplete export: expected all persistent tables');
 const business=['hub_tickets','evrp_risks','ged_documents'];
 if(business.some(t=>db.prepare(`SELECT count(*) AS n FROM "${t}"`).get().n!==0))throw Error('Target already contains business data; import refused');

@@ -3,16 +3,17 @@ import {Popover,PopoverTrigger,PopoverContent} from '@/components/ui/popover';
 import {createContext,useContext,useEffect,useRef,useState,useCallback,type ReactNode} from 'react';
 import {Camera,LogOut,UserRound,X} from 'lucide-react';
 import type {Account} from './account-gate';
-import {applyLocale,languages,watchLocale,translate,type Locale} from '@/lib/interface-locale';
+import {applyLocale,languages,watchLocale,translate,resolveLocale,type Locale} from '@/lib/interface-locale';
 
 type Profile={locale:Locale;photoUrl:string};
 type Context={account:Account;logout:()=>void;profile:Profile;setProfile:(profile:Profile)=>void;ready:boolean;loadError:string;reload:()=>void};
 const ProfileContext=createContext<Context|null>(null);
+export function useInterfaceLocale(){return useContext(ProfileContext)?.profile.locale||'fr'}
 const initial:Profile={locale:'fr',photoUrl:''};
 export function ProfileProvider({account,logout,children}:{account:Account;logout:()=>void;children:ReactNode}){
  const [profile,setProfile]=useState<Profile>(initial),[ready,setReady]=useState(false),[loadError,setLoadError]=useState(''),[reloadKey,setReloadKey]=useState(0);
  const reload=useCallback(()=>setReloadKey(n=>n+1),[]);
- useEffect(()=>{const controller=new AbortController();setReady(false);setLoadError('');fetch('/api/profile',{cache:'no-store',signal:controller.signal}).then(async r=>{const p=await r.json() as Profile&{error?:string};if(!r.ok)throw Error(p.error);if(!controller.signal.aborted){setProfile({locale:p.locale,photoUrl:p.photoUrl});setReady(true)}}).catch(()=>{if(!controller.signal.aborted)setLoadError('Profil indisponible.')});return()=>controller.abort()},[account.id,reloadKey]);
+ useEffect(()=>{const controller=new AbortController();setReady(false);setLoadError('');fetch('/api/profile',{cache:'no-store',signal:controller.signal}).then(async r=>{const p=await r.json() as Profile&{error?:string};if(!r.ok)throw Error(p.error);if(!controller.signal.aborted){setProfile({locale:resolveLocale(p.locale),photoUrl:p.photoUrl});setReady(true)}}).catch(()=>{if(!controller.signal.aborted)setLoadError('Profil indisponible.')});return()=>controller.abort()},[account.id,reloadKey]);
  useEffect(()=>watchLocale(profile.locale),[profile.locale]);
  return <ProfileContext.Provider value={{account,logout,profile,setProfile,ready,loadError,reload}}>{children}</ProfileContext.Provider>
 }
@@ -22,7 +23,7 @@ export function ProfileMenu(){const ctx=useContext(ProfileContext),[open,setOpen
 
  if(!ctx)return null;
  const {account,profile,setProfile,logout,ready,loadError,reload}=ctx;
- async function request(method:'POST'|'PUT'|'DELETE',body?:string|File){setBusy(true);setError('');setNotice('');try{const response=await fetch('/api/profile',{method,headers:body instanceof File?{'Content-Type':body.type}:body?{'Content-Type':'application/json'}:undefined,body});const data=await response.json() as Profile&{error?:string};if(!response.ok)throw Error(data.error||'Opération impossible.');setProfile({locale:data.locale,photoUrl:data.photoUrl});return true}catch(e){setError((e as Error).message);return false}finally{setBusy(false)}}
+ async function request(method:'POST'|'PUT'|'DELETE',body?:string|File){setBusy(true);setError('');setNotice('');try{const response=await fetch('/api/profile',{method,headers:body instanceof File?{'Content-Type':body.type}:body?{'Content-Type':'application/json'}:undefined,body});const data=await response.json() as Profile&{error?:string};if(!response.ok)throw Error(data.error||'Opération impossible.');setProfile({locale:resolveLocale(data.locale),photoUrl:data.photoUrl});return true}catch(e){setError((e as Error).message);return false}finally{setBusy(false)}}
  async function changeLanguage(locale:Locale){const previous=profile;setProfile({...previous,locale});applyLocale(locale);const response=await request('POST',JSON.stringify({locale}));if(!response)setProfile(previous);else setNotice('Langue enregistrée.')}
  async function changePhoto(file?:File){if(!file)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>12_000_000){setError('Choisissez une image JPEG, PNG ou WebP de 12 Mo maximum.');return}setBusy(true);setError('');try{if(await request('PUT',await preparePhoto(file)))setNotice('Photo enregistrée.')}catch{setError('Impossible de lire cette image.')}finally{setBusy(false)}}
  async function removePhoto(){if(await request('DELETE'))setNotice('Photo supprimée.')}

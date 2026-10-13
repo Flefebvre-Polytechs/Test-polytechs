@@ -7,7 +7,7 @@ const error=(message:string,status=400)=>Response.json({error:message},{status,h
 async function boundedImage(req:Request){const reader=req.body?.getReader();if(!reader)return null;const chunks:Uint8Array[]= [];let size=0;for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2_000_000){await reader.cancel();return null}chunks.push(value)}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}return bytes}
 type Profile={locale:string;photo_key:string;photo_mime:string;photo_updated_at:string};
 async function profile(userId:string){return database().prepare('SELECT locale,photo_key,photo_mime,photo_updated_at FROM user_profiles WHERE user_id=?').bind(userId).first<Profile>()}
-function publicProfile(row:Profile|null){return {locale:row?.locale||'fr',photoUrl:row?.photo_key?'/api/profile/photo?v='+encodeURIComponent(row.photo_updated_at):''}}
+function publicProfile(row:Profile|null){return {locale:row&&locales.has(row.locale)?row.locale:'fr',photoUrl:row?.photo_key?'/api/profile/photo?v='+encodeURIComponent(row.photo_updated_at):''}}
 
 export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;return Response.json(publicProfile(await profile(gate.user!.id)),{headers:noStore})}catch{return error('Profil indisponible.',503)}}
 

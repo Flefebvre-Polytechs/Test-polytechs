@@ -1,5 +1,7 @@
+import {additionalTranslations} from './interface-locale-extra';
 export const languages={fr:'Français',en:'English',de:'Deutsch',it:'Italiano',es:'Español'} as const;
 export type Locale=keyof typeof languages;
+export function resolveLocale(value:unknown):Locale{return typeof value==='string'&&Object.hasOwn(languages,value)?value as Locale:'fr'}
 
 // Exact UI labels only: free text entered by teams is never sent to a translation service.
 // Each row is French, English, German, Italian, Spanish.
@@ -281,17 +283,57 @@ const rows:[string,string,string,string,string][]=[
 ];
 
 const indexes={fr:0,en:1,de:2,it:3,es:4} as const;
-const lookup=new Map(rows.map(row=>[row[0],row]));
-export function translate(value:string,locale:Locale){return lookup.get(value)?.[indexes[locale]]||value}
+const lookup=new Map([...rows,...additionalTranslations].map(row=>[row[0],row]));
+export function hasTranslation(value:string){return lookup.has(value)}
+export function translate(value:string,locale:Locale){return lookup.get(value)?.[indexes[resolveLocale(locale)]]||value}
 
 // Store source text on the DOM node so changing languages can restore French.
 const originals=new WeakMap<Node,{source:string;rendered:string}>();
+const originalAttributes=new WeakMap<Element,Map<string,{source:string;rendered:string}>>();
+const attributes=['placeholder','title','aria-label','aria-description','alt'];
+const excluded='[data-no-translate],script,style,[contenteditable="true"]';
 function visit(root:Node,locale:Locale){
  const nodes:Node[]=[];
  if(root.nodeType===Node.TEXT_NODE)nodes.push(root);
- else if(root instanceof Element){if(root.closest('[data-no-translate],script,style,textarea,[contenteditable="true"]'))return;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(walker.nextNode())nodes.push(walker.currentNode);}
- for(const node of nodes){if(node.parentElement?.closest('[data-no-translate],script,style,textarea,[contenteditable="true"]'))continue;const current=node.textContent||'',saved=originals.get(node),base=saved&&saved.rendered===current?saved.source:current;const trimmed=base.trim();if(!lookup.has(trimmed)){originals.delete(node);continue}const output=base.replace(trimmed,translate(trimmed,locale));originals.set(node,{source:base,rendered:output});if(current!==output)node.textContent=output}
- if(root instanceof Element){const inputs=root.matches('input')?[root]:Array.from(root.querySelectorAll('input'));for(const input of inputs){const placeholder=input.getAttribute('data-original-placeholder')??input.getAttribute('placeholder');if(placeholder&&lookup.has(placeholder)){input.setAttribute('data-original-placeholder',placeholder);input.setAttribute('placeholder',translate(placeholder,locale))}}}
+ else if(root instanceof Element){
+  if(root.closest(excluded))return;
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  while(walker.nextNode())nodes.push(walker.currentNode);
+ }
+ for(const node of nodes){
+  if(node.parentElement?.closest(excluded+',textarea'))continue;
+  const current=node.textContent||'',saved=originals.get(node);
+  const base=saved&&saved.rendered===current?saved.source:current,trimmed=base.trim();
+  if(!lookup.has(trimmed)){originals.delete(node);continue}
+  const output=base.replace(trimmed,translate(trimmed,locale));
+  originals.set(node,{source:base,rendered:output});
+  if(current!==output)node.textContent=output;
+ }
+ if(root instanceof Element){
+  for(const element of [root,...Array.from(root.querySelectorAll('*'))]){
+   if(element.closest(excluded))continue;
+   let saved=originalAttributes.get(element);
+   if(!saved){saved=new Map();originalAttributes.set(element,saved)}
+   for(const attribute of attributes){
+    const current=element.getAttribute(attribute);
+    if(current===null){saved.delete(attribute);continue}
+    const old=saved.get(attribute),base=old&&old.rendered===current?old.source:current;
+    if(!lookup.has(base)){saved.delete(attribute);continue}
+    const output=translate(base,locale);saved.set(attribute,{source:base,rendered:output});
+    if(current!==output)element.setAttribute(attribute,output);
+   }
+  }
+ }
 }
-export function applyLocale(locale:Locale){document.documentElement.lang=locale;visit(document.body,locale)}
-export function watchLocale(locale:Locale){applyLocale(locale);const observer=new MutationObserver(changes=>{for(const change of changes){if(change.type==='characterData')visit(change.target,locale);else for(const node of change.addedNodes)visit(node,locale)}});observer.observe(document.body,{subtree:true,childList:true,characterData:true});return()=>{observer.disconnect();applyLocale('fr')}}
+export function applyLocale(locale:Locale){const valid=resolveLocale(locale);document.documentElement.lang=valid;visit(document.body,valid)}
+export function watchLocale(locale:Locale){
+ const valid=resolveLocale(locale);applyLocale(valid);
+ const observer=new MutationObserver(changes=>{
+  for(const change of changes){
+   if(change.type==='characterData'||change.type==='attributes')visit(change.target,valid);
+   else for(const node of change.addedNodes)visit(node,valid);
+  }
+ });
+ observer.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:attributes});
+ return()=>{observer.disconnect();applyLocale('fr')};
+}

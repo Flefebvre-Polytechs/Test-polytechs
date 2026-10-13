@@ -9,7 +9,7 @@ try{
 fs.symlinkSync(path.resolve('node_modules'),path.join(dir,'node_modules'),'dir');
 fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.securityDb;export const bucket=()=>{throw Error("Unexpected storage")};');fs.writeFileSync(path.join(dir,'config.mjs'),'export const trustSiteIdentity=()=>globalThis.securityTrust;');fs.writeFileSync(path.join(dir,'source.mjs'),'export const evrpSource=null;');fs.writeFileSync(path.join(dir,'catalog.mjs'),'export const epiCatalog={items:[],source:"",duplicateRows:[]};');
 fs.writeFileSync(path.join(dir,'gmao-server.mjs'),'export const gmaoOrders=async()=>[];');fs.writeFileSync(path.join(dir,'quality-server.mjs'),'export const qualityActions=async()=>new Map();');
-for(const [name,file] of [['work','app/api/work/route.ts'],['hub','lib/hub.ts'],['quality-actions','lib/quality-actions.ts'],['access','lib/access.ts'],['teams','lib/team-access.ts'],['records-access','lib/record-access.ts'],['auth','app/api/auth/route.ts'],['users','app/api/users/route.ts'],['files','lib/document-file.ts'],['xlsx','lib/xlsx-export.ts'],['modules','lib/modules.ts'],['workflows','lib/workflows.ts'],['records','app/api/records/route.ts'],['evrp','lib/evrp.ts'],['evrp-route','app/api/evrp/route.ts'],['epi','app/api/epi-stock/route.ts'],['unit-dashboard','lib/unit-dashboard.ts'],['boards','app/api/dashboards/route.ts'],['team-settings','app/api/team-access/route.ts']])compile(name,file);
+for(const [name,file] of [['work','app/api/work/route.ts'],['hub','lib/hub.ts'],['quality-actions','lib/quality-actions.ts'],['access','lib/access.ts'],['teams','lib/team-access.ts'],['records-access','lib/record-access.ts'],['auth','app/api/auth/route.ts'],['users','app/api/users/route.ts'],['files','lib/document-file.ts'],['xlsx','lib/xlsx-export.ts'],['modules','lib/modules.ts'],['workflows','lib/workflows.ts'],['records','app/api/records/route.ts'],['evrp','lib/evrp.ts'],['evrp-route','app/api/evrp/route.ts'],['epi','app/api/epi-stock/route.ts'],['unit-dashboard','lib/unit-dashboard.ts'],['boards','app/api/dashboards/route.ts'],['team-settings','app/api/team-access/route.ts'],['profile','app/api/profile/route.ts'],['invitations','app/api/team-invitations/route.ts']])compile(name,file);
 // Apply the real additive security migration against existing accounts and teams.
 db.exec(fs.readFileSync(fs.readdirSync('drizzle').filter(x=>x.startsWith('0003_')).map(x=>'drizzle/'+x)[0],'utf8'));
 db.exec(`CREATE TABLE teams(id TEXT PRIMARY KEY,name TEXT,rank INTEGER);CREATE TABLE team_access(team_id TEXT PRIMARY KEY,restricted INTEGER);CREATE TABLE team_members(team_id TEXT,user_id TEXT,level TEXT,PRIMARY KEY(team_id,user_id));INSERT INTO teams VALUES('qsse','QSSE',2),('rh','RH',2),('production','Production',2);INSERT INTO team_access VALUES('production',0);CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,source_id TEXT,details TEXT,created TEXT);CREATE TABLE record_history(id TEXT,record_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT);CREATE TABLE team_dashboards(id TEXT,team_id TEXT,unit_code TEXT,data TEXT,revision INTEGER,updated_at TEXT,updated_by TEXT);INSERT INTO team_dashboards VALUES('production-board','production','*','{"widgets":[]}',2,'','');`);
@@ -79,6 +79,70 @@ assert.equal((await post(teamSettings,null,{cookie:adminCookie})).status,400,'In
 assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'lead',level:'user'},{cookie:adminCookie})).status,200);
 assert.equal((await teamSettings.GET(req({cookie:leadCookie}))).status,403,'Role revocation is immediate');
 console.log('Team roles: scoped administration, visibility/global-role protection, immediate revocation, user data entry, coordinator separation and dashboard conflicts passed.');
+const profile=await import(path.join(dir,'profile.mjs'));
+db.exec("CREATE TABLE user_profiles(user_id TEXT PRIMARY KEY,locale TEXT DEFAULT 'fr',photo_key TEXT DEFAULT '',photo_mime TEXT DEFAULT '',photo_updated_at TEXT DEFAULT '')");
+assert.equal((await (await profile.GET(req({cookie:adminCookie}))).json()).locale,'fr');
+for(const language of ['en','de','it','es','fr']){
+assert.equal((await post(profile,{locale:language},{cookie:adminCookie})).status,200);
+assert.equal((await (await profile.GET(req({cookie:adminCookie}))).json()).locale,language,'Language is persisted and read back');
+assert.equal((await (await profile.GET(req({cookie:readerCookie}))).json()).locale,'fr','Language is scoped to each user');
+}
+assert.equal((await post(profile,{locale:'unknown'},{cookie:adminCookie})).status,400);
+assert.equal((await post(profile,{locale:'en'},{cookie:adminCookie,origin:'https://evil.test'})).status,403);
+assert.equal((await profile.GET(req())).status,401);
+db.prepare("UPDATE user_profiles SET locale='unknown' WHERE user_id='admin'").run();
+assert.equal((await (await profile.GET(req({cookie:adminCookie}))).json()).locale,'fr','Invalid stored locales fall back to French');
+console.log('Profile: five languages, per-account persistence, invalid locale fallback, origin and authentication protection passed.');
+// Apply the additive invitation migration without changing existing accounts.
+const oldAccounts=db.prepare('SELECT id,username,role FROM users ORDER BY id').all();
+db.exec(fs.readFileSync('drizzle/0020_team_invitations.sql','utf8'));
+assert.deepEqual(db.prepare('SELECT id,username,role FROM users ORDER BY id').all(),oldAccounts);
+const invitations=await import(path.join(dir,'invitations.mjs'));
+const inviteBody={action:'invite',teamId:'production',email:'NEW.PERSON@example.test',level:'user'};
+assert.equal((await post(invitations,inviteBody)).status,401);
+assert.equal((await post(invitations,inviteBody,{cookie:readerCookie})).status,403);
+db.prepare("UPDATE team_members SET level='team_admin' WHERE team_id='production' AND user_id='lead'").run();
+assert.equal((await post(invitations,{...inviteBody,teamId:'rh'},{cookie:leadCookie})).status,403);
+const createdInvitation=await post(invitations,inviteBody,{cookie:leadCookie});assert.equal(createdInvitation.status,200);
+const invitationData=await createdInvitation.json(),invitationToken=new URL(invitationData.url).hash.slice(1);
+assert.equal(invitationData.email,'new.person@example.test');assert.equal(new URL(invitationData.url).search,'');
+assert.notEqual(db.prepare('SELECT token_hash FROM team_invitations WHERE id=?').get(invitationData.id).token_hash,invitationToken);
+assert.equal((await post(invitations,inviteBody,{cookie:adminCookie})).status,409);
+assert.equal((await post(invitations,{action:'inspect',token:invitationToken})).status,200);
+assert.equal((await post(invitations,{action:'accept',token:invitationToken,username:'newperson',displayName:'New Person',password:'short'})).status,400);
+const activation={action:'accept',token:invitationToken,username:'newperson',displayName:'New Person',password,locale:'de',role:'admin',teamId:'rh'};
+assert.equal((await post(invitations,activation)).status,200);
+const newPerson=db.prepare("SELECT * FROM users WHERE username='newperson'").get();
+assert.equal(newPerson.role,'editor');assert.equal(newPerson.email,'new.person@example.test');assert.equal(newPerson.must_change_password,0);
+assert.equal(db.prepare('SELECT locale FROM user_profiles WHERE user_id=?').get(newPerson.id).locale,'de');
+assert.equal(db.prepare('SELECT level FROM team_members WHERE user_id=? AND team_id=?').get(newPerson.id,'production').level,'user');
+assert.equal(db.prepare('SELECT count(*) n FROM team_members WHERE user_id=? AND team_id=?').get(newPerson.id,'rh').n,0);
+assert.equal((await post(invitations,activation)).status,410,'An invitation is single-use');
+assert.equal((await post(invitations,inviteBody,{cookie:adminCookie})).status,409,'Existing people are added by account, not reinvited');
+async function pendingInvite(email,level='viewer',teamId='production'){const result=await post(invitations,{action:'invite',teamId,email,level},{cookie:adminCookie});assert.equal(result.status,200);const data=await result.json();return {...data,token:new URL(data.url).hash.slice(1)}}
+const revoked=await pendingInvite('revoked@example.test');assert.equal((await post(invitations,{action:'revoke',id:revoked.id},{cookie:readerCookie})).status,403);
+assert.equal((await post(invitations,{action:'revoke',id:revoked.id},{cookie:adminCookie})).status,200);
+assert.equal((await post(invitations,{...activation,token:revoked.token,username:'revoked'})).status,410);
+const expired=await pendingInvite('expired@example.test');db.prepare('UPDATE team_invitations SET expires_at=0 WHERE id=?').run(expired.id);
+assert.equal((await post(invitations,{action:'inspect',token:expired.token})).status,410);
+assert.ok(await pendingInvite('expired@example.test'),'Expired invitations can be replaced');
+const legacy=await pendingInvite('member@example.test','viewer','rh');const userCount=db.prepare('SELECT count(*) n FROM users').get().n;
+assert.equal((await post(invitations,{action:'accept',token:legacy.token,useExisting:true},{cookie:memberCookie})).status,200);
+assert.equal(db.prepare('SELECT count(*) n FROM users').get().n,userCount,'Linking a legacy account does not create a duplicate');
+assert.equal(db.prepare("SELECT role,email FROM users WHERE id='member'").get().role,'editor');
+assert.equal(db.prepare("SELECT level FROM team_members WHERE user_id='member' AND team_id='rh'").get().level,'viewer');
+const concurrent=await pendingInvite('concurrent@example.test');
+const beforeConcurrent=db.prepare('SELECT count(*) n FROM users').get().n;
+const concurrentResults=await Promise.all(['concurrentone','concurrenttwo'].map(username=>post(invitations,{...activation,token:concurrent.token,username})));
+assert.equal(concurrentResults.filter(r=>r.status===200).length,1);assert.ok(concurrentResults.every(r=>[200,409,410].includes(r.status)));
+assert.equal(db.prepare('SELECT count(*) n FROM users').get().n,beforeConcurrent+1,'Concurrent activation creates exactly one account');
+const permissions=await post(invitations,{...inviteBody,email:'issuer@example.test'},{cookie:leadCookie});const permissionsData=await permissions.json();
+db.prepare("UPDATE team_members SET level='user' WHERE user_id='lead' AND team_id='production'").run();
+assert.equal((await post(invitations,{action:'inspect',token:new URL(permissionsData.url).hash.slice(1)})).status,410,'Revoked issuer permissions invalidate outstanding invitations');
+const payloadTooLarge=new Request('https://example.test/api',{method:'POST',headers:{origin:'https://example.test'},body:'x'.repeat(16385)});
+assert.equal((await invitations.POST(payloadTooLarge)).status,413);
+console.log('Invitations: scoped management, hashed single-use tokens, expiration/revocation, issuer revocation, concurrent activation, verified email reuse, preserved roles and per-user locale passed.');
+
 const before=db.prepare('SELECT count(*) n FROM users').get().n;await auth.GET(req());assert.equal(db.prepare('SELECT count(*) n FROM users').get().n,before);
 const {documentMime}=await import(path.join(dir,'files.mjs')),{workbook,zip}=await import(path.join(dir,'xlsx.mjs'));const xlsx=workbook([{name:'Safe',rows:[['Test'],['value']]}]);assert.match(documentMime('test.xlsx',xlsx),/spreadsheetml/);assert.equal(documentMime('fake.xlsx',new Uint8Array([80,75,3,4,0,0])), '');assert.equal(documentMime('old.xls',new Uint8Array([208,207,17,224,161,177,26,225])), '');assert.equal(documentMime('fake.docx',xlsx),'');const malformed=xlsx.slice();new DataView(malformed.buffer).setUint32(malformed.length-6,0xffffffff,true);assert.equal(documentMime('bad.xlsx',malformed),'');
 const parts=[['[Content_Types].xml','<Types/>'],['_rels/.rels','<Relationships/>'],['word/document.xml','<document/>']];assert.match(documentMime('valid.docx',zip(parts)),/wordprocessingml/);assert.equal(documentMime('macro.docx',zip([...parts,['word/vbaProject.bin','test']])),'');assert.equal(documentMime('traversal.docx',zip([...parts,['../escape','test']])),'');const bomb=zip(parts);const v=new DataView(bomb.buffer),start=v.getUint32(bomb.length-6,true);v.setUint32(start+24,0x7fffffff,true);assert.equal(documentMime('bomb.docx',bomb),'');
