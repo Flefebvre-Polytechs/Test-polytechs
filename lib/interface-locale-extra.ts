@@ -1,5 +1,7 @@
 // Interface text only; never translate user-authored content.
 export const additionalTranslations:[string,string,string,string,string][]=[
+  ["Objectif non atteint : ouvrir un ticket", "Target not met: open a ticket", "Ziel nicht erreicht: Ticket öffnen", "Obiettivo non raggiunto: apri un ticket", "Objetivo no alcanzado: abrir un ticket"],
+  ["Objectif non atteint : prévenez le coordinateur de l’équipe.", "Target not met: notify the team coordinator.", "Ziel nicht erreicht: informieren Sie die Teamkoordination.", "Obiettivo non raggiunto: avvisa il coordinatore del team.", "Objetivo no alcanzado: avisa al coordinador del equipo."],
   ["Sens de l’objectif", "Target direction", "Zielrichtung", "Direzione dell’obiettivo", "Dirección del objetivo"],
   ["Minimum à atteindre (≥)", "Minimum to reach (≥)", "Zu erreichendes Minimum (≥)", "Minimo da raggiungere (≥)", "Mínimo que alcanzar (≥)"],
   ["Maximum à ne pas dépasser (≤)", "Maximum allowed (≤)", "Zulässiger Höchstwert (≤)", "Massimo consentito (≤)", "Máximo permitido (≤)"],
