@@ -1,5 +1,10 @@
 // Interface text only; never translate user-authored content.
 export const additionalTranslations:[string,string,string,string,string][]=[
+  ["Sens de l’objectif", "Target direction", "Zielrichtung", "Direzione dell’obiettivo", "Dirección del objetivo"],
+  ["Minimum à atteindre (≥)", "Minimum to reach (≥)", "Zu erreichendes Minimum (≥)", "Minimo da raggiungere (≥)", "Mínimo que alcanzar (≥)"],
+  ["Maximum à ne pas dépasser (≤)", "Maximum allowed (≤)", "Zulässiger Höchstwert (≤)", "Massimo consentito (≤)", "Máximo permitido (≤)"],
+  ["Objectif atteint", "Target met", "Ziel erreicht", "Obiettivo raggiunto", "Objetivo alcanzado"],
+  ["Objectif non atteint", "Target not met", "Ziel nicht erreicht", "Obiettivo non raggiunto", "Objetivo no alcanzado"],
   ["Période", "Period", "Zeitraum", "Periodo", "Período"],
   ["1 mois", "1 month", "1 Monat", "1 mese", "1 mes"],
   ["3 mois", "3 months", "3 Monate", "3 mesi", "3 meses"],
