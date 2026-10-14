@@ -1,5 +1,8 @@
 // Interface text only; never translate user-authored content.
 export const additionalTranslations:[string,string,string,string,string][]=[
+  ["Configurer le bloc", "Configure block", "Block konfigurieren", "Configura blocco", "Configurar bloque"],
+  ["Modifier le contenu", "Edit content", "Inhalt bearbeiten", "Modifica contenuto", "Editar contenido"],
+  ["Glissez pour ajuster la largeur et la hauteur", "Drag to adjust width and height", "Ziehen, um Breite und Höhe anzupassen", "Trascina per regolare larghezza e altezza", "Arrastra para ajustar el ancho y la altura"],
   ["Objectif non atteint : ouvrir un ticket", "Target not met: open a ticket", "Ziel nicht erreicht: Ticket öffnen", "Obiettivo non raggiunto: apri un ticket", "Objetivo no alcanzado: abrir un ticket"],
   ["Objectif non atteint : prévenez le coordinateur de l’équipe.", "Target not met: notify the team coordinator.", "Ziel nicht erreicht: informieren Sie die Teamkoordination.", "Obiettivo non raggiunto: avvisa il coordinatore del team.", "Objetivo no alcanzado: avisa al coordinador del equipo."],
   ["Sens de l’objectif", "Target direction", "Zielrichtung", "Direzione dell’obiettivo", "Dirección del objetivo"],
