@@ -64,6 +64,8 @@ const metric={...newWidget('indicator'),value:'12'};
 const metricBoard=await post(boards,{action:'create',teamId:'production',scope:'',board:{title:'Mesures',widgets:[metric]}},{cookie:adminCookie}),metricId=(await metricBoard.json()).id;
 assert.equal((await post(boards,{action:'indicator-values',id:metricId,revision:1,values:[{id:metric.id,value:'15',date:'2026-10-09',text:'Mesure'}]},{cookie:memberCookie})).status,200);
 assert.equal((await post(boards,{action:'indicator-values',id:metricId,revision:1,values:[]},{cookie:memberCookie})).status,409);
+const historyResponse=await boards.GET(new Request('https://example.test/api/dashboards?id='+metricId,{headers:{cookie:memberCookie}}));const historyPayload=await historyResponse.json();assert.deepEqual(historyPayload.board.widgets[0].measurements,[{date:'2026-10-09',value:'15',text:'Mesure'}]);
+assert.equal((await post(boards,{action:'indicator-values',id:metricId,revision:2,values:[{id:metric.id,value:'',date:'2026-10-10',text:''}]},{cookie:memberCookie})).status,400);
 assert.equal((await post(boards,{action:'save',id:metricId,teamId:'production',scope:'',revision:2,board:{title:'Interdit',widgets:[metric]}},{cookie:memberCookie})).status,403);
 assert.equal((await post(boards,{action:'create',teamId:'production',scope:'',board:{title:'Interdit',widgets:[metric]}},{cookie:memberCookie})).status,403);
 assert.equal((await post(teamSettings,{action:'member',teamId:'production',userId:'member',level:'contributor'},{cookie:leadCookie})).status,200);

@@ -1,5 +1,14 @@
 // Interface text only; never translate user-authored content.
 export const additionalTranslations:[string,string,string,string,string][]=[
+  ["Période", "Period", "Zeitraum", "Periodo", "Período"],
+  ["1 mois", "1 month", "1 Monat", "1 mese", "1 mes"],
+  ["3 mois", "3 months", "3 Monate", "3 mesi", "3 meses"],
+  ["6 mois", "6 months", "6 Monate", "6 mesi", "6 meses"],
+  ["1 an", "1 year", "1 Jahr", "1 anno", "1 año"],
+  ["Saisir aujourd’hui", "Enter today’s value", "Heutigen Wert eingeben", "Inserisci il valore di oggi", "Introducir el valor de hoy"],
+  ["Historique des mesures", "Measurement history", "Messverlauf", "Cronologia delle misure", "Historial de mediciones"],
+  ["Aucune mesure sur cette période.", "No measurements in this period.", "Keine Messungen in diesem Zeitraum.", "Nessuna misura in questo periodo.", "No hay mediciones en este período."],
+  ["Les données non datées restent affichées. Saisissez une mesure datée pour commencer le suivi.", "Undated data remains visible. Enter a dated measurement to start tracking.", "Undatierte Daten bleiben sichtbar. Geben Sie einen Messwert mit Datum ein, um die Nachverfolgung zu starten.", "I dati senza data restano visibili. Inserisci una misura datata per iniziare il monitoraggio.", "Los datos sin fecha siguen visibles. Introduce una medición con fecha para iniciar el seguimiento."],
   [
     "Membres et droits de l’équipe",
     "Team members and permissions",
