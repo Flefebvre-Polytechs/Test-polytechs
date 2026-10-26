@@ -44,3 +44,7 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+# Audit report rendering and temporary test modules
+/tmp/
+/.audit-test-*/

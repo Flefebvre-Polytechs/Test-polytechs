@@ -81,7 +81,7 @@ assert.equal((await post(hub,{action:'comment',ticketId:'fill-ticket',body:'Fait
 assert.equal((await post(hub,{action:'ticket',data:fillTicket})).status,403);
 assert.equal((await post(hub,{action:'communication',data:{title:'Interdit',body:'Texte',teams:['production'],sourceTeam:'production'}})).status,403);
 assert.equal((await post(hub,{action:'archive-ticket',id:'fill-ticket',revision:2,archive:true})).status,403);
-db.exec("ALTER TABLE hub_runs ADD COLUMN revision INTEGER;ALTER TABLE hub_runs ADD COLUMN author TEXT;ALTER TABLE hub_runs ADD COLUMN updated_at TEXT;");
+db.exec("ALTER TABLE hub_runs ADD COLUMN revision INTEGER;ALTER TABLE hub_runs ADD COLUMN author TEXT;ALTER TABLE hub_runs ADD COLUMN updated_at TEXT;CREATE TABLE hub_run_history(run_id TEXT,revision INTEGER,snapshot TEXT,author TEXT,saved_at TEXT,PRIMARY KEY(run_id,revision));");
 assert.equal((await post(hub,{action:'run',routineId:'prod',date:'2027-01-01',revision:0,data:{answers:[],notes:'Contrôle réalisé',completed:true}})).status,200);
 const ownIntervention=await hub.GET(new Request('https://example.test/api?scope=ticket&id='+request.ticketId));const ownData=await ownIntervention.json();assert.equal(ownData.gmaoContributor,false,'A data-entry role must not inherit structural GMAO ticket editing through requester identity');
 console.log('User role: action completion and comments allowed; ticket structure, creation, communications and archive denied.');

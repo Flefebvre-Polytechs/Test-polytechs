@@ -538,3 +538,60 @@ Les niveaux stockés dans `team_members.level` sont : `viewer` (Consultation), `
 Un rôle local ne confère aucun droit global, aucune gestion d’une autre équipe et aucun droit d’ouvrir une équipe à tous. Les comptes globaux lecteurs restent en lecture seule. Les modules spécialisés (GED, SMI, DUERP, GMAO) conservent leurs habilitations supplémentaires ; le rôle Utilisateur n’autorise pas la modification de leurs paramètres ou documents. Les changements de rôle sont appliqués côté serveur à chaque requête et journalisés. Les administrateurs locaux ne peuvent pas modifier leur propre rôle.
 
 Les équipes déjà explicitement ouvertes conservent leur comportement historique pour les non-membres. Un rôle local explicite restreint cette contribution (Consultation / Utilisateur). Pour réserver l’accès aux membres, un administrateur général doit restreindre l’équipe ; RH reste toujours restreint.
+
+
+## Comptes rendus automatiques des routines / audits
+
+Depuis une occurrence de `/routines`, « Démarrer l’audit » enregistre le début
+côté serveur. Les champs lieu/atelier et personnes auditées complètent la date,
+le service et les intervenants. La grille peut regrouper ses points par thème
+(ex. règles d’or). Le calendrier et la grille des routines déjà utilisées restent
+figés ; « Dupliquer » permet de préparer une nouvelle version sans altérer les
+comptes rendus existants.
+
+Le score est `conformes / (conformes + non conformes)`, arrondi à l’entier le plus
+proche. Les N/A et les points à faire sont exclus de ce ratio ; les points à faire
+restent visibles et empêchent de terminer l’audit. Aucun point applicable donne
+« — » / « N/A », jamais 100 %. Le ratio et les volumes sont détaillés par thème.
+La fin et l’intervenant sont enregistrés côté serveur au passage à « terminé ».
+La durée affichée est le temps écoulé entre le démarrage enregistré et la fin,
+pas un chronométrage du travail actif. Un ancien audit sans heure de début ou un
+audit enregistré directement terminé affiche « Non mesurée ».
+
+Les photos sont rattachées à un point ou à la synthèse générale, avec légende,
+auteur et date. Le navigateur réduit l’image ; le serveur la décode, contrôle les
+limites, réoriente puis réencode en JPEG sans métadonnées. Limites : 2 Mo à l’envoi,
+20 mégapixels à la lecture, 30 photos et 20 Mo cumulés par occurrence. Les objets
+sont stockés sur le disque persistant sous `objects/audits/`. Ajouter une photo
+sauvegarde d’abord les réponses en cours ; les écritures utilisent la révision du
+compte rendu. Un audit terminé doit être rouvert/enregistré avant modification de
+ses photos. Retirer une photo du brouillon ne détruit pas l’objet utilisé par les
+versions antérieures.
+
+« Télécharger le PDF » génère réellement un PDF A4 à partir de la version
+**enregistrée**, sans saisie manuelle du rapport : logo Polytechs, score global,
+thèmes, checklist, observations, photos légendées, intervenants, dates, durée,
+synthèse, révision et pagination. Un brouillon est indiqué explicitement. Les
+tickets d’origine liés et accessibles sont inclus avec leur état au moment de
+la génération. Le PDF n’est pas envoyé par mail et n’est pas dupliqué dans la GED.
+Aucune IA ni service de conversion externe n’intervient.
+
+Les routes `/api/routine-files` et `/api/routines/report` contrôlent la session,
+le rôle et les droits réels du service à chaque requête, y compris la frontière
+RH pour les audits et tickets multiservices. Un lecteur habilité peut exporter,
+mais ne peut pas ajouter de photo. Les réponses sont privées et non mises en
+cache partagé. Les données et versions antérieures sont conservées ; la nouvelle
+table additive `hub_run_history` est créée par `0021_audit_reports.sql` au démarrage.
+Le script de restauration d’export accepte les anciennes sauvegardes ne contenant
+pas encore cette table sur une cible vide. Le retour arrière manuel est documenté
+dans `scripts/rollback-audit-reports.sql` ; revenir d’abord à l’application
+précédente et sauvegarder les données avant toute suppression de table.
+
+Vérifications : `node tests/audit-reports.mjs` (nécessite Poppler pour contrôler
+le contenu des PDF), suite métier complète, TypeScript et build Next.js.
+Les documents fictifs de vérification sont générés sous `tmp/audit-reports/`,
+exclus du dépôt public. Le modèle Fabriq fourni et ses données ne sont pas publiés.
+
+Après compilation, `node scripts/verify-audit-report-build.mjs` vérifie la connexion,
+la création d’une routine, l’enregistrement et le téléchargement PDF par HTTP réel
+sur une base SQLite temporaire. Aucun compte ni audit de production n’est utilisé.
