@@ -48,3 +48,40 @@
   body .smi-workspace .smi-kpis article:nth-child(4) strong { color:#246e4c; }
   body .smi-workspace .smi-norm-filters button[aria-pressed=true] { color:#005faa; background:#e7f2fc; border-color:#a8cceb; }
 }
+
+/* A selected chapter becomes a full-width workspace, not an isolated narrow column. */
+body .smi-workspace .smi-matrix[data-layout=chapter] {
+  grid-auto-flow:row;
+  grid-auto-columns:auto;
+  grid-template-columns:minmax(0,1fr);
+  max-height:none;
+  overflow:visible;
+  scroll-snap-type:none;
+  padding-bottom:18px;
+}
+body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column { width:100%; min-width:0; }
+body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column>header {
+  position:static;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(150px,240px);
+  gap:8px 24px;
+  padding:22px 24px;
+}
+body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column>header>div { grid-column:1/-1; }
+body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column>header h2 { min-height:0; margin:0; font-size:24px; line-height:1.3; }
+body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column>header progress { align-self:center; margin:0; }
+body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column>header small { grid-column:1/-1; margin:0; }
+body .smi-workspace .smi-matrix[data-layout=chapter] .smi-column-body {
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));
+  gap:18px;
+  padding:20px;
+  align-items:start;
+}
+body .smi-workspace .smi-matrix[data-layout=chapter] .smi-requirement { min-width:0; }
+body .smi-workspace .smi-matrix[data-layout=chapter] .smi-no-match { grid-column:1/-1; }
+body .smi-workspace .smi-matrix[data-layout=chapter] .smi-add { min-height:48px; border-top:1px solid #142b4310; }
+@media(max-width:700px) {
+  body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column>header { grid-template-columns:minmax(0,1fr); padding:20px; gap:10px; }
+  body .smi-workspace .smi-matrix[data-layout=chapter]>.smi-column>header h2 { font-size:22px; }
+  body .smi-workspace .smi-matrix[data-layout=chapter] .smi-column-body { padding:12px; gap:14px; }
+}
