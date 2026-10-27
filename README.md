@@ -551,7 +551,7 @@ comptes rendus existants.
 
 Le score est `conformes / (conformes + non conformes)`, arrondi à l’entier le plus
 proche. Les N/A et les points à faire sont exclus de ce ratio ; les points à faire
-restent visibles et empêchent de terminer l’audit. Aucun point applicable donne
+restent visibles ; seuls les points obligatoires non renseignés empêchent de terminer l’audit. Aucun point applicable donne
 « — » / « N/A », jamais 100 %. Le ratio et les volumes sont détaillés par thème.
 La fin et l’intervenant sont enregistrés côté serveur au passage à « terminé ».
 La durée affichée est le temps écoulé entre le démarrage enregistré et la fin,
@@ -595,3 +595,49 @@ exclus du dépôt public. Le modèle Fabriq fourni et ses données ne sont pas p
 Après compilation, `node scripts/verify-audit-report-build.mjs` vérifie la connexion,
 la création d’une routine, l’enregistrement et le téléchargement PDF par HTTP réel
 sur une base SQLite temporaire. Aucun compte ni audit de production n’est utilisé.
+
+
+## Constructeur visuel d’audits
+
+« Créer un audit » ouvre un constructeur en quatre étapes : cadrer le périmètre,
+construire la grille, programmer les occurrences et vérifier avant enregistrement.
+La navigation par thèmes remplace la longue liste de champs. Les cartes de
+questions se replient ; les flèches permettent de réordonner thèmes et questions
+sans dépendre d’un glisser-déposer. On peut renommer, dupliquer, déplacer une
+question vers un thème, retirer des questions et rétablir le dernier retrait.
+L’ajout en série accepte une question par ligne et annonce les limites avant tout
+ajout. La grille reste limitée à 100 questions.
+
+Trois modèles d’exemple sont proposés : terrain QSSE, 5S et fournisseur. Ils
+restent à adapter et ne sont jamais présentés comme des grilles approuvées par
+Polytechs. Appliquer un modèle à une grille renseignée demande confirmation.
+Les services et le pilote se choisissent par recherche dynamique ; les droits
+applicatifs existants restent vérifiés côté serveur.
+
+Chaque question peut être un contrôle de conformité, un texte, un nombre ou
+une date, avec une aide et un caractère obligatoire/facultatif. Les champs de
+contexte ne contribuent jamais au score, même si leur texte contient « Conforme ».
+La valeur numérique zéro est une réponse valide. Pour un contrôle non conforme,
+on peut exiger une observation, une photo ou les deux. Ces preuves et les
+réponses obligatoires sont contrôlées **sur le serveur** avant la clôture ; les
+brouillons peuvent rester incomplets. Les réponses sont normalisées d’après la
+grille, et non d’après un type fourni par le navigateur. Le PDF et l’écran de
+réalisation reprennent ces nouveaux types et les critères d’observation.
+
+L’aperçu interactif permet d’essayer les réponses et le calcul du score sans
+les enregistrer. Le calendrier affiche les quatre prochaines occurrences, y
+compris les fins de mois. La vérification repère les champs manquants et signale
+les doublons probables, les dates passées et les grilles longues. Ces conseils
+ne remplacent pas une validation de la grille par le service.
+
+Une routine possédant un compte rendu est explicitement verrouillée dans le
+constructeur pour sa grille et son calendrier ; les métadonnées autorisées et
+son activation restent modifiables. « Dupliquer » conserve les anciens audits et
+crée une grille indépendante. Les données historiques restent compatibles : les
+anciens points sont des contrôles obligatoires par défaut. Aucune nouvelle table
+ni migration de base n’est nécessaire pour ce constructeur.
+
+Vérification : `node tests/audit-builder.mjs`, `node tests/audit-reports.mjs`,
+suite métier complète, build Next.js et vérification HTTP du serveur compilé.
+Les interactions du constructeur ont été exercées dans un aperçu isolé avec des
+données fictives (modèle, ajout, déplacement, essai du score et verrouillage).
