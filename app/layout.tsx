@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./unites/style.css";
 import "./hub.css";
+import "./premium.css";
 
 export const metadata: Metadata = {
   title: "Polytechs · Espace QSE",
