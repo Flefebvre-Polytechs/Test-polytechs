@@ -33,5 +33,30 @@ const results=await db.batch([
 db.prepare('UPDATE records SET title=?,domain=?,status=?,priority=?,owner=?,due=?,description=?,url=?,details=?,source_id=?,updated=?,revision=revision+1 WHERE id=? AND revision=?').bind(r.title.trim(),r.domain,r.status,r.priority,r.owner,r.due,r.description,r.url,details,r.sourceId||'',now,id,previous.revision),
 db.prepare('INSERT INTO record_history (id,record_id,revision,snapshot,saved_at) SELECT ?,?,?,?,? WHERE changes()=1').bind(crypto.randomUUID(),id,previous.revision,JSON.stringify(previous),now)
 ]);if(!results[0].meta.changes)return Response.json({error:'Modification concurrente. Fermez et rouvrez la fiche avant de réessayer.'},{status:409});
-}else await db.prepare('INSERT INTO records (id,title,kind,domain,status,priority,owner,due,description,url,details,created,updated,revision,source_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,r.title.trim(),r.kind,r.domain,r.status,r.priority,r.owner,r.due,r.description,r.url,details,now,now,1,r.sourceId||'').run();return Response.json({id});
+}else {const created=await db.prepare('INSERT INTO records (id,title,kind,domain,status,priority,owner,due,description,url,details,created,updated,revision,source_id) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ?=\'\' OR EXISTS (SELECT 1 FROM records WHERE id=?)').bind(id,r.title.trim(),r.kind,r.domain,r.status,r.priority,r.owner,r.due,r.description,r.url,details,now,now,1,r.sourceId||'',r.sourceId||'',r.sourceId||'').run();if(!created.meta.changes)return Response.json({error:'La fiche d’origine a été supprimée entre-temps. Rechargez le registre avant de créer une action.'},{status:409});}return Response.json({id});
 }catch(e){console.error(e);return Response.json({error:'Enregistrement impossible. Votre saisie est conservée.'},{status:503});}}
+
+export async function DELETE(req:Request){
+ try{
+  if(!checkOrigin(req))return Response.json({error:'Requête non autorisée.'},{status:403});
+  const gate=await requireRole(req,'admin');if(gate.error)return gate.error;
+  const body=await req.json().catch(()=>null) as {id:string;revision:number;confirmation:string}|null;
+  if(!body||typeof body!=='object'||Array.isArray(body)||typeof body.id!=='string'||!body.id||body.id.length>100||!Number.isSafeInteger(body.revision)||body.revision<1||body.confirmation!=='SUPPRIMER')return Response.json({error:'Saisissez exactement SUPPRIMER pour confirmer la suppression.'},{status:400});
+  const db=database(),rows=(await db.prepare('SELECT * FROM records').all()).results,raw=rows.find((r:any)=>r.id===body.id);
+  if(!raw)return Response.json({error:'Fiche introuvable ou déjà supprimée.'},{status:404});
+  const allowed=await recordAccess(gate.user!,rows,true);if(!allowed(raw))return Response.json({error:'Suppression non autorisée.'},{status:403});
+  const record=normalize(raw);
+  if(record.revision!==body.revision)return Response.json({error:'Cette fiche a changé depuis son ouverture. Fermez cette fenêtre puis rouvrez la fiche avant de la supprimer.'},{status:409});
+  if(['Gestion documentaire','Gestion des déchets'].includes(record.kind))return Response.json({error:'Gérez cette fiche depuis son module dédié pour conserver ses documents et son historique.'},{status:409});
+  if(record.kind==='EPI'&&record.status!=='À remettre')return Response.json({error:'Cette dotation a déjà été remise. Conservez sa traçabilité et utilisez le suivi EPI pour la retirer ou corriger le stock.'},{status:409});
+  if(rows.some((r:any)=>r.source_id===record.id))return Response.json({error:'Cette fiche possède des actions liées. Traitez ou supprimez ces actions avant de supprimer leur fiche d’origine.'},{status:409});
+  const now=new Date().toISOString();
+  const results=await db.batch([
+   db.prepare('INSERT INTO record_deletions (record_id,revision,snapshot,deleted_at,deleted_by) SELECT id,revision,?,?,? FROM records WHERE id=? AND revision=? AND NOT EXISTS (SELECT 1 FROM records child WHERE child.source_id=records.id)').bind(JSON.stringify(record),now,gate.user!.id,body.id,body.revision),
+   db.prepare('DELETE FROM records WHERE id=? AND revision=? AND changes()=1').bind(body.id,body.revision),
+   db.prepare("INSERT INTO security_events (id,action,user_id,detail,created_at) SELECT ?,'record-delete',?,?,? WHERE changes()=1").bind(crypto.randomUUID(),gate.user!.id,body.id,now)
+  ]);
+  if(!results[1].meta.changes)return Response.json({error:'La fiche ou ses actions liées ont changé. Fermez cette fenêtre et rechargez le registre.'},{status:409});
+  return Response.json({deleted:true,id:body.id});
+ }catch(e){console.error(e);return Response.json({error:'Suppression impossible. La fiche est conservée ; réessayez après avoir rechargé le registre.'},{status:503})}
+}
