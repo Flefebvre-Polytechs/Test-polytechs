@@ -18,11 +18,12 @@ for(const name of (await readdir('drizzle')).filter(x=>/^\d{4}_.+\.sql$/.test(x)
 }
 const count=db.prepare('SELECT count(*) AS n FROM users').get().n;
 if(count===0){
-  const username=process.env.RENDER_INITIAL_ADMIN_USERNAME?.trim().toLowerCase();
+  const email=process.env.RENDER_INITIAL_ADMIN_EMAIL?.trim().toLowerCase()||'';
+  const username=process.env.RENDER_INITIAL_ADMIN_USERNAME?.trim().toLowerCase()||(email?'u.'+randomUUID().replaceAll('-',''):'');
   const password=process.env.RENDER_INITIAL_ADMIN_PASSWORD;
-  if(!username||!password||!/^[a-z0-9._-]{3,40}$/.test(username)||password.length<16)throw Error('First start requires RENDER_INITIAL_ADMIN_USERNAME and a password of at least 16 characters.');
+  if(!username||!password||!/^[a-z0-9._-]{3,40}$/.test(username)||password.length<16||(email&&!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(email)))throw Error('First start requires RENDER_INITIAL_ADMIN_EMAIL (or legacy RENDER_INITIAL_ADMIN_USERNAME) and a password of at least 16 characters.');
   const salt=randomBytes(16),hash=pbkdf2Sync(password,salt,600000,32,'sha256');
-  db.prepare('INSERT INTO users(id,username,display_name,role,password_hash,must_change_password,created_at) VALUES (?,?,?,?,?,1,?)').run(randomUUID(),username,username,'admin',`pbkdf2:600000:${salt.toString('hex')}:${hash.toString('hex')}`,new Date().toISOString());
+  db.prepare('INSERT INTO users(id,username,display_name,role,password_hash,must_change_password,created_at,email) VALUES (?,?,?,?,?,1,?,?)').run(randomUUID(),username,email?'Administrateur':username,'admin',`pbkdf2:600000:${salt.toString('hex')}:${hash.toString('hex')}`,new Date().toISOString(),email||null);
   console.log('Initial administrator created; change the password on first login.');
 }
 db.close();

@@ -4,7 +4,7 @@ import {trustSiteIdentity} from './auth-config';
 import {database} from '@/db/raw';
 
 export type Role='admin'|'editor'|'reader';
-export type Account={id:string;username:string;displayName:string;role:Role;mustChangePassword:boolean};
+export type Account={id:string;username:string;displayName:string;role:Role;mustChangePassword:boolean;email?:string|null};
 export type DbUser={id:string;username:string;display_name:string;role:Role;password_hash:string;must_change_password:number;email:string|null};
 const encoder=new TextEncoder();
 const COOKIE='qse_session';
@@ -29,7 +29,7 @@ export async function securityEvent(action:string,userId='',detail=''){await dat
 // A persisted fixed window, incremented atomically before expensive verification.
 export async function throttle(key:string,max=5,window=15*60*1000){const now=Date.now();const row=await database().prepare('INSERT INTO security_limits(key,attempts,expires_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN expires_at<=? THEN 1 ELSE attempts+1 END,expires_at=CASE WHEN expires_at<=? THEN excluded.expires_at ELSE expires_at END RETURNING attempts').bind(key,now+window,now,now).first<{attempts:number}>();return !row||row.attempts>max}
 export async function clearThrottle(key:string){await database().prepare('DELETE FROM security_limits WHERE key=?').bind(key).run()}
-export function account(user:DbUser):Account{return {id:user.id,username:user.username,displayName:user.display_name,role:user.role,mustChangePassword:!!user.must_change_password}}
+export function account(user:DbUser):Account{return {id:user.id,username:user.username,displayName:user.display_name,role:user.role,mustChangePassword:!!user.must_change_password,email:user.email||null}}
 function cookieValue(req:Request){return req.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1)||''}
 export async function currentUser(req:Request):Promise<Account|null>{const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token)){const row=await database().prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND (?=0 OR s.email_verified=1)').bind(await sha(token),Date.now(),emailMfaRequired()?1:0).first<DbUser>();if(row)return account(row)}
 const identity=siteIdentity(req);if(identity&&!emailMfaRequired()){const row=await database().prepare('SELECT u.* FROM site_identities s JOIN users u ON u.id=s.user_id WHERE s.identity_id=? AND s.expires_at>?').bind(identity,Date.now()).first<DbUser>();if(row)return account(row)}

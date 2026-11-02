@@ -18,7 +18,7 @@ try{
  for(const [id,email,role] of [['admin','admin@example.test','admin'],['reader','reader@example.test','reader'],['missing',null,'reader']])db.prepare('INSERT INTO users(id,username,display_name,role,password_hash,must_change_password,created_at,email) VALUES(?,?,?,?,?,0,?,?)').run(id,id,id,role,hash,new Date().toISOString(),email);
  const req=cookie=>new Request('https://example.test/api/auth',{headers:cookie?{cookie}:{}});
  const post=(body,cookie='',origin='https://example.test',api=auth)=>api.POST(new Request('https://example.test/api/auth',{method:'POST',headers:{origin,'content-type':'application/json',cookie},body:JSON.stringify(body)}));
- const login=(username='admin')=>post({action:'login',username,password});
+ const login=(username='admin')=>post({action:'login',email:username==='missing'?'missing':username+'@example.test',password});
  const latestCode=()=>messages.at(-1).body.content.match(/: (\d{6})/)[1];
  const verify=(challenge,code=latestCode())=>post({action:'verify-email',challenge,code});
  assert.equal((await post({action:'login',username:'admin',password},'','https://evil.test')).status,403);
@@ -37,7 +37,7 @@ try{
  assert.equal((await post({action:'reset-password',token,newPassword:'short'})).status,400);
  const replacement='Another-secure-password-2026!';assert.equal((await post({action:'reset-password',token,newPassword:replacement})).status,200);assert.equal(await access.currentUser(req(cookie)),null);assert.equal(await access.checkPassword(replacement,db.prepare("SELECT password_hash FROM users WHERE id='admin'").get().password_hash),true);assert.equal((await post({action:'reset-password',token,newPassword:replacement})).status,410);
  const once=await emailAuth.startChallenge(await access.userByName('reader'),'reset');const attempts=await Promise.all([post({action:'reset-password',token:once.challenge,newPassword:replacement}),post({action:'reset-password',token:once.challenge,newPassword:replacement})]);assert.deepEqual(attempts.map(r=>r.status).sort(),[200,410]);
- mailFails=true;assert.equal((await login()).status,401);assert.equal((await post({action:'login',username:'admin',password:replacement})).status,503);assert.equal((await post({action:'login',username:'admin',password:replacement})).headers.get('set-cookie'),null);mailFails=false;
+ mailFails=true;assert.equal((await login()).status,401);assert.equal((await post({action:'login',email:'admin@example.test',password:replacement})).status,503);assert.equal((await post({action:'login',email:'admin@example.test',password:replacement})).headers.get('set-cookie'),null);mailFails=false;
  const readerCookie=await access.issueSession('reader',true);assert.equal((await post({action:'email',id:'admin',email:'evil@example.test',currentPassword:replacement},readerCookie,'https://example.test',users)).status,403);
  const adminCookie=await access.issueSession('admin',true);assert.equal((await post({action:'email',id:'missing',email:'reader@example.test',currentPassword:replacement},adminCookie,'https://example.test',users)).status,409);assert.equal((await post({action:'email',id:'missing',email:'missing@example.test',currentPassword:'wrong'},adminCookie,'https://example.test',users)).status,401);
  assert.equal((await post({action:'email',id:'missing',email:'missing@example.test',currentPassword:replacement},adminCookie,'https://example.test',users)).status,200);
@@ -45,6 +45,16 @@ try{
  beforeBatch=()=>db.prepare("UPDATE users SET password_hash=? WHERE id='admin'").run(hash);
  const passwordRace=await post({action:'password',oldPassword:replacement,newPassword:'Concurrent-password-2026!'},adminCookie);assert.equal(passwordRace.status,409);assert.equal(passwordRace.headers.get('set-cookie'),null);assert.equal(db.prepare("SELECT password_hash FROM users WHERE id='admin'").get().password_hash,hash);
  db.prepare("UPDATE users SET password_hash=? WHERE id='admin'").run(beforePasswordRace);
- process.env.POLYTECHS_EMAIL_MFA_REQUIRED='false';assert.equal((await post({action:'login',username:'admin',password:replacement})).status,200,'Staged rollout retains existing login before activation');
+ process.env.POLYTECHS_EMAIL_MFA_REQUIRED='false';assert.equal((await post({action:'login',email:'admin@example.test',password:replacement})).status,200,'Staged rollout retains existing login before activation');
+ assert.equal((await post({action:'login',email:' ADMIN@EXAMPLE.TEST ',password:replacement})).status,200,'Email login trims whitespace and ignores case');
+ assert.equal((await post({action:'login',username:'admin',password:replacement})).status,401,'A mapped account no longer accepts the old username');
+ const createdEmail='new.person@example.test';
+ assert.equal((await post({action:'create',displayName:'New Person',email:' NEW.PERSON@example.test ',password:replacement,role:'reader',username:'must-be-ignored'},adminCookie,'https://example.test',users)).status,200);
+ const created=db.prepare('SELECT * FROM users WHERE email=?').get(createdEmail);assert.match(created.username,/^u\.[a-f0-9]{32}$/);assert.notEqual(created.username,'must-be-ignored');
+ assert.equal((await post({action:'create',displayName:'Duplicate',email:'NEW.PERSON@example.test',password:replacement,role:'reader'},adminCookie,'https://example.test',users)).status,409);
+ const createdLogin=await post({action:'login',email:createdEmail,password:replacement});assert.equal(createdLogin.status,200);const createdCookie=createdLogin.headers.get('set-cookie').split(';')[0];assert.equal((await createdLogin.json()).account.email,createdEmail);
+ assert.equal((await post({action:'email',id:created.id,email:'updated.person@example.test',currentPassword:replacement},adminCookie,'https://example.test',users)).status,200);
+ assert.equal(await access.currentUser(req(createdCookie)),null);assert.equal((await post({action:'login',email:createdEmail,password:replacement})).status,401);assert.equal((await post({action:'login',email:'updated.person@example.test',password:replacement})).status,200);
+ const queued=globalThis.emailAfterTasks.length;await post({action:'forgot-password',identifier:'admin'});assert.equal(globalThis.emailAfterTasks.length,queued,'Recovery uses email only');
  console.log('Email authentication: migrations, CSRF, no session before OTP, legacy-session rejection, hashed codes, wrong/expired/reused codes, missing email, changed account/concurrent claim, generic recovery, trusted URLs, password policy, concurrent single-use reset, session revocation, delivery failure, staged rollout and admin-only email changes passed.');
 }finally{globalThis.fetch=originalFetch;for(const [key,value] of Object.entries(saved)){if(value===undefined)delete process.env[key];else process.env[key]=value}db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.emailAuthDb;}

@@ -9,11 +9,11 @@ L’ancienne rubrique QSSE « Utilisateurs et droits » affiche le même composa
 ## Fonctionnalités
 
 - Annuaire de tous les comptes, y compris les personnes sans affectation.
-- Recherche en temps réel (nom, identifiant, e-mail, service, rôle), insensible aux accents.
+- Recherche en temps réel (nom, e-mail, service, rôle), insensible aux accents.
 - Filtres rôle global, service et comptes à vérifier ; pagination à 15 personnes.
 - Indicateurs : total, administrateurs globaux, personnes sans affectation et adresses manquantes.
 - Création d’un compte avec adresse, mot de passe initial et rôle. Le compte doit changer son mot de passe initial ; les services sont affectés ensuite depuis sa fiche.
-- Fiche globale : modifier le nom, le rôle, l’adresse et les affectations de cette personne à plusieurs services. Identifiant, historique et ID stable sont conservés.
+- Fiche globale : modifier le nom, le rôle, l’adresse et les affectations de cette personne à plusieurs services. L’historique et les ID stables sont conservés. L’adresse e-mail sert d’identifiant public, sans pseudo à renseigner.
 - Les changements de rôle et de droits par service demandent confirmation. Les modifications périmées sont refusées (nom, rôle global, affectation de service).
 - Le changement d’adresse garde la confirmation par mot de passe administrateur et la révocation des sessions/codes.
 - Fermeture volontaire de toutes les sessions d’un compte après confirmation, sans suppression du compte ni de ses données.

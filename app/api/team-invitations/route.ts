@@ -45,35 +45,34 @@ export async function POST(req:Request){
    const existing=await currentUser(req);
    if(existing&&body.useExisting!==true)return fail('Confirmez l’utilisation de votre compte connecté.');
    if(existing?.mustChangePassword)return fail('Changez votre mot de passe avant de rejoindre cette équipe.',403);
-   const owner=await db.prepare('SELECT id FROM users WHERE email=?').bind(row.email).first<{id:string}>();
+   const owner=await db.prepare('SELECT id FROM users WHERE lower(trim(email))=?').bind(row.email).first<{id:string}>();
    if(owner&&owner.id!==existing?.id)return fail('Cette adresse appartient déjà à un compte. Connectez-vous avec ce compte pour accepter l’invitation.',409);
    const userId=existing?.id||crypto.randomUUID(),claim=crypto.randomUUID();
    const locale=['fr','en','de','it','es'].includes(body.locale)?body.locale:'fr';
    let username='',displayName='',passwordHash='';
    if(existing){
     const stored=await db.prepare('SELECT email FROM users WHERE id=?').bind(existing.id).first<{email:string|null}>();
-    if(stored?.email&&stored.email!==row.email)return fail('Votre compte utilise une autre adresse e-mail.',409);
+    if(stored?.email&&stored.email.trim().toLowerCase()!==row.email)return fail('Votre compte utilise une autre adresse e-mail.',409);
     if(existing.role==='reader'&&row.level!=='viewer')return fail('Votre compte est limité à la consultation. Un administrateur général doit modifier son rôle global.',403);
    }else{
-    username=typeof body.username==='string'?body.username.trim().toLowerCase():'';
+    username='u.'+crypto.randomUUID().replaceAll('-','');
     displayName=typeof body.displayName==='string'?body.displayName.trim():'';
     const password=typeof body.password==='string'?body.password:'';
-    if(!/^[a-z0-9._-]{3,40}$/.test(username)||displayName.length<2||displayName.length>100||password.length<12||password.length>256||password.toLowerCase()===username)return fail('Choisissez un identifiant valide, un nom et un mot de passe de 12 caractères minimum distinct de l’identifiant.');
-    if(await db.prepare('SELECT id FROM users WHERE username=?').bind(username).first())return fail('Cet identifiant existe déjà. Connectez-vous avec votre compte existant ou choisissez un autre identifiant.',409);
-    passwordHash=await hashPassword(password);
+    if(displayName.length<2||displayName.length>100||password.length<12||password.length>256||password.toLowerCase()===row.email)return fail('Choisissez un nom et un mot de passe de 12 caractères minimum différent de votre adresse e-mail.');
+     passwordHash=await hashPassword(password);
    }
    // Every dependent write is conditioned on a unique claim. Revocation, expiry
    // and issuer permissions are checked atomically again after password hashing.
    const now=Date.now(),claimed='EXISTS (SELECT 1 FROM team_invitations WHERE id=? AND acceptance_id=?)';
    const statements=[db.prepare(`UPDATE team_invitations SET used_at=?,acceptance_id=?,consumed_by=NULL WHERE id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>? AND EXISTS (SELECT 1 FROM users u WHERE u.id=created_by AND u.must_change_password=0 AND (u.role='admin' OR (u.role='editor' AND EXISTS (SELECT 1 FROM team_members m WHERE m.user_id=u.id AND m.team_id=team_invitations.team_id AND m.level='team_admin'))))`).bind(now,claim,row.id,now)];
    if(!existing)statements.push(db.prepare(`INSERT INTO users(id,username,display_name,role,password_hash,must_change_password,created_at,email) SELECT ?,?,?,?,?,0,?,? WHERE ${claimed}`).bind(userId,username,displayName,row.level==='viewer'?'reader':'editor',passwordHash,new Date(now).toISOString(),row.email,row.id,claim));
-   else statements.push(db.prepare(`UPDATE users SET email=? WHERE id=? AND (email IS NULL OR email=?) AND ${claimed}`).bind(row.email,userId,row.email,row.id,claim));
+   else statements.push(db.prepare(`UPDATE users SET email=? WHERE id=? AND (email IS NULL OR lower(trim(email))=?) AND ${claimed}`).bind(row.email,userId,row.email,row.id,claim));
    if(!existing)statements.push(db.prepare(`INSERT INTO user_profiles(user_id,locale) SELECT ?,? WHERE ${claimed}`).bind(userId,locale,row.id,claim));
    if(existing?.role!=='admin')statements.push(db.prepare(`INSERT INTO team_members(team_id,user_id,level) SELECT ?,?,? WHERE ${claimed} ON CONFLICT(team_id,user_id) DO NOTHING`).bind(row.team_id,userId,row.level,row.id,claim));
    statements.push(db.prepare('UPDATE team_invitations SET consumed_by=? WHERE id=? AND acceptance_id=?').bind(userId,row.id,claim));
    statements.push(db.prepare(`INSERT INTO security_events(id,action,user_id,detail,created_at) SELECT ?,'team_invitation_accepted',?,?,? WHERE ${claimed}`).bind(crypto.randomUUID(),userId,row.team_id,new Date(now).toISOString(),row.id,claim));
    try{const result=await db.batch(statements);if(!result[0].meta.changes)return fail('Cette invitation est expirée, utilisée ou révoquée.',410)}catch{return fail('Le compte ou l’invitation a changé. Actualisez avant de réessayer.',409)}
-   return reply({ok:true,username:existing?.username||username,existing:!!existing});
+   return reply({ok:true,email:row.email,existing:!!existing});
   }
   const gate=await requireRole(req);if(gate.error)return gate.error;
   if(body.action==='revoke'){
@@ -87,7 +86,7 @@ export async function POST(req:Request){
   if(email.length>254||!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(email)||!levels.includes(body.level)||typeof body.teamId!=='string')return fail('Renseignez une adresse e-mail et un rôle valides.');
   if(!await db.prepare('SELECT id FROM teams WHERE id=?').bind(body.teamId).first())return fail('Équipe inconnue.');
   if(!await teamsAllowed(gate.user!,[body.teamId],true,'manage'))return fail('Gestion de cette équipe non autorisée.',403);
-  if(await db.prepare('SELECT id FROM users WHERE email=?').bind(email).first())return fail('Cette personne possède déjà un compte. Ajoutez-la par son nom dans la liste des membres.',409);
+  if(await db.prepare('SELECT id FROM users WHERE lower(trim(email))=?').bind(email).first())return fail('Cette personne possède déjà un compte. Ajoutez-la par son nom dans la liste des membres.',409);
   const pending=await db.prepare('SELECT id FROM team_invitations WHERE email=? AND team_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>?').bind(email,body.teamId,Date.now()).first();
   if(pending)return fail('Une invitation est déjà en attente pour cette adresse. Révoquez-la avant d’en créer une nouvelle.',409);
   const token=hex(crypto.getRandomValues(new Uint8Array(32))),id=crypto.randomUUID(),expiresAt=Date.now()+7*24*60*60*1000;

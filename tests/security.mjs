@@ -122,7 +122,7 @@ assert.equal((await post(invitations,{action:'inspect',token:invitationToken})).
 assert.equal((await post(invitations,{action:'accept',token:invitationToken,username:'newperson',displayName:'New Person',password:'short'})).status,400);
 const activation={action:'accept',token:invitationToken,username:'newperson',displayName:'New Person',password,locale:'de',role:'admin',teamId:'rh'};
 assert.equal((await post(invitations,activation)).status,200);
-const newPerson=db.prepare("SELECT * FROM users WHERE username='newperson'").get();
+const newPerson=db.prepare("SELECT * FROM users WHERE email='new.person@example.test'").get();
 assert.equal(newPerson.role,'editor');assert.equal(newPerson.email,'new.person@example.test');assert.equal(newPerson.must_change_password,0);
 assert.equal(db.prepare('SELECT locale FROM user_profiles WHERE user_id=?').get(newPerson.id).locale,'de');
 assert.equal(db.prepare('SELECT level FROM team_members WHERE user_id=? AND team_id=?').get(newPerson.id,'production').level,'user');

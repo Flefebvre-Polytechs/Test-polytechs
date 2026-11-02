@@ -17,7 +17,7 @@ services:
         value: 24.19.0
       - key: POLYTECHS_DATA_DIR
         value: /var/data/polytechs
-      - key: RENDER_INITIAL_ADMIN_USERNAME
+      - key: RENDER_INITIAL_ADMIN_EMAIL
         sync: false
       - key: RENDER_INITIAL_ADMIN_PASSWORD
         sync: false

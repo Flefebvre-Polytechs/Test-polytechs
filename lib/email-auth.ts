@@ -30,7 +30,7 @@ export async function consumeChallenge(token:unknown,purpose:'login'|'reset',cod
  const user=await db.prepare('SELECT * FROM users WHERE id=? AND email=? AND password_hash=?').bind(row.user_id,row.email,row.password_snapshot).first<DbUser>();
  if(!user)return authError('Le compte a changé. Recommencez la connexion.',410);
  let passwordHash='';if(purpose==='reset'){
-  if(typeof newPassword!=='string'||newPassword.length<12||newPassword.length>256||newPassword.toLowerCase()===user.username)return authError('Choisissez un mot de passe de 12 caractères minimum, différent de votre identifiant.');
+  if(typeof newPassword!=='string'||newPassword.length<12||newPassword.length>256||(newPassword.toLowerCase()===user.username||newPassword.toLowerCase()===user.email?.toLowerCase()))return authError('Choisissez un mot de passe de 12 caractères minimum, différent de votre adresse e-mail.');
   passwordHash=await hashPassword(newPassword);
  }
  const claim=crypto.randomUUID(),now=Date.now(),material=purpose==='login'?await sessionMaterial():null;
@@ -45,6 +45,6 @@ export async function consumeChallenge(token:unknown,purpose:'login'|'reset',cod
  }
  statements.push(db.prepare(`INSERT INTO security_events(id,action,user_id,detail,created_at) SELECT ?,?,?,'',? WHERE ${claimed}`).bind(crypto.randomUUID(),purpose==='login'?'login_email_verified':'password_reset',user.id,new Date(now).toISOString(),tokenHash,claim));
  const result=await db.batch(statements);if(!result[0].meta.changes)return authError('Lien ou code déjà utilisé ou expiré.',410);
- if(material){const response=authReply({account:{id:user.id,username:user.username,displayName:user.display_name,role:user.role,mustChangePassword:!!user.must_change_password}});response.headers.set('Set-Cookie',material.cookie);return response;}
+ if(material){const response=authReply({account:{id:user.id,username:user.username,displayName:user.display_name,role:user.role,mustChangePassword:!!user.must_change_password,email:user.email}});response.headers.set('Set-Cookie',material.cookie);return response;}
  return authReply({ok:true});
 }

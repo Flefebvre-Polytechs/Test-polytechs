@@ -4,9 +4,9 @@ La branche `render-production` contient un serveur Next.js Node, une base SQLite
 
 ## Création
 
-Ouvrir le Blueprint de `Normaxis/Test-polytechs`, branche `render-production`, depuis le tableau de bord Render. Vérifier le service `polytechs` en région Frankfurt, plan Starter, disque `polytechs-data` monté sur `/var/data/polytechs` (1 Go initial). Les disques Render nécessitent un service payant et une seule instance.
+Ouvrir le Blueprint de `Flefebvre-Polytechs/Test-polytechs`, branche `render-production`, depuis le tableau de bord Render. Vérifier le service `polytechs` en région Frankfurt, plan Starter, disque `polytechs-data` monté sur `/var/data/polytechs` (1 Go initial). Les disques Render nécessitent un service payant et une seule instance.
 
-Renseigner `RENDER_INITIAL_ADMIN_USERNAME` et un mot de passe temporaire de 16 caractères minimum dans les secrets du Blueprint. Le premier démarrage crée ce compte seulement si la table `users` est vide. L'URL `RENDER_EXTERNAL_URL` est fournie automatiquement par Render et sert au contrôle d'origine des requêtes. Pour un futur domaine personnalisé, définir `POLYTECHS_PUBLIC_ORIGIN` à son origine HTTPS exacte.
+Renseigner `RENDER_INITIAL_ADMIN_EMAIL` et un mot de passe temporaire de 16 caractères minimum dans les secrets du Blueprint. Le premier démarrage crée ce compte seulement si la table `users` est vide. L'URL `RENDER_EXTERNAL_URL` est fournie automatiquement par Render et sert au contrôle d'origine des requêtes. Pour un futur domaine personnalisé, définir `POLYTECHS_PUBLIC_ORIGIN` à son origine HTTPS exacte.
 
 ## Reprise des données
 
@@ -15,7 +15,7 @@ La sauvegarde privée `polytechs-d1-transfer.json` contient les tables métier e
 Après le premier démarrage, transférer les deux sauvegardes vers un dossier privé du disque Render, par exemple `/var/data/polytechs/transfer`. Depuis un shell Render dans le répertoire du projet :
 
 ```sh
-POLYTECHS_DATA_DIR=/var/data/polytechs RENDER_INITIAL_ADMIN_USERNAME=<identifiant-temporaire> node scripts/render-import.mjs /var/data/polytechs/transfer/polytechs-d1-transfer.json
+POLYTECHS_DATA_DIR=/var/data/polytechs RENDER_INITIAL_ADMIN_EMAIL=<adresse-administrateur> node scripts/render-import.mjs /var/data/polytechs/transfer/polytechs-d1-transfer.json
 mkdir -p /var/data/polytechs/private
 tar -xzf /var/data/polytechs/transfer/polytechs-private-sources.tar.gz -C /var/data/polytechs
 ```
