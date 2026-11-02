@@ -15,6 +15,7 @@ db.exec(fs.readFileSync(fs.readdirSync('drizzle').filter(x=>x.startsWith('0003_'
 db.exec(`CREATE TABLE teams(id TEXT PRIMARY KEY,name TEXT,rank INTEGER);CREATE TABLE team_access(team_id TEXT PRIMARY KEY,restricted INTEGER);CREATE TABLE team_members(team_id TEXT,user_id TEXT,level TEXT,PRIMARY KEY(team_id,user_id));INSERT INTO teams VALUES('qsse','QSSE',2),('rh','RH',2),('production','Production',2);INSERT INTO team_access VALUES('production',0);CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,source_id TEXT,details TEXT,created TEXT);CREATE TABLE record_history(id TEXT,record_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT);CREATE TABLE team_dashboards(id TEXT,team_id TEXT,unit_code TEXT,data TEXT,revision INTEGER,updated_at TEXT,updated_by TEXT);INSERT INTO team_dashboards VALUES('production-board','production','*','{"widgets":[]}',2,'','');`);
 db.exec(fs.readFileSync('drizzle/0018_chemical_inhumans.sql','utf8'));
 db.exec(fs.readFileSync('drizzle/0023_email_auth.sql','utf8'));
+db.exec("CREATE TABLE user_profiles(user_id TEXT PRIMARY KEY,locale TEXT DEFAULT 'fr',photo_key TEXT DEFAULT '',photo_mime TEXT DEFAULT '',photo_updated_at TEXT DEFAULT '')");
 assert.equal(db.prepare("SELECT restricted FROM team_access WHERE team_id='qsse'").get().restricted,1);
 const auth=await import(path.join(dir,'auth.mjs')),access=await import(path.join(dir,'access.mjs')),users=await import(path.join(dir,'users.mjs')),records=await import(path.join(dir,'records.mjs')),evrp=await import(path.join(dir,'evrp-route.mjs')),epi=await import(path.join(dir,'epi.mjs')),boards=await import(path.join(dir,'boards.mjs'));
 const site={'oai-authenticated-user-id':'test-stable-identity','oai-authenticated-user-email':'admin@example.test'};
@@ -90,7 +91,6 @@ assert.equal((await post(teamSettings,{action:'member',teamId:'production',userI
 assert.equal((await teamSettings.GET(req({cookie:leadCookie}))).status,403,'Role revocation is immediate');
 console.log('Team roles: scoped administration, visibility/global-role protection, immediate revocation, user data entry, coordinator separation and dashboard conflicts passed.');
 const profile=await import(path.join(dir,'profile.mjs'));
-db.exec("CREATE TABLE user_profiles(user_id TEXT PRIMARY KEY,locale TEXT DEFAULT 'fr',photo_key TEXT DEFAULT '',photo_mime TEXT DEFAULT '',photo_updated_at TEXT DEFAULT '')");
 assert.equal((await (await profile.GET(req({cookie:adminCookie}))).json()).locale,'fr');
 for(const language of ['en','de','it','es','fr']){
 assert.equal((await post(profile,{locale:language},{cookie:adminCookie})).status,200);
