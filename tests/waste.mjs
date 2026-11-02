@@ -13,6 +13,7 @@ globalThis.wasteTestRole='admin';globalThis.wasteTeamAllowed=true;
 function compile(name,source){fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 try{
 compile('waste',fs.readFileSync('lib/waste.ts','utf8'));
+compile('waste-table',fs.readFileSync('lib/waste-table.ts','utf8').replaceAll("'./waste'","'./waste.mjs'"));
 const {blankWaste,wasteMetrics,wasteIssues,tonnes,validateWaste}=await import(pathToFileURL(path.join(dir,'waste.mjs')));
 const mass={...blankWaste(),id:'excel-dechets-6',type:'Carton',family:'Cartons',date:'2026-01-10',quantity:2,unit:'t',status:'Enlevé',danger:'Non',collector:'Collecteur',destination:'Destination',treatment:'Le recyclage matière',sourceRow:6,raw:{AJ:'2'}};
 const kg={...mass,id:'kg',quantity:500,unit:'kg',treatment:'Autre'};
@@ -29,8 +30,8 @@ assert.ok(wasteIssues({...mass,estimate:-18}).some(x=>x.includes('négative')),'
 fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.wasteTestDb;');
 fs.writeFileSync(path.join(dir,'access.mjs'),"export const checkOrigin=req=>req.headers.get('origin')===new URL(req.url).origin;export const requireRole=async(req,role='reader')=>globalThis.wasteTestRole===null?{error:Response.json({}, {status:401})}:role==='editor'&&globalThis.wasteTestRole==='reader'?{error:Response.json({}, {status:403})}:{user:{displayName:'Test',role:globalThis.wasteTestRole}};");
 fs.writeFileSync(path.join(dir,'teams.mjs'),'export const teamsAllowed=async()=>globalThis.wasteTeamAllowed;');
-fs.writeFileSync(path.join(dir,'source.mjs'),'export const loadWasteSource=()=>('+JSON.stringify({source:'test.xlsx',records:[mass],headers:['Date'],adrReference:[]})+');');
-let source=fs.readFileSync('app/api/dechets/route.ts','utf8');for(const [from,to] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/waste-private-source','./source.mjs'],['@/lib/waste','./waste.mjs']])source=source.replaceAll("'"+from+"'","'"+to+"'");compile('route',source);
+fs.writeFileSync(path.join(dir,'source.mjs'),'export const loadWasteSource=()=>('+JSON.stringify({source:'test.xlsx',records:[mass],headers:['Date',...Array.from({length:61},(_,i)=>'Colonne '+(i+2))],adrReference:[]})+');');
+let source=fs.readFileSync('app/api/dechets/route.ts','utf8');for(const [from,to] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/waste-private-source','./source.mjs'],['@/lib/waste','./waste.mjs'],['@/lib/waste-table','./waste-table.mjs']])source=source.replaceAll("'"+from+"'","'"+to+"'");compile('route',source);
 sqlite.exec(`CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,status TEXT,details TEXT,description TEXT,owner TEXT,url TEXT);`);
 sqlite.exec(fs.readFileSync('drizzle/0013_tricky_lady_vermin.sql','utf8').replaceAll('--> statement-breakpoint',''));
 const api=await import(pathToFileURL(path.join(dir,'route.mjs')));const request=(body,origin='https://example.test')=>new Request('https://example.test/api/dechets',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)});
@@ -45,6 +46,23 @@ const table=await (await api.GET(new Request('https://example.test/api/dechets?r
 assert.equal((await api.GET(new Request('https://example.test/api/dechets?rawIds='+Array(101).fill('x').join(',')))).status,400);
 assert.equal((await api.POST(request({...data.record,quantity:4}))).status,200);
 assert.equal((await api.POST(request({...data.record,quantity:44}))).status,409);
+const patch=(body,origin='https://example.test')=>new Request('https://example.test/api/dechets',{method:'PATCH',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)});
+let current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
+assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'AJ',value:'4,5'},'https://elsewhere.test'))).status,403);
+globalThis.wasteTestRole='reader';assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'AJ',value:'4,5'}))).status,403);globalThis.wasteTestRole='admin';
+assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'AJ',value:'4,5'}))).status,200);
+assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'AJ',value:'9'}))).status,409);
+current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
+assert.equal(current.quantity,4.5);assert.equal(current.cellOverrides.AJ,'4,5');assert.equal(current.raw.AJ,'2');
+assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'BH',value:'Observation complète'}))).status,200);
+current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
+assert.equal(current.cellOverrides.BH,'Observation complète');
+assert.equal((await api.POST(request({...current,type:'Carton ondulé'}))).status,200);
+current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
+assert.equal(current.cellOverrides.BH,'Observation complète');assert.equal(current.cellOverrides.AJ,'4,5');
+assert.equal((await api.POST(request({...current,quantity:6}))).status,200);
+current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
+assert.equal(current.cellOverrides.AJ,undefined);assert.equal(current.cellOverrides.BH,'Observation complète');
 const created=await api.POST(request({...blankWaste(),type:'Nouveau déchet'}));assert.equal(created.status,200);
 const sourcePath='private/waste-source.json';if(fs.existsSync(sourcePath)){const original=JSON.parse(fs.readFileSync(sourcePath,'utf8'));assert.ok(original.records.length>=1733);assert.equal(new Set(original.records.map(r=>r.id)).size,original.records.length);assert.equal(original.records.find(r=>r.sourceRow===66).unit,'à vérifier');assert.equal(original.records.find(r=>r.sourceRow===6).quantity,204);assert.equal(original.records.find(r=>r.sourceRow===6).unit,'unité');assert.ok(original.records.every(r=>r.raw.AD));}
 console.log('Déchets : unités, dates, estimations, confidentialité, droits, historique et modifications concurrentes vérifiés.');
