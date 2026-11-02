@@ -1,0 +1,1626 @@
+{
+  "source": "Codification des EPI · nouvelle codification 19/05/2026, ancien tableau 09/03/2026 et inventaire 2026",
+  "items": [
+    {
+      "code": "EPI01HARNAIS01",
+      "family": "CHUTE",
+      "name": "HARNAIS",
+      "specifics": "",
+      "sourceRow": 6,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI01LONGE01",
+      "family": "CHUTE",
+      "name": "LONGE",
+      "specifics": "longueur 1 mètre",
+      "sourceRow": 7,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI01LONGE02",
+      "family": "CHUTE",
+      "name": "LONGE",
+      "specifics": "longueur 1,5 mètre",
+      "sourceRow": 8,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI01STOPCHUTE02",
+      "family": "CHUTE",
+      "name": "STOP CHUTE",
+      "specifics": "Anti chute rappel auto 10m",
+      "sourceRow": 9,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI01MOUSQUETON01",
+      "family": "CHUTE",
+      "name": "PETIT MOUSQUETON",
+      "specifics": "",
+      "sourceRow": 10,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI01MOUSQUETON02",
+      "family": "CHUTE",
+      "name": "GRAND MOUSQUETON",
+      "specifics": "",
+      "sourceRow": 11,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02CAGOULE01",
+      "family": "CORPS",
+      "name": "CAGOULE TYVEK 500",
+      "specifics": "",
+      "sourceRow": 12,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02COMBI01TL",
+      "family": "CORPS",
+      "name": "COMB TYVEK XPERT",
+      "specifics": "Combinaison Tyvek Xpert T.L  (25/Crt)",
+      "sourceRow": 13,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02COMBI01TXL",
+      "family": "CORPS",
+      "name": "COMB TYVEK XPERT",
+      "specifics": "combtyvekxpertXL(0576492)",
+      "sourceRow": 14,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02COMBI01TXXL",
+      "family": "CORPS",
+      "name": "COMB TYVEK XPERT",
+      "specifics": "Combinaison Tyvek Xpert T.XXL (25/Crt)",
+      "sourceRow": 15,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02COMBI02TXL",
+      "family": "CORPS",
+      "name": "COMB TYCHEM 6000 F grey",
+      "specifics": "Combinaison TYCHEM 6000F Grey T.XL",
+      "sourceRow": 16,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02LINGETTE01",
+      "family": "CORPS",
+      "name": "LINGETTE DEMAQUILLANTE",
+      "specifics": "",
+      "sourceRow": 17,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02LINGETTE02",
+      "family": "CORPS",
+      "name": "LINGETTE NETTOYANTE",
+      "specifics": "",
+      "sourceRow": 18,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02MANCHETTE01",
+      "family": "CORPS",
+      "name": "MANCHETTE - ESSAI",
+      "specifics": "",
+      "sourceRow": 19,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02T-SHIRT01TL",
+      "family": "CORPS",
+      "name": "T-SHIRT BLANC",
+      "specifics": "Tee shirt blanc L",
+      "sourceRow": 20,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02T-SHIRT01TXXL",
+      "family": "CORPS",
+      "name": "T-SHIRT BLANC",
+      "specifics": "Tee shirt blanc XXL",
+      "sourceRow": 21,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02T-SHIRT01TXL",
+      "family": "CORPS",
+      "name": "T-SHIRT BLANC",
+      "specifics": "Tee shirt blanc XL",
+      "sourceRow": 22,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02GILETHV01",
+      "family": "CORPS",
+      "name": "GILET HAUTE VISIBILITE ORANGE",
+      "specifics": "Gilet Haute Visibilité Orange",
+      "sourceRow": 23,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02GILETHV02",
+      "family": "CORPS",
+      "name": "GILET HAUTE VISIBILITE BLEU",
+      "specifics": "Gilet Haute Visibilité Bleu",
+      "sourceRow": 24,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02GILETHV03",
+      "family": "CORPS",
+      "name": "GILET HAUTE VISIBILITE ROUGE",
+      "specifics": "Gilet Haute Visibilité Rouge",
+      "sourceRow": 25,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02BLOUSE01",
+      "family": "CORPS",
+      "name": "BLOUSE VISITEUR",
+      "specifics": "Blouse jetable visiteurs",
+      "sourceRow": 26,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02BLOUSNDELTA01",
+      "family": "CORPS",
+      "name": "Blouson Delta",
+      "specifics": "",
+      "sourceRow": 27,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02GENOUILLERE01",
+      "family": "CORPS",
+      "name": "PROTEGE GENOU PROFLEX",
+      "specifics": "",
+      "sourceRow": 28,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI02CREME01",
+      "family": "CORPS",
+      "name": "Créme cutanée",
+      "specifics": "",
+      "sourceRow": 29,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT01T9",
+      "family": "MAIN",
+      "name": "GANT ANTI-COUPURE T9",
+      "specifics": "Gant anti-coupure T9 (plus commandé)",
+      "sourceRow": 30,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT01T10",
+      "family": "MAIN",
+      "name": "GANT ANTI-COUPURE T10",
+      "specifics": "Gant anti-coupure T10 (plus commandé)",
+      "sourceRow": 31,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT01T11",
+      "family": "MAIN",
+      "name": "GANT ANTI-COUPURE T11",
+      "specifics": "PLUS COMMANDE",
+      "sourceRow": 32,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT02T9",
+      "family": "MAIN",
+      "name": "GANT GRAND-FROID T9",
+      "specifics": "Derniere commande 2018",
+      "sourceRow": 33,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT02T10",
+      "family": "MAIN",
+      "name": "GANT GRAND-FROID T10",
+      "specifics": "Derniere commande 2018",
+      "sourceRow": 34,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT03T7",
+      "family": "MAIN",
+      "name": "GANT TEMP DEX T7",
+      "specifics": "Gant chaleur TEMP enduit nitr. T7",
+      "sourceRow": 35,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT03T9",
+      "family": "MAIN",
+      "name": "GANT TEMP DEX T9",
+      "specifics": "Gant chaleur TEMP enduit nitr. T9",
+      "sourceRow": 36,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT03T11",
+      "family": "MAIN",
+      "name": "GANT TEMP DEX T11",
+      "specifics": "Gant chaleur TEMP enduit nitr. T11",
+      "sourceRow": 37,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT04T10",
+      "family": "MAIN",
+      "name": "GANT CRUSADER FLEX T10",
+      "specifics": "Gant Cruzader Flex -42474.10- 33cm",
+      "sourceRow": 38,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT05T9",
+      "family": "MAIN",
+      "name": "GANT STIREN T9",
+      "specifics": "DISTRIBUTION PAR MAINTENANCE",
+      "sourceRow": 39,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT05T10",
+      "family": "MAIN",
+      "name": "GANT STIREN T10",
+      "specifics": "DISTRIBUTION PAR MAINTENANCE",
+      "sourceRow": 40,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT06T9",
+      "family": "MAIN",
+      "name": "GANT ULTRANITRIL 491 T9",
+      "specifics": "Gant chimique  Nitrile vert 491 T9(S233045VE9-91/2)",
+      "sourceRow": 41,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT06T10",
+      "family": "MAIN",
+      "name": "GANT ULTRANITRIL 491 T10",
+      "specifics": "Gant chimique  Nitrile vert 491 T10(S233045VE10-101/2)",
+      "sourceRow": 42,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT06T6",
+      "family": "MAIN",
+      "name": "GANT ULTRANITRIL 491 T6",
+      "specifics": "Femme de menage",
+      "sourceRow": 43,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT06T7",
+      "family": "MAIN",
+      "name": "GANT ULTRANITRIL 491 T7",
+      "specifics": "Femme de menage",
+      "sourceRow": 44,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT07T9",
+      "family": "MAIN",
+      "name": "GANT ALPHATEC T9",
+      "specifics": "UN GANT pour Ultranitril",
+      "sourceRow": 45,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT07T10",
+      "family": "MAIN",
+      "name": "GANT ALPHATEC T10",
+      "specifics": "Gant Alphatec 58530 T10 (S233241GR10)",
+      "sourceRow": 46,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT08T9",
+      "family": "MAIN",
+      "name": "GANT NITRILE NON POUDRE T9",
+      "specifics": "DISTRIBUTION PAR MAINTENANCE",
+      "sourceRow": 47,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT08T10",
+      "family": "MAIN",
+      "name": "GANT NITRILE NON POUDRE T10",
+      "specifics": "DISTRIBUTION PAR MAINTENANCE",
+      "sourceRow": 48,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT08T11",
+      "family": "MAIN",
+      "name": "GANT NITRILE NON POUDRE T11",
+      "specifics": "DISTRIBUTION PAR MAINTENANCE",
+      "sourceRow": 49,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT09T10",
+      "family": "MAIN",
+      "name": "GANT PVC ROUGE T10",
+      "specifics": "MAPA 381 EQUIVALENT",
+      "sourceRow": 50,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT10T7",
+      "family": "MAIN",
+      "name": "GANT MANUTENTION T7",
+      "specifics": "Gant de manutention OPSIAL T7(62208759)",
+      "sourceRow": 51,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT10T8",
+      "family": "MAIN",
+      "name": "GANT MANUTENTION T8",
+      "specifics": "Gant de manutention OPSIAL T8(62208767)",
+      "sourceRow": 52,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT10T9",
+      "family": "MAIN",
+      "name": "GANT MANUTENTION T9",
+      "specifics": "Gant de manutention OPSIAL T9(62208775)",
+      "sourceRow": 53,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT10T10",
+      "family": "MAIN",
+      "name": "GANT MANUTENTION T10",
+      "specifics": "Gant de manutention OPSIAL T10(62208783)",
+      "sourceRow": 54,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT10T11",
+      "family": "MAIN",
+      "name": "GANT MANUTENTION T11",
+      "specifics": "Gant de manutention OPSIAL T11(62208791)",
+      "sourceRow": 55,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT11T9",
+      "family": "MAIN",
+      "name": "GANT MECANIQUE T9",
+      "specifics": "Gant Fleur Bovin Gris T9",
+      "sourceRow": 56,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT11T10",
+      "family": "MAIN",
+      "name": "GANT MECANIQUE T10",
+      "specifics": "Gant Fleur Bovin Gris T10",
+      "sourceRow": 57,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT11T11",
+      "family": "MAIN",
+      "name": "GANT MECANIQUE T11",
+      "specifics": "Gant Fleur Bovin Gris T11(C600*840016)",
+      "sourceRow": 58,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI03GANT12TU",
+      "family": "MAIN",
+      "name": "GANT SOUDURE",
+      "specifics": "gant protège artère Singer T10",
+      "sourceRow": 59,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI04ANTIBRUIT01",
+      "family": "OREILLE",
+      "name": "ARCEAU",
+      "specifics": "Arceau anti-bruit -Réf.EAR CAPS -",
+      "sourceRow": 60,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI04ANTIBRUIT02",
+      "family": "OREILLE",
+      "name": "BOUCHON REUTILISABLE",
+      "specifics": "Bouchons d'oreilles réutilisable (K1271)",
+      "sourceRow": 61,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI04ANTIBRUIT03",
+      "family": "OREILLE",
+      "name": "BOUCHON POUR ARCEAU",
+      "specifics": "Bouchons pour arceau Ear Pods ES0130 Ref.304002",
+      "sourceRow": 62,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI04ANTIBRUIT04",
+      "family": "OREILLE",
+      "name": "COQUILLE POUR CASQUE IRIS",
+      "specifics": "Coquilles pr casque iris2 34DB noire P3E(10734)",
+      "sourceRow": 63,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI04ANTIBRUIT05",
+      "family": "OREILLE",
+      "name": "COQUILLE OPTIME II",
+      "specifics": "COQUILLE ANTI-BRUIT OPTIME II (H7P3E)",
+      "sourceRow": 64,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI04ANTIBRUIT06",
+      "family": "OREILLE",
+      "name": "CASQUE OPTIME II",
+      "specifics": "casque anti-bruit QM-24 rouge",
+      "sourceRow": 65,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI04ANTIBRUIT07",
+      "family": "OREILLE",
+      "name": "KIT HYGIENE OPTIME II",
+      "specifics": "KIT HYGIENE OPTIME II (H520A)",
+      "sourceRow": 66,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05BOTTE01T41",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourréesnordikS3SRC T41",
+      "sourceRow": 67,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05BOTTE01T39",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA T39 (0058833)",
+      "sourceRow": 68,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05BOTTE02",
+      "family": "PIED",
+      "name": "BOTTE PLASTIQUE",
+      "specifics": "bottes de sécurité plastique",
+      "sourceRow": 69,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05BOTTE02T45",
+      "family": "PIED",
+      "name": "BOTTE PLASTIQUE",
+      "specifics": "bottesdesécuritéVAUBAN45(7856757)",
+      "sourceRow": 70,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSET01T45",
+      "family": "PIED",
+      "name": "CHAUSSETTE FRAICHEUR",
+      "specifics": "chaussettesfraicheur45/47(0743990)",
+      "sourceRow": 71,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSET02T42",
+      "family": "PIED",
+      "name": "CHAUSSETTE GRAND FROID",
+      "specifics": "chaussettesgrandfroid42/44(0699605)",
+      "sourceRow": 72,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSET02T45",
+      "family": "PIED",
+      "name": "CHAUSSETTE GRAND FROID",
+      "specifics": "chaussettesgrandfroid45/47(0699604)",
+      "sourceRow": 73,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSET03",
+      "family": "PIED",
+      "name": "CHAUSSETTE TUBE",
+      "specifics": "chaussettes blanches tube 35/45 lot de 2 paires",
+      "sourceRow": 74,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSURE01",
+      "family": "PIED",
+      "name": "CHAUSSURE BASSE HOMME",
+      "specifics": "ChaussurebasseU.POWERshownoir(0744262)",
+      "sourceRow": 75,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSURE02",
+      "family": "PIED",
+      "name": "CHAUSSURE BASSE FEMME",
+      "specifics": "Chaussures de sécurité Modèle Femme",
+      "sourceRow": 76,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T39",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T39",
+      "sourceRow": 77,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T40",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T40",
+      "sourceRow": 78,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T41",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T41",
+      "sourceRow": 79,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T42",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T42",
+      "sourceRow": 80,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T43",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T43",
+      "sourceRow": 81,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T44",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T44",
+      "sourceRow": 82,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T45",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T45",
+      "sourceRow": 83,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T46",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T46",
+      "sourceRow": 84,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T47",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T47",
+      "sourceRow": 85,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T48",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T48",
+      "sourceRow": 86,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05COUVREBOTTE01",
+      "family": "PIED",
+      "name": "PROTECTION CHAUSSURE",
+      "specifics": "",
+      "sourceRow": 87,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05LACET01",
+      "family": "PIED",
+      "name": "LACET 120CM",
+      "specifics": "",
+      "sourceRow": 88,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI05SEMELLE01",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "SEMELLE FAIRE TOUTES LES TAILLES",
+      "sourceRow": 89,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI06CASQUE01",
+      "family": "TETE",
+      "name": "CASQUE",
+      "specifics": "Casque Iris 2",
+      "sourceRow": 90,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI06CASQUE02",
+      "family": "TETE",
+      "name": "CASQUE",
+      "specifics": "Casque avec Jugulaire",
+      "sourceRow": 91,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI06CASQUETTE01",
+      "family": "TETE",
+      "name": "CASQUETTE",
+      "specifics": "Kaizio",
+      "sourceRow": 92,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI06CHARLOTTE01",
+      "family": "TETE",
+      "name": "CHARLOTTE",
+      "specifics": "Charlottes PE blanc jetable (boîte de 100)",
+      "sourceRow": 93,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07BATTERIE01",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "BATTERIE X-PLORE ATEX",
+      "specifics": "Batterie X-Plore Atex",
+      "sourceRow": 94,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07FILTRE01*1",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE DEMI-MASQUE A2B2P3",
+      "specifics": "Filtres pr xplore 3300 UE14 (3764*6024232)",
+      "sourceRow": 95,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07FILTRE01*2",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE DEMI-MASQUE P3",
+      "specifics": "Filtres pr xplore 6300 RD40 (9804*-6000457)",
+      "sourceRow": 96,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07FILTRE01*3",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE DEMI-MASQUE",
+      "specifics": "Plus utilisé",
+      "sourceRow": 97,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07FILTRE02*1",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE PANORAMIQUE ABEKP",
+      "specifics": "Filtres pr xplore 6300 RD40 (9804*-6000457)",
+      "sourceRow": 98,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07FILTRE02*2",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE PANORAMIQUE P3",
+      "specifics": "il y a un carton à renvoyer",
+      "sourceRow": 99,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07FILTRE06",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE VENTILATION ASSISTEE ABEK",
+      "specifics": "6739555",
+      "sourceRow": 100,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07FILTRE07",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE VENTILATION ASSISTEE P3",
+      "specifics": "6739535",
+      "sourceRow": 101,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07LINGETTE01",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "LINGETTE MASQUE",
+      "specifics": "Boîte de lingettes nettoyantes pour masque",
+      "sourceRow": 102,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07MASQUE01",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "DEMI-MASQUE",
+      "specifics": "1/2 masque à cartouche X-Plore 3300",
+      "sourceRow": 103,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07MASQUE02",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FFP2",
+      "specifics": "Masque FFP2",
+      "sourceRow": 104,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07MASQUE03",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "MASQUE CHIRURGICAUX",
+      "specifics": "Masque chirurgicaux type 2",
+      "sourceRow": 105,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07MASQUE04",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "MASQUE PANORAMIQUE",
+      "specifics": "Masque panoramique X-Plore 6300",
+      "sourceRow": 107,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI07MASQUE05",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FFP3",
+      "specifics": "Masque soupape FFP3 Réf.3M.9332",
+      "sourceRow": 108,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI08LUNETTE01",
+      "family": "YEUX",
+      "name": "LUNETTE CONTPSI",
+      "specifics": "Lunettes de sécurité CONTPSI",
+      "sourceRow": 112,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI08LUNETTE02",
+      "family": "YEUX",
+      "name": "LUNETTE TRYON",
+      "specifics": "Anti-buée",
+      "sourceRow": 113,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI08RINCEOEIL01",
+      "family": "YEUX",
+      "name": "FLACON RINCE ŒIL",
+      "specifics": "Lave oeil Plum flacon 200ml (N331*6163565)",
+      "sourceRow": 115,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI09VISIERE01",
+      "family": "YEUX & VISAGE",
+      "name": "VISIERE COMPLETE",
+      "specifics": "Ecran facial complet (C600*-6081491)",
+      "sourceRow": 116,
+      "sourceSheet": "Nouvelle codification",
+      "catalogStatus": "Actif"
+    },
+    {
+      "code": "EPI01SACCORDE00",
+      "family": "CHUTE",
+      "name": "SAC",
+      "specifics": "sac de corde",
+      "sourceRow": 2,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI01LONGE03",
+      "family": "CHUTE",
+      "name": "LONGE",
+      "specifics": "longueur 20 mètres",
+      "sourceRow": 6,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI01LONGE04",
+      "family": "CHUTE",
+      "name": "LONGE Complète",
+      "specifics": "longueur complète 1 mètre",
+      "sourceRow": 7,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI01LONGEABS01",
+      "family": "CHUTE",
+      "name": "LONGE + absorbeur",
+      "specifics": "longueur + absorbeur 1,5 mètres",
+      "sourceRow": 8,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI01LONGEABS02",
+      "family": "CHUTE",
+      "name": "LONGE + absorbeur",
+      "specifics": "longueur + absorbeur 1,8 mètres",
+      "sourceRow": 9,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI01ABSORCHOC01",
+      "family": "CHUTE",
+      "name": "ABSORBEUR DE CHOC",
+      "specifics": "Absorbeur de choc",
+      "sourceRow": 11,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI02COMBI",
+      "family": "CORPS",
+      "name": "Combi TYVEk Classic",
+      "specifics": "CombtyvekclassicplusT3réf15200-3",
+      "sourceRow": 15,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI02COMBI03TL",
+      "family": "CORPS",
+      "name": "Combi jaune Alphatec 2300+",
+      "specifics": "Combi jaune Alphatec 2300+ mod 132 T.L (YY23T-00132-04)",
+      "sourceRow": 20,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI02COMBI03TXL",
+      "family": "CORPS",
+      "name": "Combi jaune Alphatec 2300+",
+      "specifics": "Combi jaune Alphatec 2300+ mod 132 T.XL (YY23T-00132-05)",
+      "sourceRow": 21,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI02COMBI03TXXL",
+      "family": "CORPS",
+      "name": "Combi jaune Alphatec 2300+",
+      "specifics": "Combi jaune Alphatec 2300+ mod 132 T.XXL (YY23T-00132-06)",
+      "sourceRow": 22,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI02T-SHIRT01TS",
+      "family": "CORPS",
+      "name": "T-SHIRT BLANC",
+      "specifics": "Tee shirt blanc S",
+      "sourceRow": 26,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI02T-SHIRT01TM",
+      "family": "CORPS",
+      "name": "T-SHIRT BLANC",
+      "specifics": "Tee shirt blanc M",
+      "sourceRow": 27,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI03GANT04T8",
+      "family": "MAIN",
+      "name": "GANT ACTIVARMR FLEX T8 (ex cruzader)",
+      "specifics": "Gant Cruzader Flex -42474.10- 33cm",
+      "sourceRow": 46,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI03GANT04T9",
+      "family": "MAIN",
+      "name": "GANT  ACTIVARMR FLEX T9 (ex cruzader)",
+      "specifics": "Gant Cruzader Flex -42474.10- 33cm",
+      "sourceRow": 47,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI03GANT09T11",
+      "family": "MAIN",
+      "name": "GANT PVC ROUGE T11",
+      "specifics": "Gant PVC rouge 36cm T11 (S235147RO10)",
+      "sourceRow": 61,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI03GANT11T09",
+      "family": "MAIN",
+      "name": "GANT CUIR HYDRo T9",
+      "specifics": "Gant cuir protège artères T9 (chaudronnerie)",
+      "sourceRow": 70,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI04ANTIBRUIT08",
+      "family": "OREILLE",
+      "name": "BOUCHONS JETABLE Visiteurs",
+      "specifics": "Bouchons oreilles jetables EPI Visiteurs",
+      "sourceRow": 79,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI04ANTIBRUIT09",
+      "family": "OREILLE",
+      "name": "BOUCHONS Denis Cuffel",
+      "specifics": "Bouchons mousses avec cordelette",
+      "sourceRow": 80,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE01T42",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourréesnordikS3SRC T42",
+      "sourceRow": 82,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE01T43",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourréesnordikS3SRC T43",
+      "sourceRow": 83,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE01T44",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourréesnordikS3SRC T44",
+      "sourceRow": 84,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE01T48",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourréesnordikS3SRC T48",
+      "sourceRow": 85,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR40",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA T40 (0058833)",
+      "sourceRow": 87,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR41",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA 41(0058835)",
+      "sourceRow": 88,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR42",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA T42 (0058836)",
+      "sourceRow": 89,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR43",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA T43 (0058837)",
+      "sourceRow": 90,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR44",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA 44(0058838)",
+      "sourceRow": 91,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR45",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA T45 (0058839)",
+      "sourceRow": 92,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR46",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA 46(0058840)",
+      "sourceRow": 93,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR47",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA 47(0568083)",
+      "sourceRow": 94,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR48",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées KAMA 48(0723523)",
+      "sourceRow": 95,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTEFOUR39",
+      "family": "PIED",
+      "name": "BOTTE FOURRE",
+      "specifics": "bottes fourrées NAGOYA T39 (0797935)",
+      "sourceRow": 96,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE03T40",
+      "family": "PIED",
+      "name": "BOTTE NON FOURRE",
+      "specifics": "bottesnonfourrées40(0797936)",
+      "sourceRow": 97,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE03T41",
+      "family": "PIED",
+      "name": "BOTTE NON FOURRE",
+      "specifics": "bottesnonfourrées41(0797937)",
+      "sourceRow": 98,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE03T42",
+      "family": "PIED",
+      "name": "BOTTE NON FOURRE",
+      "specifics": "bottesnonfourrées42(0797938)",
+      "sourceRow": 99,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE03T43",
+      "family": "PIED",
+      "name": "BOTTE NON FOURRE",
+      "specifics": "bottesnonfourrées43(0797939)",
+      "sourceRow": 100,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE03T44",
+      "family": "PIED",
+      "name": "BOTTE NON FOURRE",
+      "specifics": "bottesnonfourrées44(0797940)",
+      "sourceRow": 101,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE03T45",
+      "family": "PIED",
+      "name": "BOTTE NON FOURRE",
+      "specifics": "bottesnonfourrées45(0797941)",
+      "sourceRow": 102,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE03T47",
+      "family": "PIED",
+      "name": "BOTTE NON FOURRE",
+      "specifics": "bottes non fourrées 47",
+      "sourceRow": 103,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE02T43",
+      "family": "PIED",
+      "name": "BOTTE PLASTIQUE",
+      "specifics": "bottesdesécuritéVAUBAN43(0533608)",
+      "sourceRow": 105,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTE02T44",
+      "family": "PIED",
+      "name": "BOTTE PLASTIQUE",
+      "specifics": "bottesdesécuritéVAUBAN44(0533609)",
+      "sourceRow": 106,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTILLON42",
+      "family": "PIED",
+      "name": "Botillon",
+      "specifics": "botillonfourrés42(10922-42)",
+      "sourceRow": 108,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTILLON43",
+      "family": "PIED",
+      "name": "Botillon",
+      "specifics": "botillonfourrés43(10922-43)",
+      "sourceRow": 109,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTILLON44",
+      "family": "PIED",
+      "name": "Botillon",
+      "specifics": "botillonfourrés44(10922-44)",
+      "sourceRow": 110,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTILLON45",
+      "family": "PIED",
+      "name": "Botillon",
+      "specifics": "botillonfourrés45(10922-45)",
+      "sourceRow": 111,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTILLON46",
+      "family": "PIED",
+      "name": "Botillon",
+      "specifics": "botillonfourrés46(10922-46)",
+      "sourceRow": 112,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05BOTTILLON47",
+      "family": "PIED",
+      "name": "Botillon",
+      "specifics": "botillonfourrés47(10922-47)",
+      "sourceRow": 113,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05CHAUSSLILY36",
+      "family": "PIED",
+      "name": "CHAUSSURE BASSE FEMME",
+      "specifics": "Chaussuresfemmelily36(0802501)",
+      "sourceRow": 114,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05CHAUSSLILY37",
+      "family": "PIED",
+      "name": "CHAUSSURE BASSE FEMME",
+      "specifics": "Chaussuresfemmelily37(0802502)",
+      "sourceRow": 115,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05CHAUSSLILY38",
+      "family": "PIED",
+      "name": "CHAUSSURE BASSE FEMME",
+      "specifics": "Chaussuresfemmelily38(0802503)",
+      "sourceRow": 116,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05CHAUSSLILY39",
+      "family": "PIED",
+      "name": "CHAUSSURE BASSE FEMME",
+      "specifics": "Chaussuresfemmelily39(0802504)",
+      "sourceRow": 117,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05CHAUSSLILY40",
+      "family": "PIED",
+      "name": "CHAUSSURE BASSE FEMME",
+      "specifics": "Chaussuresfemmelily40(0802505)",
+      "sourceRow": 118,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T37",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T37",
+      "sourceRow": 125,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05CHAUSSUR03T38",
+      "family": "PIED",
+      "name": "CHAUSSURE HAUTE",
+      "specifics": "Chaussure de sécurité Modèle Haut T38 (0744349)",
+      "sourceRow": 126,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE39",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=39",
+      "sourceRow": 140,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE40",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=40",
+      "sourceRow": 141,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE41",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=41",
+      "sourceRow": 142,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE42",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=42",
+      "sourceRow": 143,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE43",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=43",
+      "sourceRow": 144,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE44",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=44",
+      "sourceRow": 145,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE45",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=45",
+      "sourceRow": 146,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE46",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=46",
+      "sourceRow": 147,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE47",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=47",
+      "sourceRow": 148,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05SEMELLE48",
+      "family": "PIED",
+      "name": "SEMELLE",
+      "specifics": "Semelle Eco 090 P=48",
+      "sourceRow": 149,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05dembotte03T43",
+      "family": "PIED",
+      "name": "Demi botte",
+      "specifics": "demibottesfourrées43(0775720)",
+      "sourceRow": 150,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI05dembotte03T44",
+      "family": "PIED",
+      "name": "Demi botte",
+      "specifics": "demibottesfourrées44(0775721)",
+      "sourceRow": 151,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI06CASQUETTE02",
+      "family": "TETE",
+      "name": "CASQUETTE",
+      "specifics": "Casquette de sécu renf base-ball( 0680385)",
+      "sourceRow": 155,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI06CASQUETTE03",
+      "family": "TETE",
+      "name": "CASQUETTE",
+      "specifics": "",
+      "sourceRow": 156,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI06CASQUETTE04",
+      "family": "TETE",
+      "name": "CASQUETTE",
+      "specifics": "Casquette de anti-heurt Ollie NR ( 0813440)",
+      "sourceRow": 157,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI07FILTRE02*3",
+      "family": "VOIES RESPIRATOIRES",
+      "name": "FILTRE PANORAMIQUE P3",
+      "specifics": "Filtres pr xplore 3000/5000 UE12 (3764*6067134) (ne plus utiliser)",
+      "sourceRow": 165,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI09VISIERE02",
+      "family": "YEUX & VISAGE",
+      "name": "VISIERE COMPLETE",
+      "specifics": "Ecran facial complet Bollé (0663165)",
+      "sourceRow": 179,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI09VISIERE03",
+      "family": "YEUX & VISAGE",
+      "name": "Ecran visière rechange",
+      "specifics": "Ecran facial Bollé",
+      "sourceRow": 180,
+      "sourceSheet": "MàJ tableau 09-03-26",
+      "catalogStatus": "À confirmer"
+    },
+    {
+      "code": "EPI03GANT11T12",
+      "family": "MAINS",
+      "name": "GANT CUIR HYDRo T9",
+      "specifics": "Gant cuir protège artères T9 (chaudronnerie)",
+      "sourceRow": 69,
+      "sourceSheet": "Inventaire EPI 2026",
+      "catalogStatus": "À confirmer"
+    }
+  ],
+  "duplicateRows": {
+    "EPI07MASQUE03": [
+      106
+    ],
+    "EPI07MASQUE05": [
+      109,
+      110,
+      111
+    ]
+  }
+}

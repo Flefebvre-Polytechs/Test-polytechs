@@ -1,1 +1,1 @@
-export type Product={code:string;family:string;name:string;specifics:string;source_row:number;source_sheet:string;catalog_status:string;quantity:number|null;minimum:number|null;location:string;revision:number};
+export type Product={code:string;family:string;name:string;specifics:string;source_row:number;source_sheet:string;catalog_status:string;quantity:number|null;minimum:number|null;location:string;revision:number;has_photo?:number;photo_updated_at?:string|null};
