@@ -41,6 +41,8 @@ assert.equal((await api.POST(request({...mass,quantity:3}))).status,200);
 assert.equal((await api.POST(request({...mass,quantity:99}))).status,409);
 let data=await (await api.GET(new Request('https://example.test/api/dechets'))).json();assert.equal(data.records.length,1);assert.equal(data.records[0].quantity,3);assert.equal(data.records[0].raw,undefined);
 data=await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json();assert.equal(data.record.raw.AJ,'2');assert.equal(data.history.length,1);assert.equal(JSON.parse(data.history[0].snapshot).quantity,2);
+const table=await (await api.GET(new Request('https://example.test/api/dechets?rawIds=excel-dechets-6'))).json();assert.equal(table.rows[0].raw.AJ,'2');assert.equal(table.headers[0],'Date');assert.equal((await (await api.GET(new Request('https://example.test/api/dechets?rawIds=all'))).json()).rows.length,1);
+assert.equal((await api.GET(new Request('https://example.test/api/dechets?rawIds='+Array(101).fill('x').join(',')))).status,400);
 assert.equal((await api.POST(request({...data.record,quantity:4}))).status,200);
 assert.equal((await api.POST(request({...data.record,quantity:44}))).status,409);
 const created=await api.POST(request({...blankWaste(),type:'Nouveau déchet'}));assert.equal(created.status,200);
