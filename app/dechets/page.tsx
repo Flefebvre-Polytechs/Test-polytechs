@@ -73,8 +73,13 @@ function FullWasteTable({records,data,error,onOpen,opening}:{records:WasteRecord
  if(error)return <p className="waste-error" role="alert">{error}</p>;
  if(!data)return <p className="waste-table-loading" role="status">Chargement des colonnes du registre…</p>;
  const columns=wasteTableColumns(data.headers);
+ const widths=columns.map(c=>{
+  const values=[c.label,...records.map(r=>wasteTableValue(r,data.rows[r.id]||{},c.key))];
+  const longest=Math.max(...values.flatMap(value=>value.split(/\r?\n/).map(line=>line.trim().length)));
+  return Math.max(82,Math.min(360,longest*7+28));
+ });
  return <><div className="waste-table-controls"><span>{columns.length} colonnes · faites défiler pour explorer le registre</span><div><button className="outline" aria-label="Colonnes précédentes" onClick={()=>scroll.current?.scrollBy({left:-700,behavior:'smooth'})}><ChevronLeft size={17}/></button><button className="outline" aria-label="Colonnes suivantes" onClick={()=>scroll.current?.scrollBy({left:700,behavior:'smooth'})}><ChevronRight size={17}/></button></div></div><div ref={scroll} className="waste-table-scroll waste-table-complete" tabIndex={0} aria-label="Registre complet : défilement horizontal">
-  <table><thead><tr><th className="waste-sticky-cell">Fiche</th>{columns.map(c=><th key={c.key} title={c.label}>{c.label}</th>)}</tr></thead>
+  <table style={{width:`calc(var(--waste-sticky-width) + ${widths.reduce((sum,width)=>sum+width,0)}px)`}}><colgroup><col style={{width:'var(--waste-sticky-width)'}}/>{columns.map((c,i)=><col key={c.key} style={{width:widths[i]}}/>)}</colgroup><thead><tr><th className="waste-sticky-cell">Fiche</th>{columns.map(c=><th key={c.key} title={c.label}>{c.label}</th>)}</tr></thead>
   <tbody>{records.map(r=>{const raw=data.rows[r.id]||{};return <tr key={r.id}><td className="waste-sticky-cell"><button className="waste-record-link" disabled={!!opening} onClick={()=>onOpen(r)}>{opening===r.id?'Ouverture…':r.type}</button><small>{r.sourceRow?`Ligne Excel ${r.sourceRow}`:'Saisie sur le site'}</small></td>{columns.map(c=>{const value=wasteTableValue(r,raw,c.key);return <td key={c.key} title={raw[c.key]&&raw[c.key]!==value?`Source : ${raw[c.key]}`:undefined}>{value||'—'}</td>})}</tr>})}</tbody></table>
  </div></>
 }
