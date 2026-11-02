@@ -2,6 +2,19 @@ import {fold,validDate,type WasteRecord} from './waste';
 
 export function wasteColumn(index:number){let value=index+1,result='';while(value){value--;result=String.fromCharCode(65+value%26)+result;value=Math.floor(value/26)}return result}
 export function wasteTableColumns(headers:string[]){return headers.map((heading,index)=>({key:wasteColumn(index),label:heading.trim()||`Colonne ${wasteColumn(index)}`})).filter(column=>!['BH','BI','BJ'].includes(column.key))}
+export type WasteTableSort={key:string;direction:'asc'|'desc'}|null;
+export function filterWasteTable(records:WasteRecord[],rawById:Record<string,Record<string,string>>,columns:{key:string;label:string}[],query:string,filters:Record<string,string>,sort:WasteTableSort){
+ const term=fold(query.trim()),active=Object.entries(filters).filter(([,value])=>value.trim());
+ const cell=(record:WasteRecord,key:string)=>wasteTableValue(record,rawById[record.id]||{},key);
+ const rows=records.filter(record=>(!term||fold([record.type,...columns.map(column=>cell(record,column.key))].join(' ')).includes(term))&&active.every(([key,value])=>fold(cell(record,key)).includes(fold(value.trim()))));
+ if(!sort)return rows;
+ const compare=new Intl.Collator('fr',{numeric:true,sensitivity:'base'});
+ return rows.sort((a,b)=>{const left=cell(a,sort.key).trim(),right=cell(b,sort.key).trim();if(!left||!right)return left? -1:right?1:0;
+  const date=(value:string)=>{const fr=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);return fr?`${fr[3]}-${fr[2].padStart(2,'0')}-${fr[1].padStart(2,'0')}`:value};
+  const numeric=(value:string)=>Number(value.replace(/\s/g,'').replace(',','.'));
+  const difference=sort.key==='A'?date(left).localeCompare(date(right)):['AI','AJ'].includes(sort.key)&&Number.isFinite(numeric(left))&&Number.isFinite(numeric(right))?numeric(left)-numeric(right):compare.compare(left,right);
+  return (sort.direction==='asc'?1:-1)*difference||a.id.localeCompare(b.id)});
+}
 
 // Preserve the original Excel cells. For an edited or newly created movement,
 // show the current value of fields that can be changed in the application.

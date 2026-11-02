@@ -8,7 +8,7 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-waste-table-'));
 try{
  fs.writeFileSync(path.join(dir,'waste.mjs'),ts.transpileModule(fs.readFileSync('lib/waste.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
  fs.writeFileSync(path.join(dir,'waste-table.mjs'),ts.transpileModule(fs.readFileSync('lib/waste-table.ts','utf8').replaceAll("'./waste'","'./waste.mjs'"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
- const {wasteColumn,wasteTableColumns,wasteTableValue,applyWasteCell}=await import(pathToFileURL(path.join(dir,'waste-table.mjs')));
+ const {wasteColumn,wasteTableColumns,wasteTableValue,applyWasteCell,filterWasteTable}=await import(pathToFileURL(path.join(dir,'waste-table.mjs')));
  assert.deepEqual([wasteColumn(0),wasteColumn(25),wasteColumn(26),wasteColumn(61)],['A','Z','AA','BJ']);
  assert.deepEqual(wasteTableColumns(['Date','',"N° BSD"]).map(x=>x.label),['Date','Colonne B','N° BSD']);
  const fullColumns=wasteTableColumns(Array.from({length:62},(_,i)=>`Colonne ${wasteColumn(i)}`));
@@ -23,5 +23,14 @@ try{
  assert.equal(applyWasteCell({...record,raw},'A','02/11/2026').date,'2026-11-02');
  assert.equal(applyWasteCell({...record,raw},'AH','Oui').danger,'Oui');
  assert.throws(()=>applyWasteCell({...record,raw},'AJ','invalide'),/quantité/);
+ const rows=[{...record,id:'1',type:'Carton',date:'2026-01-02'},{...record,id:'2',type:'Métal',date:'2026-02-10'},{...record,id:'3',type:'Verre',date:'2026-03-01'}];
+ const sources={'1':{A:'02/01/2026',AD:'Carton',AJ:'2'},'2':{A:'10/02/2026',AD:'Métal',AJ:'11'},'3':{A:'01/03/2026',AD:'Verre',AJ:'4'}};
+ const cols=[{key:'A',label:'Date'},{key:'AD',label:'Déchet'},{key:'AJ',label:'Quantité'}];
+ assert.deepEqual(filterWasteTable(rows,sources,cols,'métal',{},null).map(r=>r.id),['2']);
+ assert.deepEqual(filterWasteTable(rows,sources,cols,'',{AD:'ver'},null).map(r=>r.id),['3']);
+ assert.deepEqual(filterWasteTable(rows,sources,cols,'',{AD:'ver',AJ:'11'},null),[]);
+ assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'AJ',direction:'asc'}).map(r=>r.id),['1','3','2']);
+ assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'A',direction:'desc'}).map(r=>r.id),['3','2','1']);
+ assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'AD',direction:'asc'}).map(r=>r.id),['1','2','3']);
  console.log('Registre complet : 59 colonnes affichées, source et corrections vérifiées.');
 }finally{fs.rmSync(dir,{recursive:true,force:true})}
