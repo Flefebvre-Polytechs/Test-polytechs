@@ -1,5 +1,6 @@
 import type {WasteRecord} from './waste';
 import {privateSource} from './private-source';
-type WasteSource={source:string;sha256:string;headers:string[];records:WasteRecord[];adrReference:{row:number;raw:Record<string,string>}[];treatments:string[]};
+export type WasteSource={source:string;sha256:string;headers:string[];records:WasteRecord[];adrReference:{row:number;raw:Record<string,string>}[];treatments:string[]};
 // Deliberately imported by server routes only: never expose source data in client bundles.
-export const wasteSource=privateSource<WasteSource|null>('waste-source.json',null);
+// Read on each request so a validated import becomes visible without restarting Render.
+export function loadWasteSource(){return privateSource<WasteSource|null>('waste-source.json',null)}

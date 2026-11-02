@@ -7,13 +7,13 @@ def val(v):
     return '' if v is None else str(v).strip()
 def num(v):
     return float(v) if isinstance(v,(int,float)) and not isinstance(v,bool) else None
-headers=[val(c.value) for c in s[5]][:59]
+headers=[val(c.value) for c in s[5]][:62]
 flags={4:'DIB',5:'Déchets clients',6:'Purges',7:'Cartons',8:'Plastiques',9:'Terre et granulés',10:'4 flux',11:'Big-bags',12:'Plastiques',13:'Plastiques',14:'Plastiques',15:'Plastiques',16:'Déchets dangereux',17:'Autres',18:'Ferraille',19:'Palettes',20:'Bois',21:'Déchets ménagers',22:'Papier',23:'Retraits salariés',24:'Intervenants extérieurs',25:'Déchetterie'}
 records=[]
 for row in s.iter_rows(min_row=6):
     v=[c.value for c in row]; n=row[0].row
     if not v[29]:continue
-    raw={openpyxl.utils.get_column_letter(i+1):val(x) for i,x in enumerate(v[:59]) if x is not None}
+    raw={openpyxl.utils.get_column_letter(i+1):val(x) for i,x in enumerate(v[:62]) if x is not None}
     original=val(v[0]); planned=bool(re.search('prév|demande|planification',original,re.I))
     date='';issues=[]
     if isinstance(v[0],(datetime.datetime,datetime.date)):date=val(v[0])
@@ -25,6 +25,7 @@ for row in s.iter_rows(min_row=6):
             except ValueError:pass
     if not date:issues.append('Date absente ou à corriger')
     q=num(v[35]); estimated=num(v[34]);unit='t'
+    if estimated is not None and estimated<0:issues.append('Quantité estimée négative à corriger')
     if v[19] or val(v[29]).lower()=='palettes':unit='unité'
     if q is not None and unit=='t' and q>100:
         unit='à vérifier';issues.append('Unité de la quantité à confirmer')

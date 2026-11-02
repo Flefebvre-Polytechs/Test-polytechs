@@ -25,10 +25,11 @@ const all=[mass,kg,pieces,planned,uncertain,badDate,unknown];
 assert.equal(wasteMetrics(all).total,2.5);assert.equal(wasteMetrics(all).materialRate,80);assert.equal(wasteMetrics(all).pallets,204);assert.equal(wasteMetrics(all).weighed,2);
 assert.equal(tonnes({...mass,quantity:0}),0);assert.equal(tonnes(badDate),null);assert.equal(tonnes(planned),null);assert.equal(tonnes(unknown),null);
 assert.ok(wasteIssues({...mass,code:'161001*',danger:'Non'}).some(x=>x.includes('étoilé')));assert.ok(validateWaste({...mass,quantity:-1}).length);assert.ok(validateWaste({...mass,documentUrl:'javascript:alert(1)'}).length);
+assert.ok(wasteIssues({...mass,estimate:-18}).some(x=>x.includes('négative')),'A negative historical estimate remains visible for correction');
 fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.wasteTestDb;');
 fs.writeFileSync(path.join(dir,'access.mjs'),"export const checkOrigin=req=>req.headers.get('origin')===new URL(req.url).origin;export const requireRole=async(req,role='reader')=>globalThis.wasteTestRole===null?{error:Response.json({}, {status:401})}:role==='editor'&&globalThis.wasteTestRole==='reader'?{error:Response.json({}, {status:403})}:{user:{displayName:'Test',role:globalThis.wasteTestRole}};");
 fs.writeFileSync(path.join(dir,'teams.mjs'),'export const teamsAllowed=async()=>globalThis.wasteTeamAllowed;');
-fs.writeFileSync(path.join(dir,'source.mjs'),'export const wasteSource='+JSON.stringify({source:'test.xlsx',records:[mass],headers:['Date'],adrReference:[]})+';');
+fs.writeFileSync(path.join(dir,'source.mjs'),'export const loadWasteSource=()=>('+JSON.stringify({source:'test.xlsx',records:[mass],headers:['Date'],adrReference:[]})+');');
 let source=fs.readFileSync('app/api/dechets/route.ts','utf8');for(const [from,to] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/waste-private-source','./source.mjs'],['@/lib/waste','./waste.mjs']])source=source.replaceAll("'"+from+"'","'"+to+"'");compile('route',source);
 sqlite.exec(`CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,status TEXT,details TEXT,description TEXT,owner TEXT,url TEXT);`);
 sqlite.exec(fs.readFileSync('drizzle/0013_tricky_lady_vermin.sql','utf8').replaceAll('--> statement-breakpoint',''));
@@ -43,6 +44,6 @@ data=await (await api.GET(new Request('https://example.test/api/dechets?id=excel
 assert.equal((await api.POST(request({...data.record,quantity:4}))).status,200);
 assert.equal((await api.POST(request({...data.record,quantity:44}))).status,409);
 const created=await api.POST(request({...blankWaste(),type:'Nouveau déchet'}));assert.equal(created.status,200);
-const sourcePath='private/waste-source.json';if(fs.existsSync(sourcePath)){const original=JSON.parse(fs.readFileSync(sourcePath,'utf8'));assert.equal(original.records.length,1733);assert.equal(new Set(original.records.map(r=>r.id)).size,1733);assert.equal(original.records.find(r=>r.sourceRow===66).unit,'à vérifier');assert.equal(original.records.find(r=>r.sourceRow===6).quantity,204);assert.equal(original.records.find(r=>r.sourceRow===6).unit,'unité');assert.ok(original.records.every(r=>r.raw.AD));}
+const sourcePath='private/waste-source.json';if(fs.existsSync(sourcePath)){const original=JSON.parse(fs.readFileSync(sourcePath,'utf8'));assert.ok(original.records.length>=1733);assert.equal(new Set(original.records.map(r=>r.id)).size,original.records.length);assert.equal(original.records.find(r=>r.sourceRow===66).unit,'à vérifier');assert.equal(original.records.find(r=>r.sourceRow===6).quantity,204);assert.equal(original.records.find(r=>r.sourceRow===6).unit,'unité');assert.ok(original.records.every(r=>r.raw.AD));}
 console.log('Déchets : unités, dates, estimations, confidentialité, droits, historique et modifications concurrentes vérifiés.');
 }finally{sqlite.close();fs.rmSync(dir,{recursive:true,force:true})}
