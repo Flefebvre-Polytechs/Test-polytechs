@@ -15,6 +15,7 @@ L’ancienne rubrique QSSE « Utilisateurs et droits » affiche le même composa
 - Création d’un compte avec adresse, mot de passe initial et rôle. Le compte doit changer son mot de passe initial ; sa fiche s’ouvre directement sur les services à attribuer, sans recherche supplémentaire. L’API renvoie l’ID stable du compte créé.
 - Indicateurs cliquables, filtres combinables et état vide avec accès direct à la liste complète.
 - Fiche organisée en trois vues : Services, Identité et rôle, Sécurité. La vue Services distingue les accès explicites des services ouverts et des accès administrateur globaux.
+- Photo de profil affichée dans l’annuaire et la fiche lorsqu’elle existe ; initiales sinon. Seule la date de mise à jour de la photo est présente dans la réponse de l’annuaire administrateur ; l’image passe par l’API authentifiée déjà utilisée pour les tickets.
 - Fiche globale : modifier le nom, le rôle, l’adresse et les affectations de cette personne à plusieurs services. L’historique et les ID stables sont conservés. L’adresse e-mail sert d’identifiant public, sans pseudo à renseigner.
 - Les changements de rôle et de droits par service demandent confirmation. Les modifications périmées sont refusées (nom, rôle global, affectation de service).
 - Le changement d’adresse garde la confirmation par mot de passe administrateur et la révocation des sessions/codes.
