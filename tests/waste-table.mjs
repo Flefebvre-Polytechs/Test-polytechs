@@ -11,6 +11,8 @@ try{
  const {wasteColumn,wasteTableColumns,wasteTableValue,applyWasteCell}=await import(pathToFileURL(path.join(dir,'waste-table.mjs')));
  assert.deepEqual([wasteColumn(0),wasteColumn(25),wasteColumn(26),wasteColumn(61)],['A','Z','AA','BJ']);
  assert.deepEqual(wasteTableColumns(['Date','',"N° BSD"]).map(x=>x.label),['Date','Colonne B','N° BSD']);
+ const fullColumns=wasteTableColumns(Array.from({length:62},(_,i)=>`Colonne ${wasteColumn(i)}`));
+ assert.equal(fullColumns.length,59);assert.equal(fullColumns.at(-1).key,'BG');
  const raw={A:'Date source',AC:'BSD initial',AD:'Carton',AR:'Collecteur\nAdresse',BH:'Note source'};
  const record={sourceRow:6,revision:0,date:'2026-01-02',type:'Carton',bsd:'BSD récent',collector:'Collecteur',quantity:2,estimate:null,danger:'Non',client:false,excluded:false,code:'200101',treatment:'Recyclage',destination:'Site'};
  assert.equal(wasteTableValue(record,raw,'AR'),'Collecteur\nAdresse');assert.equal(wasteTableValue(record,raw,'BH'),'Note source');
@@ -21,5 +23,5 @@ try{
  assert.equal(applyWasteCell({...record,raw},'A','02/11/2026').date,'2026-11-02');
  assert.equal(applyWasteCell({...record,raw},'AH','Oui').danger,'Oui');
  assert.throws(()=>applyWasteCell({...record,raw},'AJ','invalide'),/quantité/);
- console.log('Registre complet : 62 colonnes, source et corrections vérifiées.');
+ console.log('Registre complet : 59 colonnes affichées, source et corrections vérifiées.');
 }finally{fs.rmSync(dir,{recursive:true,force:true})}

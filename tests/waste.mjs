@@ -54,15 +54,15 @@ assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,col
 assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'AJ',value:'9'}))).status,409);
 current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
 assert.equal(current.quantity,4.5);assert.equal(current.cellOverrides.AJ,'4,5');assert.equal(current.raw.AJ,'2');
-assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'BH',value:'Observation complète'}))).status,200);
+assert.equal((await api.PATCH(patch({id:current.id,revision:current.revision,column:'BG',value:'Observation complète'}))).status,200);
 current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
-assert.equal(current.cellOverrides.BH,'Observation complète');
+assert.equal(current.cellOverrides.BG,'Observation complète');
 assert.equal((await api.POST(request({...current,type:'Carton ondulé'}))).status,200);
 current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
-assert.equal(current.cellOverrides.BH,'Observation complète');assert.equal(current.cellOverrides.AJ,'4,5');
+assert.equal(current.cellOverrides.BG,'Observation complète');assert.equal(current.cellOverrides.AJ,'4,5');
 assert.equal((await api.POST(request({...current,quantity:6}))).status,200);
 current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
-assert.equal(current.cellOverrides.AJ,undefined);assert.equal(current.cellOverrides.BH,'Observation complète');
+assert.equal(current.cellOverrides.AJ,undefined);assert.equal(current.cellOverrides.BG,'Observation complète');
 const created=await api.POST(request({...blankWaste(),type:'Nouveau déchet'}));assert.equal(created.status,200);
 const sourcePath='private/waste-source.json';if(fs.existsSync(sourcePath)){const original=JSON.parse(fs.readFileSync(sourcePath,'utf8'));assert.ok(original.records.length>=1733);assert.equal(new Set(original.records.map(r=>r.id)).size,original.records.length);assert.equal(original.records.find(r=>r.sourceRow===66).unit,'à vérifier');assert.equal(original.records.find(r=>r.sourceRow===6).quantity,204);assert.equal(original.records.find(r=>r.sourceRow===6).unit,'unité');assert.ok(original.records.every(r=>r.raw.AD));}
 console.log('Déchets : unités, dates, estimations, confidentialité, droits, historique et modifications concurrentes vérifiés.');

@@ -1,7 +1,7 @@
 import {fold,validDate,type WasteRecord} from './waste';
 
 export function wasteColumn(index:number){let value=index+1,result='';while(value){value--;result=String.fromCharCode(65+value%26)+result;value=Math.floor(value/26)}return result}
-export function wasteTableColumns(headers:string[]){return headers.map((heading,index)=>({key:wasteColumn(index),label:heading.trim()||`Colonne ${wasteColumn(index)}`}))}
+export function wasteTableColumns(headers:string[]){return headers.map((heading,index)=>({key:wasteColumn(index),label:heading.trim()||`Colonne ${wasteColumn(index)}`})).filter(column=>!['BH','BI','BJ'].includes(column.key))}
 
 // Preserve the original Excel cells. For an edited or newly created movement,
 // show the current value of fields that can be changed in the application.
