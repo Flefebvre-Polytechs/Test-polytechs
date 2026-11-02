@@ -8,6 +8,7 @@ import {applyLocale,languages,watchLocale,translate,resolveLocale,type Locale} f
 type Profile={locale:Locale;photoUrl:string};
 type Context={account:Account;logout:()=>void;profile:Profile;setProfile:(profile:Profile)=>void;ready:boolean;loadError:string;reload:()=>void};
 const ProfileContext=createContext<Context|null>(null);
+export function useCurrentAccount(){return useContext(ProfileContext)?.account||null}
 export function useInterfaceLocale(){return useContext(ProfileContext)?.profile.locale||'fr'}
 const initial:Profile={locale:'fr',photoUrl:''};
 export function ProfileProvider({account,logout,children}:{account:Account;logout:()=>void;children:ReactNode}){
