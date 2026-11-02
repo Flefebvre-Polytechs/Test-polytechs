@@ -5,9 +5,10 @@ import {database} from '@/db/raw';
 
 export type Role='admin'|'editor'|'reader';
 export type Account={id:string;username:string;displayName:string;role:Role;mustChangePassword:boolean};
-type DbUser={id:string;username:string;display_name:string;role:Role;password_hash:string;must_change_password:number};
+export type DbUser={id:string;username:string;display_name:string;role:Role;password_hash:string;must_change_password:number;email:string|null};
 const encoder=new TextEncoder();
 const COOKIE='qse_session';
+const emailMfaRequired=()=>process.env.POLYTECHS_EMAIL_MFA_REQUIRED==='true';
 const DAYS=7*24*60*60*1000;
 
 function hex(bytes:Uint8Array){return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('')}
@@ -30,12 +31,13 @@ export async function throttle(key:string,max=5,window=15*60*1000){const now=Dat
 export async function clearThrottle(key:string){await database().prepare('DELETE FROM security_limits WHERE key=?').bind(key).run()}
 export function account(user:DbUser):Account{return {id:user.id,username:user.username,displayName:user.display_name,role:user.role,mustChangePassword:!!user.must_change_password}}
 function cookieValue(req:Request){return req.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1)||''}
-export async function currentUser(req:Request):Promise<Account|null>{const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token)){const row=await database().prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await sha(token),Date.now()).first<DbUser>();if(row)return account(row)}
-const identity=siteIdentity(req);if(identity){const row=await database().prepare('SELECT u.* FROM site_identities s JOIN users u ON u.id=s.user_id WHERE s.identity_id=? AND s.expires_at>?').bind(identity,Date.now()).first<DbUser>();if(row)return account(row)}
+export async function currentUser(req:Request):Promise<Account|null>{const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token)){const row=await database().prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND (?=0 OR s.email_verified=1)').bind(await sha(token),Date.now(),emailMfaRequired()?1:0).first<DbUser>();if(row)return account(row)}
+const identity=siteIdentity(req);if(identity&&!emailMfaRequired()){const row=await database().prepare('SELECT u.* FROM site_identities s JOIN users u ON u.id=s.user_id WHERE s.identity_id=? AND s.expires_at>?').bind(identity,Date.now()).first<DbUser>();if(row)return account(row)}
 return null}
 export async function requireRole(req:Request,role:Role='reader'){const user=await currentUser(req);if(!user)return {error:Response.json({error:'Connexion nécessaire.'},{status:401})};if(!['reader','editor','admin'].includes(user.role))return {error:Response.json({error:'Rôle invalide.'},{status:403})};if(user.mustChangePassword)return {error:Response.json({error:'Changez votre mot de passe avant de continuer.'},{status:403})};if(({reader:0,editor:1,admin:2})[user.role]<({reader:0,editor:1,admin:2})[role])return {error:Response.json({error:'Accès non autorisé pour votre rôle.'},{status:403})};return {user}}
 export function checkOrigin(req:Request){const origin=req.headers.get('origin');const configured=process.env.POLYTECHS_PUBLIC_ORIGIN||process.env.RENDER_EXTERNAL_URL;return !!origin&&origin===(configured?new URL(configured).origin:new URL(req.url).origin)}
-export async function issueSession(userId:string){const token=hex(crypto.getRandomValues(new Uint8Array(32)));await database().prepare('INSERT INTO sessions (token_hash,user_id,expires_at) VALUES (?,?,?)').bind(await sha(token),userId,Date.now()+DAYS).run();return `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${DAYS/1000}`}
+export async function sessionMaterial(){const token=hex(crypto.getRandomValues(new Uint8Array(32)));return {hash:await sha(token),expires:Date.now()+DAYS,cookie:`${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${DAYS/1000}`}}
+export async function issueSession(userId:string,emailVerified=false){const material=await sessionMaterial();await database().prepare('INSERT INTO sessions (token_hash,user_id,expires_at,email_verified) VALUES (?,?,?,?)').bind(material.hash,userId,material.expires,emailVerified?1:0).run();return material.cookie}
 export async function endSession(req:Request){const id=siteIdentity(req);if(id)await database().prepare('DELETE FROM site_identities WHERE identity_id=?').bind(id).run();const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token))await database().prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha(token)).run()}
 export const clearCookie=`${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0`;
 export async function userByName(username:string){return database().prepare('SELECT * FROM users WHERE username=?').bind(username).first<DbUser>()}
