@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 import ts from 'typescript';
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'qse-rules-'));
 try {
-for(const name of ['modules','workflows']){let source=fs.readFileSync(`lib/${name}.ts`,'utf8').replace("'./modules'","'./modules.mjs'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
+for(const name of ['prevention-rules','modules','workflows']){let source=fs.readFileSync(`lib/${name}.ts`,'utf8').replace("'./modules'","'./modules.mjs'").replaceAll("'./prevention-rules'","'./prevention-rules.mjs'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 const {blank,normalize,validate,dueEvents,closed}=await import(pathToFileURL(path.join(dir,'workflows.mjs')));
 const action={...blank,title:'Vérifier une protection',status:'Clôturée',owner:'QSE',due:'2026-01-01',details:{measure:'Contrôle terrain'}};
 assert(validate(action).some(e=>e.includes('Vérifié par')),'Clôture sans vérification refusée');
