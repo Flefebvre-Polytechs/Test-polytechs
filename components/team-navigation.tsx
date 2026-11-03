@@ -18,7 +18,7 @@ const qsseSections=[
     ['Accidents du travail','/qse#'+encodeURIComponent('Accidents du travail'),HeartPulse],
     ['Situations dangereuses','/qse#'+encodeURIComponent('Situations dangereuses'),TriangleAlert],
     ['EPI · stock et dotations','/epi-stock',EpiIcon],
-    ['Plans de prévention','/qse#'+encodeURIComponent('Plans de prévention'),ShieldAlert],
+    ['Plans de prévention','/plans-prevention',ShieldAlert],
   ]},
   {name:'Environnement',links:[
     ['Gestion des déchets','/dechets',Recycle],
