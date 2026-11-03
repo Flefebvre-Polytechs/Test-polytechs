@@ -2,10 +2,11 @@ import {teamsAllowed} from '@/lib/team-access';
 import {database} from '@/db/raw';
 import {checkOrigin,requireRole} from '@/lib/access';
 import {epiCatalog as catalog} from '@/lib/epi-private-source';
+import {ensureCatalog} from '@/lib/epi-catalog-server';
 
 const error=(message:string,status=400)=>Response.json({error:message},{status});
 type Product={code:string;quantity:number|null;revision:number;catalog_status:string};
-async function ensureCatalog(){const db=database();const row=await db.prepare('SELECT COUNT(*) AS total FROM epi_products').first<{total:number}>();if((row?.total??0)>=catalog.items.length)return;const now=new Date().toISOString();const statements=catalog.items.flatMap(item=>[db.prepare('INSERT OR IGNORE INTO epi_products (code,family,name,specifics,source_row,source_sheet,catalog_status,quantity,minimum,location,revision,updated_at) VALUES (?,?,?,?,?,?,?,NULL,NULL,?,1,?)').bind(item.code,item.family,item.name,item.specifics,item.sourceRow,item.sourceSheet,item.catalogStatus,'',now),db.prepare("UPDATE epi_products SET specifics=? WHERE code=? AND (specifics IS NULL OR trim(specifics)='')").bind(item.specifics,item.code)]);for(let i=0;i<statements.length;i+=40)await db.batch(statements.slice(i,i+40))}
+
 
 export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;if(!await teamsAllowed(gate.user!,['qsse']))return Response.json({error:'Accès QSSE nécessaire.'},{status:403});const params=new URL(req.url).searchParams,code=params.get('code');const db=database();if(code){const offset=Number(params.get('offset')||0);if(!/^[A-Za-z0-9*_-]{4,80}$/.test(code)||!Number.isSafeInteger(offset)||offset<0||offset>100000)return error('Historique invalide.');const movements=await db.prepare('SELECT * FROM epi_movements WHERE code=? ORDER BY created_at DESC,id DESC LIMIT 101 OFFSET ?').bind(code,offset).all();return Response.json({movements:movements.results.slice(0,100),hasMore:movements.results.length>100},{headers:{'Cache-Control':'no-store'}})}await ensureCatalog();const products=await db.prepare('SELECT p.*,CASE WHEN ph.code IS NULL THEN 0 ELSE 1 END AS has_photo,ph.updated_at AS photo_updated_at FROM epi_products p LEFT JOIN epi_photos ph ON ph.code=p.code ORDER BY p.family,p.name,p.code').all();return Response.json({products:products.results,source:catalog.source,sourceCount:catalog.items.length,duplicateRows:catalog.duplicateRows},{headers:{'Cache-Control':'no-store'}})}catch(e){console.error(e);return error('Stock EPI indisponible.',503)}}
 
