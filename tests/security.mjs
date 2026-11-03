@@ -44,17 +44,34 @@ db.exec("INSERT INTO team_members VALUES('qsse','editor','viewer')");
 const readable=(await (await records.GET(req({cookie:editorCookie}))).json()).records;assert.equal(readable.length,3);
 const {recordAccess}=await import(path.join(dir,'records-access.mjs'));const all=db.prepare('SELECT * FROM records').all();assert.equal((await recordAccess({id:'editor',role:'editor'},all,true))(all[0]),false);db.exec("UPDATE team_members SET level='contributor'");assert.equal((await recordAccess({id:'editor',role:'editor'},all,true))(all[0]),true);assert.equal((await recordAccess({id:'reader',role:'reader'},all))(all[0]),false);assert.equal((await recordAccess({id:'editor',role:'editor'},all))({sourceId:'missing'}),false);
 const adminLogin=await post(auth,{action:'login',username:'admin',password}),adminCookie=adminLogin.headers.get('set-cookie').split(';')[0];
-db.exec(`CREATE TABLE epi_products(code TEXT PRIMARY KEY,family TEXT,name TEXT,specifics TEXT,catalog_status TEXT,quantity INTEGER,minimum INTEGER,location TEXT);CREATE TABLE epi_photos(code TEXT PRIMARY KEY,updated_at TEXT);INSERT INTO epi_products VALUES('EPI01TEST','MAIN','Gant test','Taille M','Actif',12,4,'Armoire A'),('EPI02AUTRE','TÊTE','Casque secret','','Actif',8,NULL,'Armoire B');`);
+db.exec(`CREATE TABLE epi_products(code TEXT PRIMARY KEY,family TEXT,name TEXT,specifics TEXT,catalog_status TEXT,quantity INTEGER,minimum INTEGER,location TEXT,source_row INTEGER DEFAULT 0,source_sheet TEXT DEFAULT 'Test',revision INTEGER DEFAULT 1,updated_at TEXT DEFAULT '');CREATE TABLE epi_movements(id TEXT PRIMARY KEY,code TEXT,kind TEXT,delta INTEGER,quantity INTEGER,recipient TEXT,note TEXT,author TEXT,created_at TEXT);CREATE TABLE epi_photos(code TEXT PRIMARY KEY,updated_at TEXT);INSERT INTO epi_products(code,family,name,specifics,catalog_status,quantity,minimum,location) VALUES('EPI01TEST','MAIN','Gant test','Taille M','Actif',12,4,'Armoire A'),('EPI02AUTRE','TÊTE','Casque secret','','Actif',8,NULL,'Armoire B');`);
 const scanned=await epiScan.GET(new Request('https://example.test/api/epi-stock/scan?code=EPI01TEST',{headers:{cookie:adminCookie}}));assert.equal(scanned.status,200);const scanData=await scanned.json();assert.equal(scanData.product.code,'EPI01TEST');assert.equal(scanData.product.quantity,12);assert.equal(scanData.canEdit,true);assert.ok(!JSON.stringify(scanData).includes('EPI02AUTRE'),'Scoped scan must not return other EPI stock');assert.equal((await epiScan.GET(new Request('https://example.test/api/epi-stock/scan?code=EPI02INCONNU',{headers:{cookie:adminCookie}}))).status,404);assert.equal((await epiScan.GET(new Request('https://example.test/api/epi-stock/scan?code=EPI01TEST'))).status,401);
 db.exec("DELETE FROM team_members WHERE team_id='qsse' AND user_id='editor'");
 assert.equal((await post(users,{action:'epi-manager',id:'reader',enabled:true,expected:false},{cookie:adminCookie})).status,400,'A reader cannot become an EPI manager');
 assert.equal((await post(users,{action:'epi-manager',id:'editor',enabled:true,expected:false},{cookie:adminCookie})).status,200);
 assert.equal((await epiScan.GET(new Request('https://example.test/api/epi-stock/scan?code=EPI01TEST',{headers:{cookie:editorCookie}}))).status,200,'EPI manager reads only EPI without QSSE team membership');
 assert.equal((await epi.GET(req({cookie:editorCookie}))).status,200);
+// Catalog lifecycle: delegated manager, duplicate and invalid data, stale writes, preserved history.
+const catalogReaderLogin=await post(auth,{action:'login',username:'reader',password}),catalogReaderCookie=catalogReaderLogin.headers.get('set-cookie').split(';')[0];
+const newEpi={action:'create',code:'EPI-NEW-01',family:'Mains',name:'Gants de test',specifics:'Taille L',minimum:3,location:'Magasin'};
+assert.equal((await post(epi,newEpi,{cookie:editorCookie})).status,201);
+assert.equal((await post(epi,newEpi,{cookie:editorCookie})).status,409);
+assert.equal((await post(epi,{...newEpi,code:'EPI-INVALID',name:'  '},{cookie:editorCookie})).status,400);
+assert.equal((await post(epi,newEpi,{cookie:catalogReaderCookie})).status,403);
+assert.equal((await post(epi,{code:newEpi.code,kind:'inventaire',amount:5},{cookie:editorCookie})).status,200);
+assert.equal((await post(epi,{action:'delete',code:newEpi.code,revision:1},{cookie:editorCookie})).status,409);
+assert.equal((await post(epi,{action:'delete',code:newEpi.code,revision:2},{cookie:catalogReaderCookie})).status,403);
+assert.equal((await post(epi,{action:'delete',code:newEpi.code,revision:2},{cookie:editorCookie})).status,200);
+assert.ok(!(await (await epi.GET(req({cookie:editorCookie}))).json()).products.some(p=>p.code===newEpi.code));
+assert.equal((await epiScan.GET(new Request('https://example.test/api/epi-stock/scan?code='+newEpi.code,{headers:{cookie:editorCookie}}))).status,404);
+assert.equal((await post(epi,{code:newEpi.code,kind:'inventaire',amount:10},{cookie:editorCookie})).status,404);
+assert.equal((await post(epi,{action:'catalog',code:newEpi.code,revision:3,status:'Actif'},{cookie:adminCookie})).status,409);
+assert.equal((await post(epi,newEpi,{cookie:editorCookie})).status,409,'Deleted codes cannot be reused');
+assert.equal(db.prepare('SELECT COUNT(*) n FROM epi_movements WHERE code=?').get(newEpi.code).n,1,'Deletion preserves stock history');
 const {recordAccess:epiRecordAccess}=await import(path.join(dir,'records-access.mjs'));
 const managerCanWrite=await epiRecordAccess({id:'editor',role:'editor'},[],true);assert.equal(managerCanWrite({kind:'EPI'}),true);assert.equal(managerCanWrite({kind:'DUERP'}),false);
 assert.equal((await post(users,{action:'epi-manager',id:'editor',enabled:false,expected:true},{cookie:adminCookie})).status,200);
-assert.equal((await epi.GET(req({cookie:editorCookie}))).status,403,'Revocation takes effect on the next request');db.exec("INSERT INTO team_members VALUES('qsse','editor','contributor')");
+assert.equal((await epi.GET(req({cookie:editorCookie}))).status,403,'Revocation takes effect on the next request');assert.equal((await post(epi,{...newEpi,code:'EPI-REVOKED'},{cookie:editorCookie})).status,403);assert.equal((await post(epi,{action:'delete',code:'EPI01TEST',revision:1},{cookie:editorCookie})).status,403);db.exec("INSERT INTO team_members VALUES('qsse','editor','contributor')");
 
 // Exercise successful DUERP reads on the same strict SQLite engine as Render.
 db.exec(`CREATE TABLE evrp_units(code TEXT,name TEXT,roles TEXT);CREATE TABLE evrp_risks(id TEXT,unit_code TEXT,data TEXT,original TEXT,status TEXT);CREATE TABLE evrp_revisions(id TEXT,date TEXT,kind TEXT);CREATE TABLE evrp_risk_history(risk_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT,saved_by TEXT);CREATE TABLE evrp_action_history(action_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT,saved_by TEXT);INSERT INTO evrp_units VALUES('UT1','Test','[]');INSERT INTO evrp_risks VALUES('risk-test','UT1','{"applicable":false,"reviewReasons":[]}','{}','Validé');`);

@@ -29,7 +29,7 @@ export async function POST(req:Request){try{
   const form=await new Response(Buffer.concat(chunks),{headers:{'Content-Type':req.headers.get('content-type')||''}}).formData();
   const code=String(form.get('code')||''),file=form.get('file');
   if(!validCode(code)||!(file instanceof File)||!file.size||file.size>limit)return fail('Référence ou photo invalide.');
-  const db=database();const product=await db.prepare('SELECT code FROM epi_products WHERE code=?').bind(code).first();if(!product)return fail('Référence inconnue.',404);
+  const db=database();const product=await db.prepare('SELECT code FROM epi_products WHERE code=? AND catalog_status<>\'Supprimé\'').bind(code).first();if(!product)return fail('Référence inconnue.',404);
   let bytes:Buffer;
   try{const source=sharp(Buffer.from(await file.arrayBuffer()),{limitInputPixels:20_000_000,animated:false}),metadata=await source.metadata();if(!['jpeg','png','webp'].includes(metadata.format||''))return fail('Choisissez une image JPG, PNG ou WebP.');bytes=await source.rotate().resize({width:1200,height:1200,fit:'inside',withoutEnlargement:true}).jpeg({quality:82}).toBuffer()}catch{return fail('Image illisible ou trop grande.');}
   const key='epi/'+code+'/'+crypto.randomUUID()+'.jpg',old=await db.prepare('SELECT object_key,updated_at FROM epi_photos WHERE code=?').bind(code).first<Photo>();
