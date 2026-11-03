@@ -1,5 +1,4 @@
 'use client';
-import {useHubMeta} from '@/components/hub-layout';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import QRCode from 'qrcode';
 import {AccountGate,type Account} from '@/components/account-gate';
@@ -10,11 +9,10 @@ import type {Product} from './types';
 import './stock.css';
 
 type Movement={id:string;code:string;kind:string;delta:number;quantity:number;recipient:string;note:string;author:string;created_at:string};
-type Data={products:Product[];source:string;sourceCount:number;duplicateRows:Record<string,number[]>};
+type Data={canManage:boolean;products:Product[];source:string;sourceCount:number;duplicateRows:Record<string,number[]>};
 function photoUrl(product:Product){return '/api/epi-stock/photo?code='+encodeURIComponent(product.code)+'&v='+encodeURIComponent(product.photo_updated_at||'')}
 export default function EpiPage(){const [route,setRoute]=useState<'checking'|'catalog'>('checking');useEffect(()=>{const code=new URLSearchParams(window.location.search).get('code');if(code){window.location.replace('/epi-stock/scan?code='+encodeURIComponent(code));return}setRoute('catalog')},[]);return route==='checking'?<main className="stock-page" role="status">Ouverture de l’espace EPI…</main>:<AccountGate>{account=><Epi account={account}/>}</AccountGate>}
 function Epi({account}:{account:Account}){
-  const {meta:permissions}=useHubMeta();const canEdit=account.role!=='reader'&&(account.role==='admin'||!!permissions.editableTeams?.includes('qsse'));
   const [data,setData]=useState<Data|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[movements,setMovements]=useState<Movement[]>([]),[historyLoading,setHistoryLoading]=useState(false),[historyMore,setHistoryMore]=useState(false);
   const [view,setView]=useState<'stock'|'dotations'>(()=>typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('view')==='dotations'?'dotations':'stock'),[search,setSearch]=useState(''),[family,setFamily]=useState('Toutes les familles'),[focus,setFocus]=useState('Tous'),[listPage,setListPage]=useState(0),[code,setCode]=useState(()=>typeof window==='undefined'?'':new URLSearchParams(window.location.search).get('code')||'');
   const historyRequest=useRef(0),photoInput=useRef<HTMLInputElement>(null),detailRef=useRef<HTMLElement>(null),initialQr=useRef(false);const [photoBusy,setPhotoBusy]=useState(false),[qrData,setQrData]=useState('');
@@ -29,6 +27,7 @@ function Epi({account}:{account:Account}){
   const families=useMemo(()=>[...new Set((data?.products||[]).map(p=>p.family))].sort((a,b)=>a.localeCompare(b,'fr')),[data]);
   const filtered=(data?.products||[]).filter(p=>(family==='Toutes les familles'||p.family===family)&&[p.code,p.family,p.name,p.specifics].join(' ').toLocaleLowerCase('fr').includes(search.toLocaleLowerCase('fr'))&&(focus==='Tous'||focus==='À inventorier'&&p.quantity===null||focus==='À confirmer'&&p.catalog_status==='À confirmer'||focus==='Seuil atteint'&&p.quantity!==null&&p.minimum!==null&&p.quantity<=p.minimum));
   const pageSize=12,totalPages=Math.max(1,Math.ceil(filtered.length/pageSize)),currentPage=Math.min(listPage,totalPages-1),visible=filtered.slice(currentPage*pageSize,(currentPage+1)*pageSize);
+  const canEdit=!!data?.canManage;
   const selected=data?.products.find(p=>p.code===code),counted=(data?.products||[]).filter(p=>p.quantity!==null),low=counted.filter(p=>p.minimum!==null&&p.quantity!==null&&p.quantity<=p.minimum);
   function selectView(value:'stock'|'dotations'){setView(value);history.replaceState(null,'',value==='stock'?(code?'/epi-stock?code='+encodeURIComponent(code):'/epi-stock'):'/epi-stock?view=dotations')}
   function filterFamily(value:string){setFamily(value);setListPage(0);clearSelection()}
@@ -44,7 +43,7 @@ function Epi({account}:{account:Account}){
     <header className="stock-hero"><div><span className="stock-eyebrow">POLYTECHS · PRÉVENTION</span><h1><Package size={31}/> Espace EPI</h1><p>Références, stock magasin et dotations au même endroit.</p></div>{view==='stock'&&<div className="stock-hero-actions"><a className="outline" href="/epi-stock/etiquettes"><Printer size={16}/> Imprimer tous les QR codes</a><button className="outline" onClick={csv} disabled={!data?.products.length}>Exporter le stock CSV</button></div>}</header>
     <div className="epi-tabs" role="tablist" aria-label="Espace EPI"><button role="tab" aria-selected={view==='stock'} onClick={()=>selectView('stock')}>Catalogue & stock</button><button role="tab" aria-selected={view==='dotations'} onClick={()=>selectView('dotations')}>Dotations</button></div>
     {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="success">{notice}</p>}
-    {!data?<section className="stock-card" role="status">{error?<><p>Le catalogue ne peut pas être chargé.</p><button className="outline" onClick={load}>Réessayer</button></>:"Chargement des EPI…"}</section>:view==='dotations'?<Dotations account={account} products={data.products} onStockChange={load}/>:<>
+    {!data?<section className="stock-card" role="status">{error?<><p>Le catalogue ne peut pas être chargé.</p><button className="outline" onClick={load}>Réessayer</button></>:"Chargement des EPI…"}</section>:view==='dotations'?<Dotations account={account} canEdit={canEdit} products={data.products} onStockChange={load}/>:<>
       {!counted.length&&<div className="stock-onboarding"><ClipboardCheck size={24}/><div><strong>Commencez par le premier inventaire</strong><p>Choisissez un article, comptez les pièces disponibles puis enregistrez la quantité. Les entrées, sorties et remises seront ensuite possibles.</p></div><button className="outline" onClick={()=>filterFocus('À inventorier')}>Articles à inventorier</button></div>}<section className="stock-metrics"><article><strong>{data.products.length}</strong><span>références</span></article><article><strong>{counted.length}</strong><span>inventoriées</span></article><article><strong>{data.products.length-counted.length}</strong><span>à inventorier</span></article><article className={low.length?'stock-warning':''}><strong>{low.length}</strong><span>au seuil ou en dessous</span></article></section>
       <div className="stock-family-grid"><button className={family==='Toutes les familles'?'active':''} onClick={()=>filterFamily('Toutes les familles')}><strong>Toutes</strong><small>{data.products.length}</small></button>{families.map(f=><button className={family===f?'active':''} key={f} onClick={()=>filterFamily(f)}><strong>{f}</strong><small>{data.products.filter(p=>p.family===f).length}</small></button>)}</div>
       <div className="stock-layout"><section className="stock-card"><div className="stock-section-heading"><div><h2>Références</h2><p>{filtered.length} résultat(s) · {family==='Toutes les familles'?'toutes les familles':family}</p></div></div>

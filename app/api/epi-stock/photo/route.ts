@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import {bucket,database} from '@/db/raw';
 import {checkOrigin,requireRole} from '@/lib/access';
-import {teamsAllowed} from '@/lib/team-access';
+import {epiCanRead,epiCanManage} from '@/lib/epi-access';
 
 export const runtime='nodejs';
 const limit=4*1024*1024;
@@ -11,7 +11,7 @@ type Photo={object_key:string;updated_at:string};
 
 export async function GET(req:Request){try{
   const gate=await requireRole(req);if(gate.error)return gate.error;
-  if(!await teamsAllowed(gate.user!,['qsse']))return fail('Accès QSSE nécessaire.',403);
+  if(!await epiCanRead(gate.user!))return fail('Accès QSSE nécessaire.',403);
   const code=new URL(req.url).searchParams.get('code')||'';if(!validCode(code))return fail('Référence invalide.');
   const photo=await database().prepare('SELECT object_key,updated_at FROM epi_photos WHERE code=?').bind(code).first<Photo>();
   if(!photo)return fail('Photo introuvable.',404);
@@ -22,7 +22,7 @@ export async function GET(req:Request){try{
 export async function POST(req:Request){try{
   if(!checkOrigin(req))return fail('Requête non autorisée.',403);
   const gate=await requireRole(req,'editor');if(gate.error)return gate.error;
-  if(!await teamsAllowed(gate.user!,['qsse'],true))return fail('Droit de modification QSSE nécessaire.',403);
+  if(!await epiCanManage(gate.user!))return fail('Droit de modification QSSE nécessaire.',403);
   const reader=req.body?.getReader();if(!reader)return fail('Choisissez une photo.');
   const chunks:Uint8Array[]=[];let total=0;
   while(true){const part=await reader.read();if(part.done)break;total+=part.value.length;if(total>limit+65536){await reader.cancel();return fail('Limite : 4 Mo par photo.',413)}chunks.push(part.value)}
@@ -42,7 +42,7 @@ export async function POST(req:Request){try{
 export async function DELETE(req:Request){try{
   if(!checkOrigin(req))return fail('Requête non autorisée.',403);
   const gate=await requireRole(req,'editor');if(gate.error)return gate.error;
-  if(!await teamsAllowed(gate.user!,['qsse'],true))return fail('Droit de modification QSSE nécessaire.',403);
+  if(!await epiCanManage(gate.user!))return fail('Droit de modification QSSE nécessaire.',403);
   const code=String((await req.json() as {code?:string}).code||'');if(!validCode(code))return fail('Référence invalide.');
   const db=database(),photo=await db.prepare('SELECT object_key,updated_at FROM epi_photos WHERE code=?').bind(code).first<Photo>();
   if(!photo)return fail('Photo introuvable.',404);

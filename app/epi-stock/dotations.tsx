@@ -1,14 +1,12 @@
 'use client';
 import {useConfirmation} from '@/components/use-confirmation';
-import {useHubMeta} from '@/components/hub-layout';
 import {useEffect,useState} from 'react';
 import type {Account} from '@/components/account-gate';
 import {blank,normalize,validate,flows,type QRecord} from '@/lib/workflows';
 import type {Product} from './types';
 
 const fresh=():QRecord=>({...blank,kind:'EPI',domain:'Sécurité',status:'À remettre',title:'',details:{equipment:'',reference:'',assignee:'',quantity:'',date:''}});
-export function Dotations({account,products,onStockChange}:{account:Account;products:Product[];onStockChange:()=>Promise<void>}){const {askConfirm,confirmation}=useConfirmation();
-  const {meta:permissions}=useHubMeta();const canEdit=account.role!=='reader'&&(account.role==='admin'||!!permissions.editableTeams?.includes('qsse'));
+export function Dotations({account,products,onStockChange,canEdit}:{account:Account;products:Product[];onStockChange:()=>Promise<void>;canEdit:boolean}){const {askConfirm,confirmation}=useConfirmation();
   const [records,setRecords]=useState<QRecord[]>([]),[edit,setEdit]=useState<QRecord|null>(null),[base,setBase]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(0);
   const dirty=canEdit&&!!edit&&JSON.stringify(edit)!==base;useEffect(()=>{if(!dirty)return;const guard=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard)},[dirty]);
   async function load(){try{const response=await fetch('/api/records');const data=await response.json() as {records?:QRecord[];error?:string};if(!response.ok)throw Error(data.error);setRecords((data.records||[]).map(normalize).filter(r=>r.kind==='EPI'));setError('')}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
