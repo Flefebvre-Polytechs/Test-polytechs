@@ -1,4 +1,5 @@
 'use client';
+import {preparePhoto} from '@/lib/profile-photo';
 import {Popover,PopoverTrigger,PopoverContent} from '@/components/ui/popover';
 import {createContext,useContext,useEffect,useRef,useState,useCallback,type ReactNode} from 'react';
 import {Camera,LogOut,UserRound,X} from 'lucide-react';
@@ -15,11 +16,11 @@ export function ProfileProvider({account,logout,children}:{account:Account;logou
  const [profile,setProfile]=useState<Profile>(initial),[ready,setReady]=useState(false),[loadError,setLoadError]=useState(''),[reloadKey,setReloadKey]=useState(0);
  const reload=useCallback(()=>setReloadKey(n=>n+1),[]);
  useEffect(()=>{const controller=new AbortController();setReady(false);setLoadError('');fetch('/api/profile',{cache:'no-store',signal:controller.signal}).then(async r=>{const p=await r.json() as Profile&{error?:string};if(!r.ok)throw Error(p.error);if(!controller.signal.aborted){setProfile({locale:resolveLocale(p.locale),photoUrl:p.photoUrl});setReady(true)}}).catch(()=>{if(!controller.signal.aborted)setLoadError('Profil indisponible.')});return()=>controller.abort()},[account.id,reloadKey]);
+ useEffect(()=>{const changed=(event:Event)=>{if((event as CustomEvent<string>).detail===account.id)reload()};window.addEventListener('polytechs:profile-photo',changed);return()=>window.removeEventListener('polytechs:profile-photo',changed)},[account.id,reload]);
  useEffect(()=>watchLocale(profile.locale),[profile.locale]);
  return <ProfileContext.Provider value={{account,logout,profile,setProfile,ready,loadError,reload}}>{children}</ProfileContext.Provider>
 }
 function Avatar({url,name}:{url:string;name:string}){return url?<img src={url} alt="" className="profile-avatar"/>:<span className="profile-avatar profile-initials" aria-hidden="true">{name.trim().split(/\s+/).slice(0,2).map(n=>n[0]?.toUpperCase()).join('')||<UserRound size={18}/>}</span>}
-async function preparePhoto(file:File){const url=URL.createObjectURL(file);try{const image=new Image();image.src=url;await image.decode();const canvas=document.createElement('canvas');canvas.width=canvas.height=512;const context=canvas.getContext('2d');if(!context)throw Error('Image illisible.');const size=Math.min(image.naturalWidth,image.naturalHeight);context.drawImage(image,(image.naturalWidth-size)/2,(image.naturalHeight-size)/2,size,size,0,0,512,512);const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',.85));if(!blob)throw Error('Image illisible.');return new File([blob],'photo.jpg',{type:'image/jpeg'})}finally{URL.revokeObjectURL(url)}}
 export function ProfileMenu(){const ctx=useContext(ProfileContext),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),ref=useRef<HTMLDivElement>(null);
 
  if(!ctx)return null;
