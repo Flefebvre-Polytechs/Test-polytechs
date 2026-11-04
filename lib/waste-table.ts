@@ -1,7 +1,7 @@
 import {fold,validDate,type WasteRecord} from './waste';
 
 export function wasteColumn(index:number){let value=index+1,result='';while(value){value--;result=String.fromCharCode(65+value%26)+result;value=Math.floor(value/26)}return result}
-export function wasteTableColumns(headers:string[]){return headers.map((heading,index)=>({key:wasteColumn(index),label:heading.trim()||`Colonne ${wasteColumn(index)}`})).filter(column=>!['BH','BI','BJ'].includes(column.key))}
+export function wasteTableColumns(headers:string[]){return headers.map((heading,index)=>({key:wasteColumn(index),label:index===34?'Quantité estimée (unité de la fiche)':index===35?'Quantité réelle (unité de la fiche)':heading.trim()||`Colonne ${wasteColumn(index)}`})).filter(column=>!['BH','BI','BJ'].includes(column.key))}
 export type WasteTableSort={key:string;direction:'asc'|'desc'}|null;
 export function filterWasteTable(records:WasteRecord[],rawById:Record<string,Record<string,string>>,columns:{key:string;label:string}[],query:string,filters:Record<string,string>,sort:WasteTableSort){
  const term=fold(query.trim()),active=Object.entries(filters).filter(([,value])=>value.trim());

@@ -32,5 +32,6 @@ try{
  assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'AJ',direction:'asc'}).map(r=>r.id),['1','3','2']);
  assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'A',direction:'desc'}).map(r=>r.id),['3','2','1']);
  assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'AD',direction:'asc'}).map(r=>r.id),['1','2','3']);
+ assert.match(wasteTableColumns(Array(36).fill('Quantité (T)'))[34].label,/unité de la fiche/);
  console.log('Registre complet : 59 colonnes affichées, source et corrections vérifiées.');
 }finally{fs.rmSync(dir,{recursive:true,force:true})}

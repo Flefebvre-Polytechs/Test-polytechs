@@ -9,12 +9,12 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-waste-'));
 const sqlite=new DatabaseSync(':memory:');
 function statement(sql,values=[]){return {bind(...args){return statement(sql,args)},async first(){return sqlite.prepare(sql).get(...values)||null},async all(){return {results:sqlite.prepare(sql).all(...values)}},async run(){return {meta:{changes:Number(sqlite.prepare(sql).run(...values).changes)}}}}}
 globalThis.wasteTestDb={prepare:statement,async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result}catch(e){sqlite.exec('ROLLBACK');throw e}}};
-globalThis.wasteTestRole='admin';globalThis.wasteTeamAllowed=true;
+globalThis.wasteTestRole='admin';globalThis.wasteTeamAllowed=true;globalThis.wasteWriteAllowed=true;
 function compile(name,source){fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 try{
 compile('waste',fs.readFileSync('lib/waste.ts','utf8'));
 compile('waste-table',fs.readFileSync('lib/waste-table.ts','utf8').replaceAll("'./waste'","'./waste.mjs'"));
-const {blankWaste,wasteMetrics,wasteIssues,tonnes,validateWaste}=await import(pathToFileURL(path.join(dir,'waste.mjs')));
+const {blankWaste,changeWasteUnit,wasteMetrics,wasteIssues,tonnes,validateWaste}=await import(pathToFileURL(path.join(dir,'waste.mjs')));
 const mass={...blankWaste(),id:'excel-dechets-6',type:'Carton',family:'Cartons',date:'2026-01-10',quantity:2,unit:'t',status:'Enlevé',danger:'Non',collector:'Collecteur',destination:'Destination',treatment:'Le recyclage matière',sourceRow:6,raw:{AJ:'2'}};
 const kg={...mass,id:'kg',quantity:500,unit:'kg',treatment:'Autre'};
 const pieces={...mass,id:'palettes',family:'Palettes',quantity:204,unit:'unité'};
@@ -27,14 +27,22 @@ assert.equal(wasteMetrics(all).total,2.5);assert.equal(wasteMetrics(all).materia
 assert.equal(tonnes({...mass,quantity:0}),0);assert.equal(tonnes(badDate),null);assert.equal(tonnes(planned),null);assert.equal(tonnes(unknown),null);
 assert.ok(wasteIssues({...mass,code:'161001*',danger:'Non'}).some(x=>x.includes('étoilé')));assert.ok(validateWaste({...mass,quantity:-1}).length);assert.ok(validateWaste({...mass,documentUrl:'javascript:alert(1)'}).length);
 assert.ok(wasteIssues({...mass,estimate:-18}).some(x=>x.includes('négative')),'A negative historical estimate remains visible for correction');
+const converted=changeWasteUnit({...mass,estimate:1.25},'kg');assert.equal(converted.quantity,2000);assert.equal(converted.estimate,1250);assert.equal(tonnes(converted),tonnes(mass));assert.equal(changeWasteUnit(converted,'t').quantity,2);assert.equal(changeWasteUnit({...mass,quantity:null},'kg').quantity,null);assert.equal(changeWasteUnit(pieces,'t').quantity,204,'A counting unit has no inferred mass conversion');assert.equal(mass.quantity,2,'Conversion does not mutate the original');
+assert.ok(wasteIssues({...mass,code:'',treatment:''}).some(x=>x.includes('Code déchet')));assert.ok(wasteIssues({...mass,treatment:''}).some(x=>x.includes('Traitement final')));
+assert.ok(!wasteIssues({...planned,danger:'Oui',bsd:''}).some(x=>x.includes('BSD')),'A planned movement is not already missing a shipment reference');
 fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.wasteTestDb;');
 fs.writeFileSync(path.join(dir,'access.mjs'),"export const checkOrigin=req=>req.headers.get('origin')===new URL(req.url).origin;export const requireRole=async(req,role='reader')=>globalThis.wasteTestRole===null?{error:Response.json({}, {status:401})}:role==='editor'&&globalThis.wasteTestRole==='reader'?{error:Response.json({}, {status:403})}:{user:{displayName:'Test',role:globalThis.wasteTestRole}};");
-fs.writeFileSync(path.join(dir,'teams.mjs'),'export const teamsAllowed=async()=>globalThis.wasteTeamAllowed;');
+fs.writeFileSync(path.join(dir,'teams.mjs'),'export const teamsAllowed=async(user,ids,write)=>globalThis.wasteTeamAllowed&&(!write||globalThis.wasteWriteAllowed);');
 fs.writeFileSync(path.join(dir,'source.mjs'),'export const loadWasteSource=()=>('+JSON.stringify({source:'test.xlsx',records:[mass],headers:['Date',...Array.from({length:61},(_,i)=>'Colonne '+(i+2))],adrReference:[]})+');');
 let source=fs.readFileSync('app/api/dechets/route.ts','utf8');for(const [from,to] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/waste-private-source','./source.mjs'],['@/lib/waste','./waste.mjs'],['@/lib/waste-table','./waste-table.mjs']])source=source.replaceAll("'"+from+"'","'"+to+"'");compile('route',source);
 sqlite.exec(`CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,status TEXT,details TEXT,description TEXT,owner TEXT,url TEXT);`);
 sqlite.exec(fs.readFileSync('drizzle/0013_tricky_lady_vermin.sql','utf8').replaceAll('--> statement-breakpoint',''));
 const api=await import(pathToFileURL(path.join(dir,'route.mjs')));const request=(body,origin='https://example.test')=>new Request('https://example.test/api/dechets',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)});
+globalThis.wasteTestRole='editor';globalThis.wasteWriteAllowed=false;
+assert.equal((await (await api.GET(new Request('https://example.test/api/dechets'))).json()).canEdit,false,'QSSE viewer has no editing controls');assert.equal((await api.POST(request(mass))).status,403);
+globalThis.wasteWriteAllowed=true;assert.equal((await (await api.GET(new Request('https://example.test/api/dechets'))).json()).canEdit,true);
+globalThis.wasteTestRole='reader';assert.equal((await (await api.GET(new Request('https://example.test/api/dechets'))).json()).canEdit,false);
+globalThis.wasteTestRole='admin';
 assert.equal((await api.POST(request(mass,'https://elsewhere.test'))).status,403);
 globalThis.wasteTestRole='reader';assert.equal((await api.POST(request(mass))).status,403);globalThis.wasteTestRole='admin';
 globalThis.wasteTeamAllowed=false;assert.equal((await api.GET(new Request('https://example.test/api/dechets'))).status,403);globalThis.wasteTeamAllowed=true;
