@@ -2,3 +2,37 @@
 
 .epi-scan-session{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 14px;color:#64748b;font-size:12px}.epi-scan-session button{border:0;background:transparent;color:#326a9f;text-decoration:underline;cursor:pointer;font-size:12px}
 .epi-scan-next{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:48px;margin:0 0 18px;border:1px solid #bad5e6;border-radius:12px;background:#fff;color:#075f99;font-weight:750;cursor:pointer}.epi-scan-next:disabled{opacity:.5;cursor:not-allowed}.epi-camera-dialog{width:min(520px,calc(100vw - 28px));max-height:90dvh;overflow:auto;border:1px solid #dbe5ed;border-radius:20px;padding:20px;background:#fff;color:#18334b;box-shadow:0 20px 70px #102b4540}.epi-camera-dialog::backdrop{background:#102b45b8}.epi-camera-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.epi-camera-dialog h2{display:flex;align-items:center;gap:8px;font-size:19px;margin:0}.epi-camera-dialog header button{display:grid;place-items:center;width:40px;height:40px;flex:none;border:0;border-radius:10px;background:#eef4f8;color:#18334b;cursor:pointer}.epi-camera-dialog p{font-size:14px;line-height:1.5}.epi-camera-dialog video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#102b45;border-radius:12px}.epi-camera-dialog small{display:block;margin-top:14px;color:#62788a;font-size:12px;line-height:1.5}.epi-camera-dialog button:focus-visible{outline:3px solid #87c9eb;outline-offset:2px}
+
+/* Keep long product references within the mobile card instead of widening it. */
+.epi-scan,.epi-scan *{box-sizing:border-box}
+.epi-scan{min-height:100dvh;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.epi-scan-shell,.epi-scan-card,.epi-scan-product,.epi-scan form{min-width:0;width:100%}
+.epi-scan-shell>header>div,.epi-scan-product>div:last-child{min-width:0;flex:1}
+.epi-scan :is(h1,h2,p,code,small),.epi-scan-session span{overflow-wrap:anywhere}
+.epi-scan code{display:block;white-space:normal}
+.epi-scan-session{flex-wrap:wrap}
+.epi-scan-session span{min-width:0;flex:1 1 170px}
+.epi-scan-session button{flex:none;min-height:40px;padding:6px 0}
+.epi-scan-kinds{grid-template-columns:repeat(3,minmax(0,1fr))}
+.epi-scan-kinds button{min-width:0}
+.epi-scan input{min-width:0;max-width:100%;font-size:16px}
+.epi-camera-dialog{max-width:calc(100% - 28px);padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+.epi-camera-dialog header h2{min-width:0;overflow-wrap:anywhere}
+.epi-camera-dialog video{object-fit:contain}
+@media(max-width:480px){
+ .epi-scan{padding-top:18px}
+ .epi-scan-shell>header{gap:12px;margin-bottom:14px}
+ .epi-scan-shell>header>img{width:96px;height:auto;flex:none;padding:7px;border-radius:11px}
+ .epi-scan h1{font-size:22px}
+ .epi-scan-shell>header small{font-size:10px;letter-spacing:.1em}
+ .epi-scan-photo{width:72px;height:72px}
+ .epi-scan-product{align-items:flex-start}
+ .epi-scan h2{font-size:17px}
+ .epi-scan-product p{font-size:13px;line-height:1.5}
+ .epi-scan-balance{margin:18px 0;padding:14px}
+}
+@media(max-width:340px){
+ .epi-scan-shell>header>img{width:76px}
+ .epi-scan h1{font-size:20px}
+ .epi-scan-product{flex-direction:column}
+}
