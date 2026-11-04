@@ -5,18 +5,19 @@ import path from 'node:path';
 import ts from 'typescript';
 import {DatabaseSync} from 'node:sqlite';
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-quality-')),db=new DatabaseSync(':memory:');
+fs.writeFileSync(path.join(dir,'prevention-documents.mjs'),'export const planAccess=async()=>null;');
 function statement(sql,args=[]){return {bind(...values){return statement(sql,values)},async first(){return db.prepare(sql).get(...args)||null},async all(){return {results:db.prepare(sql).all(...args)}},async run(){return {meta:{changes:Number(db.prepare(sql).run(...args).changes)}}}}}
 globalThis.qaDb={prepare:statement,async batch(ss){db.exec('BEGIN');try{const r=[];for(const s of ss)r.push(await s.run());db.exec('COMMIT');return r}catch(e){db.exec('ROLLBACK');throw e}}};
 globalThis.qaUser={id:'admin',displayName:'QSSE',role:'admin'};globalThis.qaAllowed=true;
 const files=new Map();globalThis.qaBucket={async put(k,v){files.set(k,v)},async delete(k){files.delete(k)},async get(k){return files.has(k)?{body:files.get(k)}:null}};
-function compile(name,s){for(const [from,to] of [['@/lib/document-file','./document-file.mjs'],['@/lib/gmao-server','./gmao-server.mjs'],['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/hub','./hub.mjs'],['@/lib/quality-server','./quality-server.mjs'],['@/lib/quality-private-source','./source.mjs'],['@/lib/quality-actions','./quality-actions.mjs'],['@/lib/ged-server','./ged-server.mjs'],['./quality-private-source','./source.mjs'],['./hub','./hub.mjs']])s=s.replaceAll("'"+from+"'","'"+to+"'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
+function compile(name,s){for(const [from,to] of [['./team-access','./teams.mjs'],['./prevention-documents','./prevention-documents.mjs'],['@/lib/notification-access','./notification-access.mjs'],['@/lib/ticket-labels','./ticket-labels.mjs'],['./hub','./hub.mjs'],['@/lib/document-file','./document-file.mjs'],['@/lib/gmao-server','./gmao-server.mjs'],['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/hub','./hub.mjs'],['@/lib/quality-server','./quality-server.mjs'],['@/lib/quality-private-source','./source.mjs'],['@/lib/quality-actions','./quality-actions.mjs'],['@/lib/ged-server','./ged-server.mjs'],['./quality-private-source','./source.mjs'],['./hub','./hub.mjs']])s=s.replaceAll("'"+from+"'","'"+to+"'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 try{
 fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.qaDb;export const bucket=()=>globalThis.qaBucket;');
 fs.writeFileSync(path.join(dir,'access.mjs'),`export const checkOrigin=()=>true;export const requireRole=async(req,role)=>role==='editor'&&globalThis.qaUser.role==='reader'?{error:Response.json({error:'reader'},{status:403})}:{user:globalThis.qaUser};`);
 fs.writeFileSync(path.join(dir,'teams.mjs'),`export const teamsAllowed=async()=>globalThis.qaAllowed;export const someTeamAllowed=teamsAllowed;export const teamContentVisible=(allowed,ids)=>(!ids.includes('rh')||allowed.has('rh'))&&(!ids.length||ids.some(id=>allowed.has(id)));export const accessibleTeams=async()=>new Set(globalThis.qaAllowed?['qsse']:[]);`);
 fs.writeFileSync(path.join(dir,'ged-server.mjs'),`export const gedUsers=async()=>[{id:'admin',qsse:true},{id:'editor',qsse:false}];export const gedDocuments=async()=>new Map();`);
 fs.writeFileSync(path.join(dir,'gmao-server.mjs'),'export const gmaoTicketContributor=async()=>false;export const gmaoTicketReader=async()=>false;');
-compile('document-file',fs.readFileSync('lib/document-file.ts','utf8'));compile('hub',fs.readFileSync('lib/hub.ts','utf8'));compile('quality-actions',fs.readFileSync('lib/quality-actions.ts','utf8'));
+compile('notification-access',fs.readFileSync('lib/notification-access.ts','utf8'));compile('ticket-labels',fs.readFileSync('lib/ticket-labels.ts','utf8'));compile('document-file',fs.readFileSync('lib/document-file.ts','utf8'));compile('hub',fs.readFileSync('lib/hub.ts','utf8'));compile('quality-actions',fs.readFileSync('lib/quality-actions.ts','utf8'));
 const lib=await import(path.join(dir,'quality-actions.mjs'));
 const base={...lib.blankQualityAction('2026-10-01'),id:'source-1',reference:'AC-1',action:'Vérifier la protection',gravity:4,exposure:4,target:'Humaine'};
 fs.writeFileSync(path.join(dir,'source.mjs'),'export const qualitySource='+JSON.stringify({source:'test.xlsx',records:[base],owners:{'M2 - QSSE':'Responsable'},guide:[],trace:[],methods:[],origins:[]})+';');
@@ -51,5 +52,16 @@ const src=JSON.parse(fs.readFileSync('private/quality-actions-source.json','utf8
 console.log('Import privé : 628 actions, identifiants et répartitions vérifiés.');
 }else console.log('Import privé absent : contrôle du catalogue réservé à son environnement propriétaire.');
 
+// Ticket tags must survive the real ticket save path and reject cross-theme IDs.
+db.exec(fs.readFileSync('drizzle/0029_ticket_labels.sql','utf8'));
+globalThis.qaUser={id:'admin',displayName:'QSSE',role:'admin'};globalThis.qaAllowed=true;
+const {newTicket}=await import(path.join(dir,'hub.mjs'));
+const tagged={...newTicket(),title:'Fuite atelier',category:'Environnement',teams:['qsse'],topicTags:['env-water','env-spill'],locationTags:['place-maris-51']};
+let labelSave=await post(hub,{action:'ticket',data:tagged});assert.equal(labelSave.status,200);
+const taggedId=(await labelSave.json()).id;let stored=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(taggedId).data);assert.deepEqual(stored.topicTags,tagged.topicTags);assert.deepEqual(stored.locationTags,tagged.locationTags);
+assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:1,data:{...stored,category:'Sécurité'}})).status,400);
+assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:1,data:{...stored,topicTags:[],locationTags:[]}})).status,200);
+stored=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(taggedId).data);assert.deepEqual(stored.topicTags,[]);assert.deepEqual(stored.locationTags,[]);
+console.log('Ticket label persistence: save, removal and cross-theme rejection passed through the ticket API.');
 console.log('Plan : cotation, moyens, droits, efficacité QSSE, historique et tickets sans doublons vérifiés. Archivage : clôture requise, accès, conservation et restauration vérifiés.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
