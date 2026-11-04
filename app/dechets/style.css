@@ -15,3 +15,26 @@
 .waste-zoom-control{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px;font-weight:650;color:#38617a}.waste-zoom-control select{height:34px;padding:0 8px;background:#fff;border:1px solid #c8dce7;border-radius:7px;color:#175c7e;font:inherit;cursor:pointer}.waste-zoom-control select:focus-visible{outline:2px solid #0c70ab;outline-offset:2px}@media(max-width:700px){.waste-zoom-control{font-size:0}.waste-zoom-control select{font-size:12px}}
 
 .waste-field-help{display:block;font-size:11px;font-weight:400;line-height:1.5;color:#60798b;margin:5px 0}.waste-dialog input,.waste-dialog select,.waste-dialog textarea{max-width:100%;min-width:0}@media(max-width:600px){.waste-dialog input,.waste-dialog select,.waste-dialog textarea{font-size:16px}.waste-view-tabs{max-width:100%;overflow-x:auto;justify-content:flex-start;flex-wrap:nowrap}.waste-view-tabs [data-slot=tabs-trigger]{flex:none}}
+
+.waste-form-fields{min-width:0;margin:0;padding:0;border:0}
+.waste-form-section{min-width:0;margin:0 0 24px;padding:18px;border:1px solid #dce8ed;border-radius:12px;background:#fff}
+.waste-form-section legend{display:flex;align-items:center;gap:8px;padding:0 7px;color:#1d5149;font-size:16px;font-weight:700}
+.waste-form-section legend>span{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#e4f3ed;color:#16765e;font-size:12px}
+.waste-section-help{margin:0 0 17px;color:#657c8b;font-size:12px;line-height:1.6}
+.waste-form-section .waste-catalog-picker{margin-bottom:18px}
+.waste-form-section .waste-form-grid{gap:16px}
+.waste-form-section input,.waste-form-section select{min-height:44px}
+.waste-movement-dialog form{min-width:0}
+.waste-movement-dialog .waste-save-bar{position:sticky;bottom:-28px;z-index:25;align-items:center;flex-wrap:wrap;gap:10px;margin:22px -28px -28px;padding:15px 28px calc(15px + env(safe-area-inset-bottom,0px));border-top:1px solid #d8e5eb;background:#fff;box-shadow:0 -8px 18px #1c45520a}
+.waste-draft-state{margin-right:auto;font-size:12px;color:#647d8c}
+.waste-save-bar button{min-height:44px}
+.waste-movement-dialog :is(input,select,textarea){scroll-margin-bottom:110px}
+.waste-movement-dialog .waste-error{scroll-margin:20px;overflow-wrap:anywhere}
+@media(max-width:600px){
+ .waste-form-section{padding:14px;margin-bottom:20px}
+ .waste-form-section legend{font-size:15px}
+ .waste-movement-dialog .waste-save-bar{bottom:-22px;margin-left:-18px;margin-right:-18px;margin-bottom:-22px;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px))}
+ .waste-draft-state{flex-basis:100%}
+ .waste-save-bar button{flex:1;white-space:normal}
+ .waste-movement-dialog :is(input,select,textarea){scroll-margin-bottom:145px}
+}
