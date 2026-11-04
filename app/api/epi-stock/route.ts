@@ -3,7 +3,7 @@ import {epiCanRead,epiCanManage} from '@/lib/epi-access';
 import {database} from '@/db/raw';
 import {checkOrigin,requireRole} from '@/lib/access';
 import {epiCatalog as catalog} from '@/lib/epi-private-source';
-import {ensureCatalog} from '@/lib/epi-catalog-server';
+import {ensureCatalog,epiFamily} from '@/lib/epi-catalog-server';
 
 const error=(message:string,status=400)=>Response.json({error:message},{status});
 type Product={code:string;quantity:number|null;revision:number;catalog_status:string};
@@ -14,7 +14,7 @@ export async function GET(req:Request){try{const gate=await requireRole(req);if(
 export async function POST(req:Request){try{if(!checkOrigin(req))return error('Requête non autorisée.',403);const body=await req.json() as Record<string,unknown>;if(!body||typeof body!=='object'||Array.isArray(body))return error('Demande invalide.');const scanMovement=body.action===undefined&&['inventaire','entree','sortie'].includes(String(body.kind));const gate=scanMovement?await requireEpiRole(req,true):await requireRole(req,'editor');if(gate.error)return gate.error;if(!await epiCanManage(gate.user!))return Response.json({error:'Droit de modification QSSE nécessaire.'},{status:403});const db=database();if(body.action==='import'){if(gate.user!.role!=='admin')return error('Import réservé aux administrateurs.',403);await ensureCatalog();return Response.json({ok:true})}
 const code=String(body.code||'');if(!/^[A-Za-z0-9*_-]{4,80}$/.test(code))return error('Référence invalide.');
 if(body.action==='create'){
-const family=String(body.family||'').trim(),name=String(body.name||'').trim(),specifics=String(body.specifics||'').trim(),location=String(body.location||'').trim();
+const family=epiFamily(String(body.family||'')),name=String(body.name||'').trim(),specifics=String(body.specifics||'').trim(),location=String(body.location||'').trim();
 const minimum=body.minimum===''||body.minimum===null||body.minimum===undefined?null:Number(body.minimum);
 if(!family||family.length>100||!name||name.length>200||specifics.length>1000||location.length>150||minimum!==null&&(!Number.isSafeInteger(minimum)||minimum<0||minimum>1000000))return error('Renseignez une famille et un libellé valides.');
 const result=await db.prepare("INSERT OR IGNORE INTO epi_products (code,family,name,specifics,source_row,source_sheet,catalog_status,quantity,minimum,location,revision,updated_at) VALUES (?,?,?,?,0,'Ajout manuel','Actif',NULL,?,?,1,?)").bind(code,family,name,specifics,minimum,location,new Date().toISOString()).run();
