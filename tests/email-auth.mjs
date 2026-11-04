@@ -8,7 +8,7 @@ globalThis.emailAfterTasks=[];const originalFetch=globalThis.fetch,messages=[];l
 globalThis.fetch=async(url,options)=>{if(String(url).startsWith('https://login.microsoftonline.com/'))return Response.json({access_token:'test-only'});assert.ok(String(url).startsWith('https://graph.microsoft.com/'));if(mailFails)return new Response('',{status:503});messages.push(JSON.parse(options.body).message);return new Response(null,{status:202})};
 const envKeys=['POLYTECHS_EMAIL_MFA_REQUIRED','POLYTECHS_MAIL_TENANT_ID','POLYTECHS_MAIL_CLIENT_ID','POLYTECHS_MAIL_CLIENT_SECRET','POLYTECHS_MAIL_FROM','POLYTECHS_PUBLIC_ORIGIN'],saved=Object.fromEntries(envKeys.map(k=>[k,process.env[k]]));
 Object.assign(process.env,{POLYTECHS_EMAIL_MFA_REQUIRED:'true',POLYTECHS_MAIL_TENANT_ID:'test-tenant',POLYTECHS_MAIL_CLIENT_ID:'test-client',POLYTECHS_MAIL_CLIENT_SECRET:'test-secret-not-real',POLYTECHS_MAIL_FROM:'security@example.test',POLYTECHS_PUBLIC_ORIGIN:'https://example.test'});
-function compile(name,file){let s=fs.readFileSync(file,'utf8');for(const [a,b] of [['@/lib/function-roles','./function-roles.mjs'],['./function-role-labels','./function-role-labels.mjs'],['@/lib/team-access','./team-access.mjs'],['./team-access','./team-access.mjs'],['./epi-access','./epi-access.mjs'],['@/lib/epi-session','./epi-session.mjs'],['next/server','./after.mjs'],['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/email-auth','./email-auth.mjs'],['@/lib/security-mail','./security-mail.mjs'],['./access','./access.mjs'],['./security-mail','./security-mail.mjs'],['./auth-config','./config.mjs']])s=s.replaceAll("'"+a+"'","'"+b+"'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
+function compile(name,file){let s=fs.readFileSync(file,'utf8');for(const [a,b] of [['@/lib/function-roles','./function-roles.mjs'],['./function-role-labels','./function-role-labels.mjs'],['@/lib/team-access','./team-access.mjs'],['./team-access','./team-access.mjs'],['@/lib/epi-access','./epi-access.mjs'],['./epi-access','./epi-access.mjs'],['@/lib/epi-session','./epi-session.mjs'],['next/server','./after.mjs'],['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/email-auth','./email-auth.mjs'],['@/lib/security-mail','./security-mail.mjs'],['./access','./access.mjs'],['./security-mail','./security-mail.mjs'],['./auth-config','./config.mjs']])s=s.replaceAll("'"+a+"'","'"+b+"'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 try{
 
  fs.writeFileSync(path.join(dir,'after.mjs'),'export const after=(task)=>{globalThis.emailAfterTasks?.push(task)};');fs.symlinkSync(path.resolve('node_modules'),path.join(dir,'node_modules'),'dir');fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.emailAuthDb;');fs.writeFileSync(path.join(dir,'config.mjs'),'export const trustSiteIdentity=()=>false;');
@@ -24,6 +24,28 @@ try{
  const verify=(challenge,code=latestCode())=>post({action:'verify-email',challenge,code});
  assert.equal((await post({action:'login',username:'admin',password},'','https://evil.test')).status,403);
  const legacy=await access.issueSession('admin');assert.equal(await access.currentUser(req(legacy)),null,'MFA rejects preexisting password-only sessions');
+ // With global MFA enabled, tablet login must issue only an EPI-scoped session.
+ const beforeEpiMail=messages.length;
+ const tablet=await post({action:'login',scope:'epi-scan',email:'admin@example.test',password});
+ assert.equal(tablet.status,200);assert.equal((await tablet.json()).requiresEmailCode,undefined);
+ const tabletCookie=tablet.headers.get('set-cookie').split(';')[0];assert.ok(tabletCookie.startsWith('qse_epi_device='));
+ assert.equal(messages.length,beforeEpiMail,'Tablet login never sends an email code');
+ assert.equal(await access.currentUser(req(tabletCookie)),null);
+ assert.equal(await access.currentUser(req('qse_session='+tabletCookie.split('=')[1])),null,'Renaming tablet cookie cannot grant full-site access');
+ assert.equal((await users.GET(req(tabletCookie))).status,401);
+ assert.equal((await (await auth.GET(new Request('https://example.test/api/auth?scope=epi-scan',{headers:{cookie:tabletCookie}}))).json()).account.id,'admin');
+ assert.equal((await post({action:'login',scope:'epi-scan',email:'admin@example.test',password:'wrong'})).status,401);
+ const denied=await post({action:'login',scope:'epi-scan',email:'reader@example.test',password});assert.equal(denied.status,403);assert.equal(denied.headers.get('set-cookie'),null);
+ db.prepare("UPDATE users SET must_change_password=1 WHERE id='admin'").run();
+ const firstTablet=await post({action:'login',scope:'epi-scan',email:'admin@example.test',password});assert.equal((await firstTablet.json()).account.mustChangePassword,true);
+ const firstCookie=firstTablet.headers.get('set-cookie').split(';')[0];
+ assert.equal((await (await auth.GET(new Request('https://example.test/api/auth?scope=epi-scan',{headers:{cookie:firstCookie}}))).json()).account,null,'Temporary password cannot access stock');
+ const nextTabletPassword='Tablet-new-password-2026!';
+ const changedTablet=await post({action:'password',scope:'epi-scan',oldPassword:password,newPassword:nextTabletPassword},firstCookie);assert.equal(changedTablet.status,200);
+ const changedTabletCookie=changedTablet.headers.get('set-cookie').split(';')[0];assert.ok(changedTabletCookie.startsWith('qse_epi_device='));
+ assert.equal(await access.currentUser(req(changedTabletCookie)),null,'Tablet password change never opens a full-site session');
+ assert.equal(messages.length,beforeEpiMail);assert.equal((await post({action:'password',oldPassword:nextTabletPassword,newPassword:password},changedTabletCookie)).status,401,'General password endpoint requires a full-site session');
+ db.prepare("UPDATE users SET must_change_password=0,password_hash=? WHERE id='admin'").run(hash);
  const response=await login();assert.equal(response.status,200);assert.equal(response.headers.get('set-cookie'),null);const data=await response.json();assert.equal(data.requiresEmailCode,true);assert.equal(data.account,undefined);assert.equal(data.destination,'a•••@example.test');assert.equal((await auth.GET(req())).status,200);assert.equal((await (await auth.GET(req())).json()).account,null);
  assert.equal((await post({action:'remember-epi'},legacy)).status,401,'A password-only session cannot remember an EPI device before MFA');
  const storage=db.prepare('SELECT * FROM auth_challenges').get();assert.notEqual(storage.token_hash,data.challenge);assert.ok(!JSON.stringify(storage).includes(latestCode()));

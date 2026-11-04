@@ -114,3 +114,19 @@ expéditeur et celle de Polytechs Connect sont deux réglages distincts.
 `node tests/gmail-mail.mjs` vérifie le transport avec SMTP simulé ; aucun message réel
 n'est envoyé. Le service doit autoriser les connexions SMTP sortantes sur le port 465.
 Google peut révoquer le mot de passe d'application après changement du mot de passe du compte.
+
+## Exception tablette pour les QR codes EPI
+
+Le formulaire `/epi-stock/scan` transmet `scope: 'epi-scan'` pour la connexion et
+le changement du mot de passe temporaire. Ce parcours vérifie le mot de passe et
+les droits EPI, sans code e-mail, même quand la MFA générale est obligatoire.
+Il émet uniquement le cookie sécurisé `qse_epi_device`, mémorisé 90 jours avec
+renouvellement à l'usage. Aucun QR code ni référence produit n'est modifié.
+
+Les sessions EPI utilisent une empreinte distincte des sessions générales et ne
+sont pas marquées comme vérifiées par e-mail. Elles ne permettent pas d'ouvrir
+le site complet, la GED, les utilisateurs ou le catalogue EPI global. Les droits
+de lecture et de mouvement de stock sont toujours vérifiés sur le serveur. Un
+mot de passe temporaire doit être changé avant l'accès au stock ; ce changement
+conserve une session limitée aux scans. Révocation, expiration et déconnexion
+restent applicables. Le parcours de connexion général conserve le code e-mail.
