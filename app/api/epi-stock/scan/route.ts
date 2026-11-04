@@ -1,5 +1,5 @@
+import {requireEpiRole} from '@/lib/epi-session';
 import {database} from '@/db/raw';
-import {requireRole} from '@/lib/access';
 import {epiCanRead,epiCanManage} from '@/lib/epi-access';
 import {ensureCatalog} from '@/lib/epi-catalog-server';
 
@@ -7,7 +7,7 @@ export const runtime='nodejs';
 const fail=(error:string,status=400)=>Response.json({error},{status,headers:{'Cache-Control':'no-store'}});
 
 export async function GET(req:Request){try{
-  const gate=await requireRole(req);if(gate.error)return gate.error;
+  const gate=await requireEpiRole(req);if(gate.error)return gate.error;
   if(!await epiCanRead(gate.user!))return fail('Accès QSSE nécessaire.',403);
   const code=new URL(req.url).searchParams.get('code')||'';
   if(!/^[A-Za-z0-9*_-]{4,80}$/.test(code))return fail('Référence invalide.');

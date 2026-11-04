@@ -1,3 +1,4 @@
+import {requireEpiRole} from '@/lib/epi-session';
 import sharp from 'sharp';
 import {bucket,database} from '@/db/raw';
 import {checkOrigin,requireRole} from '@/lib/access';
@@ -10,7 +11,7 @@ const fail=(message:string,status=400)=>Response.json({error:message},{status,he
 type Photo={object_key:string;updated_at:string};
 
 export async function GET(req:Request){try{
-  const gate=await requireRole(req);if(gate.error)return gate.error;
+  const gate=await requireEpiRole(req);if(gate.error)return gate.error;
   if(!await epiCanRead(gate.user!))return fail('Accès QSSE nécessaire.',403);
   const code=new URL(req.url).searchParams.get('code')||'';if(!validCode(code))return fail('Référence invalide.');
   const photo=await database().prepare('SELECT object_key,updated_at FROM epi_photos WHERE code=?').bind(code).first<Photo>();
