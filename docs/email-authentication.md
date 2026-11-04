@@ -75,3 +75,42 @@ L’adresse e-mail est l’identifiant public. Les nouveaux comptes et les invit
 Pour chaque ancien compte, renseigner l’adresse dans Membres et accès avant de diffuser les nouvelles consignes de connexion. Les sessions et ID existants sont conservés. Un ancien compte **sans aucune adresse** peut encore utiliser provisoirement son identifiant historique ; dès qu’une adresse est affectée, seule cette adresse permet la connexion. Aucun e-mail n’est inventé ni deviné. La récupération utilise uniquement l’adresse e-mail.
 
 Sur une nouvelle installation Render, définir `RENDER_INITIAL_ADMIN_EMAIL` et `RENDER_INITIAL_ADMIN_PASSWORD` pour créer le premier administrateur. Les variables de bootstrap ne modifient jamais un compte déjà existant.
+
+## Expédition depuis le compte Gmail Polytechs Connect
+
+Le transport Gmail SMTP est disponible sans inscription d'application Microsoft.
+Il utilise `smtp.gmail.com:465`, TLS avec vérification du certificat, et un mot de
+passe d'application Google. L'expéditeur et l'enveloppe sont le compte authentifié.
+Les identifiants, codes et réponses SMTP sensibles ne sont jamais journalisés par
+le transport. Une acceptation SMTP ne prouve pas la réception dans la boîte cible.
+
+Pour `polytechsconnect@gmail.com` :
+
+1. Activer la validation en deux étapes du **compte Google** dans
+   https://myaccount.google.com/security .
+2. Créer un mot de passe d'application nommé « Polytechs Connect » sur
+   https://myaccount.google.com/apppasswords . Ne jamais utiliser le mot de passe
+   habituel, ni mettre le mot de passe d'application dans Git, un message ou une capture.
+3. Dans Environment du service Render Test-polytechs, définir :
+
+| Variable | Valeur |
+| --- | --- |
+| `POLYTECHS_MAIL_PROVIDER` | `gmail` |
+| `POLYTECHS_GMAIL_USER` | `polytechsconnect@gmail.com` |
+| `POLYTECHS_GMAIL_APP_PASSWORD` | Mot de passe d'application, saisi directement dans Render |
+| `POLYTECHS_PUBLIC_ORIGIN` | `https://polytechsconnect.fr` |
+
+Le mode Microsoft reste le défaut en l'absence de `POLYTECHS_MAIL_PROVIDER`.
+Aucune configuration ni activation Gmail n'est déduite de la seule présence d'une adresse.
+Conserver les variables Microsoft existantes jusqu'à validation du changement.
+
+Avant de rendre les codes obligatoires, renseigner les adresses de tous les comptes
+et tester réellement la réception et la récupération sur le compte administrateur.
+Ensuite seulement passer `POLYTECHS_EMAIL_MFA_REQUIRED=true`, déployer et vérifier
+une connexion avec code. Les destinataires restent les adresses des utilisateurs ;
+ils n'ont pas besoin d'un compte Gmail. La validation en deux étapes du compte Google
+expéditeur et celle de Polytechs Connect sont deux réglages distincts.
+
+`node tests/gmail-mail.mjs` vérifie le transport avec SMTP simulé ; aucun message réel
+n'est envoyé. Le service doit autoriser les connexions SMTP sortantes sur le port 465.
+Google peut révoquer le mot de passe d'application après changement du mot de passe du compte.

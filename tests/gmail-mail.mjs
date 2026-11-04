@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import ts from 'typescript';
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-gmail-'));
+const keys=['POLYTECHS_MAIL_PROVIDER','POLYTECHS_GMAIL_USER','POLYTECHS_GMAIL_APP_PASSWORD','POLYTECHS_MAIL_TENANT_ID','POLYTECHS_MAIL_CLIENT_ID','POLYTECHS_MAIL_CLIENT_SECRET','POLYTECHS_MAIL_FROM'];
+const saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+let options,message,closed=0,result={accepted:['member@example.test'],rejected:[]},failure;
+globalThis.gmailTestTransport={createTransport(o){options=o;return {async sendMail(m){message=m;if(failure)throw failure;return result},close(){closed++}}}};
+try{
+ fs.writeFileSync(path.join(dir,'smtp.mjs'),'export default globalThis.gmailTestTransport;');
+ const source=fs.readFileSync('lib/security-mail.ts','utf8').replace("import('nodemailer')","import('./smtp.mjs')");
+ fs.writeFileSync(path.join(dir,'mail.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
+ const mail=await import(pathToFileURL(path.join(dir,'mail.mjs')));
+ Object.assign(process.env,{POLYTECHS_MAIL_PROVIDER:'gmail',POLYTECHS_GMAIL_USER:'polytechsconnect@gmail.com'});
+ delete process.env.POLYTECHS_GMAIL_APP_PASSWORD;
+ assert.equal(mail.mailConfigured(),false);
+ await assert.rejects(mail.sendSecurityMail('member@example.test','Test','Code'),/unavailable/);
+ process.env.POLYTECHS_GMAIL_APP_PASSWORD='abcd efgh ijkl mnop';
+ assert.equal(mail.mailConfigured(),true);
+ await mail.sendSecurityMail('member@example.test','Connexion','Code secret');
+ assert.equal(options.host,'smtp.gmail.com');assert.equal(options.port,465);assert.equal(options.secure,true);
+ assert.equal(options.tls.rejectUnauthorized,true);assert.equal(options.auth.pass,'abcdefghijklmnop');
+ assert.equal(options.debug,false);assert.equal(options.logger,false);
+ assert.equal(options.disableUrlAccess,true);assert.equal(options.disableFileAccess,true);
+ assert.equal(message.from.address,'polytechsconnect@gmail.com');assert.deepEqual(message.envelope.to,['member@example.test']);
+ assert.equal(message.text,'Code secret');assert.equal(closed,1);
+ await assert.rejects(mail.sendSecurityMail('victim@example.test\r\nBcc: other@example.test','Test','Code'),/unavailable/);
+ assert.equal(closed,1);
+ failure=Error('sensitive upstream error');
+ await assert.rejects(mail.sendSecurityMail('member@example.test','Test','Code'),e=>e.message==='Gmail did not accept the security message.');assert.equal(closed,2);
+ failure=undefined;result={accepted:[],rejected:['member@example.test']};
+ await assert.rejects(mail.sendSecurityMail('member@example.test','Test','Code'),/Gmail did not accept/);assert.equal(closed,3);
+ process.env.POLYTECHS_MAIL_PROVIDER='typo';assert.equal(mail.mailConfigured(),false);
+ delete process.env.POLYTECHS_MAIL_PROVIDER;
+ Object.assign(process.env,{POLYTECHS_MAIL_TENANT_ID:'test',POLYTECHS_MAIL_CLIENT_ID:'test',POLYTECHS_MAIL_CLIENT_SECRET:'test',POLYTECHS_MAIL_FROM:'mail@example.test'});
+ assert.equal(mail.mailConfigured(),true,'Existing Microsoft settings still work by default');
+ console.log('Gmail transport checks passed: configuration, TLS, sender, rejection, secret redaction and Microsoft fallback.');
+}finally{
+ for(const key of keys)if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];
+ delete globalThis.gmailTestTransport;fs.rmSync(dir,{recursive:true,force:true});
+}
