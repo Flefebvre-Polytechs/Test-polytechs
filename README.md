@@ -27,6 +27,10 @@ Les contributeurs enregistrent les inventaires, entrées et sorties avec un hist
 
 Les QR codes EPI sont rattachés au **code permanent** du catalogue (identifiant technique immuable). La référence fournisseur, le nom, la famille et les spécificités peuvent être modifiés dans la fiche sans remplacer le QR code ni perdre la photo, le stock, les mouvements ou les dotations. Les changements sont consignés dans `epi_product_edits`.
 
+### Indicateurs EPI
+
+L'onglet **Indicateurs** du module EPI présente les quantités sorties, entrées, coûts HT connus des sorties, valeur HT connue du stock, seuils de réapprovisionnement, couverture des prix, tendances mensuelles, produits et familles les plus consommés. Filtres de période (1, 3, 6, 12 mois) et de famille, export CSV. Les prix unitaires sont renseignés depuis la fiche catalogue et figés sur chaque nouveau mouvement de stock (y compris les dotations). Les anciens mouvements sans prix restent non valorisés et sont identifiés comme tels ; aucun prix historique n'est inventé. Les inventaires/corrections ne comptent pas comme consommation. Les entrées magasin ne sont pas assimilées automatiquement à des achats facturés. Migration `0033_epi_indicators_unit_cost.sql`.
+
 ## Évaluation des risques professionnels
 
 Le service QSSE regroupe les accès directs au DUERP, au PAPRIPACT et aux registres QSE. Le DUERP ouvre `/duerp`. Les données du classeur transmis sont préparées dans le source **privé** du Site, hors du dépôt GitHub public. À la première ouverture par un administrateur, l’import se lance par blocs sans écraser les fiches déjà modifiées. Il peut être repris depuis la page si nécessaire. Un autre déploiement du code démarre sans les données du classeur. Le contenu confidentiel `private/duerp-source.json` ne doit pas être poussé dans un dépôt public.
