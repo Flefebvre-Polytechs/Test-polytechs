@@ -1,3 +1,4 @@
+import {currentEpiUser,rememberEpiDevice,endEpiSession,clearEpiCookie} from '@/lib/epi-session';
 import {after} from 'next/server';
 import {startChallenge,consumeChallenge,digest} from '@/lib/email-auth';
 import {emailMfaRequired,mailConfigured,validEmail} from '@/lib/security-mail';
@@ -5,8 +6,9 @@ import {database} from '@/db/raw';
 import {account,needsRehash,linkSiteIdentity,throttle,clearThrottle,securityEvent,checkOrigin,checkPassword,clearCookie,currentUser,endSession,hashPassword,issueSession,sessionMaterial,userByName} from '@/lib/access';
 
 const fail=(error:string,status=400)=>Response.json({error},{status,headers:{'Cache-Control':'private, no-store'}});
-export async function GET(req:Request){try{return Response.json({account:await currentUser(req)},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error(e);return fail('Service de connexion indisponible.',503)}}
+export async function GET(req:Request){try{return Response.json({account:await (new URL(req.url).searchParams.get('scope')==='epi-scan'?currentEpiUser(req):currentUser(req))},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error(e);return fail('Service de connexion indisponible.',503)}}
 export async function POST(req:Request){try{if(!checkOrigin(req))return fail('Requête non autorisée.',403);const reader=req.body?.getReader();if(!reader)return fail('Demande invalide.');const chunks:Uint8Array[]=[];let size=0;for(;;){const item=await reader.read();if(item.done)break;size+=item.value.byteLength;if(size>4096){await reader.cancel();return fail('Demande trop volumineuse.',413)}chunks.push(item.value)}const raw=Buffer.concat(chunks).toString('utf8');let body:Record<string,unknown>;try{body=JSON.parse(raw)}catch{return fail('Demande invalide.');}if(!body||typeof body!=='object')return fail('Demande invalide.');const action=body.action;
+if(action==='remember-epi'){const user=await currentEpiUser(req);if(!user)return fail('Connexion EPI nécessaire.',401);const response=Response.json({ok:true},{headers:{'Cache-Control':'private, no-store'}});response.headers.set('Set-Cookie',await rememberEpiDevice(req,user));return response}
 if(action==='verify-email')return consumeChallenge(body.challenge,'login',body.code);
 if(action==='reset-password')return consumeChallenge(body.token,'reset','',body.newPassword);
 if(action==='forgot-password'){
@@ -32,7 +34,7 @@ if(action==='login'){const username=String(body.email||body.username||'').trim()
  const challenge=await startChallenge(refreshed,'login');await securityEvent('login_code_requested',user.id);return Response.json({requiresEmailCode:true,...challenge},{headers:{'Cache-Control':'private, no-store'}});
 }
 await linkSiteIdentity(req,user.id);await securityEvent('login',user.id);const response=Response.json({account:account(user)});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',await issueSession(user.id));return response}
-if(action==='logout'){await endSession(req);const response=Response.json({ok:true});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',clearCookie);return response}
+if(action==='logout'){await endSession(req);await endEpiSession(req);const response=Response.json({ok:true});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',clearCookie);response.headers.append('Set-Cookie',clearEpiCookie);return response}
 if(action==='password'){const user=await currentUser(req);if(!user)return fail('Connexion nécessaire.',401);const oldPassword=String(body.oldPassword||''),newPassword=String(body.newPassword||'');if(newPassword.length<12||newPassword.length>256||(newPassword.toLowerCase()===user.username||newPassword.toLowerCase()===user.email?.toLowerCase()))return fail('Choisissez un mot de passe de 12 caractères minimum, différent de votre adresse e-mail.');const row=await userByName(user.username);if(await throttle('password:'+user.id))return fail('Trop de tentatives. Réessayez dans 15 minutes.',429);if(!row||!await checkPassword(oldPassword,row.password_hash))return fail('Mot de passe actuel incorrect.',401);const db=database(),nextHash=await hashPassword(newPassword),session=await sessionMaterial();
 const updated="EXISTS (SELECT 1 FROM users WHERE id=? AND password_hash=?)";
 const result=await db.batch([

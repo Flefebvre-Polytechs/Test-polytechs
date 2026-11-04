@@ -1,14 +1,14 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
-import {AccountGate} from '@/components/account-gate';
+import {AccountGate,type Account} from '@/components/account-gate';
 import {ArrowDownToLine,ArrowUpFromLine,ClipboardCheck,Package} from 'lucide-react';
 import './scan.css';
 
 type Product={code:string;family:string;name:string;specifics:string;catalog_status:string;quantity:number|null;minimum:number|null;location:string;has_photo:number;photo_updated_at:string|null};
 type ScanData={product:Product;canEdit:boolean};
-export default function ScanPage(){return <AccountGate>{()=> <StockScan/>}</AccountGate>}
+export default function ScanPage(){return <AccountGate epiScan>{(account,logout)=> <StockScan account={account} logout={logout}/>}</AccountGate>}
 
-function StockScan(){
+function StockScan({account,logout}:{account:Account;logout:()=>void}){
   const [code]=useState(()=>typeof window==='undefined'?'':new URLSearchParams(window.location.search).get('code')||'');
   const [data,setData]=useState<ScanData|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [kind,setKind]=useState<'inventaire'|'entree'|'sortie'>('inventaire'),[amount,setAmount]=useState(''),[recipient,setRecipient]=useState(''),[note,setNote]=useState('');
@@ -16,7 +16,7 @@ function StockScan(){
   useEffect(()=>{void load()},[load]);
   async function save(event:React.FormEvent){event.preventDefault();if(!data?.canEdit||busy)return;setBusy(true);setError('');setNotice('');try{const response=await fetch('/api/epi-stock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:data.product.code,kind,amount:Number(amount),recipient,note})});const result=await response.json() as {error?:string};if(!response.ok)throw Error(result.error||'Enregistrement impossible.');await load();setAmount('');setRecipient('');setNote('');setNotice('Stock mis à jour pour '+data.product.name+'.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   const product=data?.product;
-  return <main className="epi-scan"><div className="epi-scan-shell"><header><img src="/polytechs-logo.png" alt="Polytechs" width="135" height="75"/><div><small>GESTION DES EPI</small><h1>Mettre à jour le stock</h1></div></header>
+  return <main className="epi-scan"><div className="epi-scan-shell"><header><img src="/polytechs-logo.png" alt="Polytechs" width="135" height="75"/><div><small>GESTION DES EPI</small><h1>Mettre à jour le stock</h1></div></header><div className="epi-scan-session"><span>Connecté : {account.displayName}</span><button type="button" onClick={logout}>Se déconnecter</button></div>
     {loading?<section className="epi-scan-card" role="status">Chargement de l’EPI…</section>:<>
       {error&&<p className="epi-scan-error" role="alert">{error}</p>}{notice&&<p className="epi-scan-success" role="status">{notice}</p>}
       {product&&<section className="epi-scan-card"><div className="epi-scan-product"><div className="epi-scan-photo">{product.has_photo?<img src={'/api/epi-stock/photo?code='+encodeURIComponent(product.code)+'&v='+encodeURIComponent(product.photo_updated_at||'')} alt={'Photo de '+product.name}/>:<Package size={38} aria-hidden="true"/>}</div><div><span className="epi-scan-family">{product.family}</span><h2>{product.name}</h2><p>{product.specifics}</p><code>{product.code}</code></div></div>
