@@ -1,9 +1,10 @@
+import {cseMembers} from './function-roles';
 import {createHash} from 'node:crypto';
 import {database} from '@/db/raw';
 import {pdpRecipients,pdpType} from './prevention-rules';
 import {dateToday,normalize,type QRecord} from './workflows';
 import type {Account} from './access';
-export const hseeMemberSql="SELECT DISTINCT u.id,u.display_name,u.role FROM users u JOIN team_members m ON m.user_id=u.id WHERE m.team_id IN ('qsse','hsee') AND m.level IN ('contributor','team_admin') AND u.role IN ('editor','admin')";
+export const hseeMemberSql="SELECT DISTINCT u.id,u.display_name,u.role FROM users u JOIN member_function_roles m ON m.user_id=u.id WHERE m.role='hsee_approver' AND u.role IN ('editor','admin')";
 export async function hseeMembers(){return (await database().prepare(hseeMemberSql).all()).results as {id:string;display_name:string;role:string}[]}
 export async function canApproveUrgency(user:Account){return (await hseeMembers()).some(member=>member.id===user.id)}
 export function urgentScope(r:QRecord){const excluded=new Set(['notifyUserIds','agreementEU','agreementEE','inspectionDone','cseEUDate','cseEUProof','cseEEDate','cseEEProof','urgentImmediateProof','completedAt','changes','briefing','inspectionNotice']);return createHash('sha256').update(JSON.stringify({title:r.title,details:Object.fromEntries(Object.entries(r.details).filter(([key])=>!excluded.has(key)).sort(([a],[b])=>a.localeCompare(b)))})).digest('hex')}
@@ -20,7 +21,7 @@ export async function preventionServerError(r:QRecord,all:QRecord[]){
  return '';
 }
 export async function notifyPrevention(r:QRecord,event:string,revision:number,extra:string[]=[]){
- const members=await hseeMembers(),ids=[...new Set([...pdpRecipients(r),...extra,...(r.details.urgent==='Oui'?members.map(m=>m.id):[])])];
+ const members=await hseeMembers(),elected=await cseMembers(),ids=[...new Set([...pdpRecipients(r),...elected.map(member=>member.id),...extra,...(r.details.urgent==='Oui'?members.map(m=>m.id):[])])];
  if(!ids.length)return {count:0,warning:'Aucun destinataire interne défini. Sélectionnez les personnes concernées.'};
  const db=database(),now=new Date().toISOString(),href='/plans-prevention?record='+encodeURIComponent(r.id||'');
  try{await db.batch(ids.map(userId=>db.prepare('INSERT OR IGNORE INTO hub_notifications (id,user_id,title,href,seen,created_at) VALUES (?,?,?,?,0,?)').bind('pdp:'+r.id+':'+event+':'+revision+':'+userId,userId,('PDP '+pdpType(r).toLowerCase()+' · '+event+' · '+r.title).slice(0,300),href,now)));return {count:ids.length,warning:''}}catch(e){console.error(e);return {count:0,warning:'Plan enregistré, mais notifications non créées. Réessayez depuis « Notifier les personnes concernées ».'}}

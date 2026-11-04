@@ -41,3 +41,10 @@ export async function issueSession(userId:string,emailVerified=false){const mate
 export async function endSession(req:Request){const id=siteIdentity(req);if(id)await database().prepare('DELETE FROM site_identities WHERE identity_id=?').bind(id).run();const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token))await database().prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha(token)).run()}
 export const clearCookie=`${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0`;
 export async function userByName(username:string){return database().prepare('SELECT * FROM users WHERE username=?').bind(username).first<DbUser>()}
+
+// Internal, opaque session key for reminders. Never return the cookie or this key to the browser.
+export async function notificationSessionKey(req:Request){
+ const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token)){const hash=await sha(token);if(await database().prepare('SELECT 1 FROM sessions WHERE token_hash=? AND expires_at>?').bind(hash,Date.now()).first())return hash;}
+ const identity=siteIdentity(req);if(identity){const row=await database().prepare('SELECT expires_at FROM site_identities WHERE identity_id=? AND expires_at>?').bind(identity,Date.now()).first<{expires_at:number}>();if(row)return sha('site:'+identity+':'+row.expires_at)}
+ return '';
+}

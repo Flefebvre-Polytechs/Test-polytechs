@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {GlobalMembersPanel} from '@/components/global-members-panel';
+import {NotificationGate} from '@/components/notification-gate';
 import {ProfileProvider} from '@/components/profile';
 import {MailCheck,ShieldCheck,ArrowLeft} from 'lucide-react';
 export type Account={id:string;username:string;displayName:string;role:'admin'|'editor'|'reader';mustChangePassword:boolean;email?:string|null};
@@ -23,7 +24,7 @@ export function AccountGate({children}:{children:(account:Account,logout:()=>voi
  }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function logout(){try{await auth({action:'logout'})}finally{setAccount(null);back()}}
  if(!ready)return <div className="login-page"><p role="status">Ouverture de l’espace QSE…</p></div>;
- if(account&&!account.mustChangePassword&&mode==='login')return <ProfileProvider account={account} logout={logout}>{children(account,logout)}</ProfileProvider>;
+ if(account&&!account.mustChangePassword&&mode==='login')return <ProfileProvider account={account} logout={logout}><NotificationGate logout={logout}>{children(account,logout)}</NotificationGate></ProfileProvider>;
  const changing=!!account?.mustChangePassword&&mode==='login';
  const title=changing?'Sécuriser votre compte':mode==='code'?'Vérifiez votre identité':mode==='forgot'?'Mot de passe oublié':mode==='reset'?'Nouveau mot de passe':'Connexion';
  return <main className="login-page"><section className="login-card auth-card"><img src="/polytechs-logo.png" width="180" height="100" alt="Polytechs"/><span className="brand-sub">POLYTECHS CONNECT</span>{mode==='code'&&<div className="auth-emblem"><MailCheck size={27}/></div>}<h1>{title}</h1><p>{changing?'Choisissez un nouveau mot de passe avant d’accéder à votre espace.':mode==='code'?<>Saisissez le code envoyé à <strong data-no-translate>{destination}</strong>.</>:mode==='forgot'?'Indiquez l’adresse e-mail associée à votre compte.':mode==='reset'?'Choisissez un mot de passe personnel de 12 caractères minimum.':'Connectez-vous à votre espace de travail.'}</p>

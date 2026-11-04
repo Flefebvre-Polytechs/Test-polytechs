@@ -8,13 +8,13 @@ const accounts={requester:{id:'requester',role:'admin',displayName:'Demandeur'},
 globalThis.pdpUser=accounts.requester;
 try{
  fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.pdpDb;export const bucket=()=>{throw Error("No files in this test")};');
- fs.writeFileSync(path.join(dir,'access.mjs'),`export const requireRole=async(req,min)=>!globalThis.pdpUser?{error:Response.json({error:'Connexion requise'},{status:401})}:min==='editor'&&globalThis.pdpUser.role==='reader'?{error:Response.json({error:'Lecture seule'},{status:403})}:{user:globalThis.pdpUser};export const checkOrigin=req=>req.headers.get('origin')==='https://pdp.test';export const securityEvent=async()=>{};`);
+ fs.writeFileSync(path.join(dir,'access.mjs'),`export const requireRole=async(req,min)=>!globalThis.pdpUser?{error:Response.json({error:'Connexion requise'},{status:401})}:min==='editor'&&globalThis.pdpUser.role==='reader'?{error:Response.json({error:'Lecture seule'},{status:403})}:{user:globalThis.pdpUser};export const checkOrigin=req=>req.headers.get('origin')==='https://pdp.test';export const securityEvent=async()=>{};export const notificationSessionKey=async()=>globalThis.pdpSession||'session-a';`);
  fs.writeFileSync(path.join(dir,'gmao-server.mjs'),'export const gmaoTicketContributor=async()=>false;export const gmaoTicketReader=async()=>false;');
- const files={'modules':'lib/modules.ts','workflows':'lib/workflows.ts','prevention-rules':'lib/prevention-rules.ts','prevention-control':'lib/prevention-control.ts','prevention-documents':'lib/prevention-documents.ts','record-access':'lib/record-access.ts','team-access':'lib/team-access.ts','epi-access':'lib/epi-access.ts','hub':'lib/hub.ts','control-route':'app/api/prevention-control/route.ts','records-route':'app/api/records/route.ts','hub-route':'app/api/hub/route.ts'};
+ const files={'notification-route':'app/api/notifications/route.ts','function-role-labels':'lib/function-role-labels.ts','function-roles':'lib/function-roles.ts','notification-access':'lib/notification-access.ts','modules':'lib/modules.ts','workflows':'lib/workflows.ts','prevention-rules':'lib/prevention-rules.ts','prevention-control':'lib/prevention-control.ts','prevention-documents':'lib/prevention-documents.ts','record-access':'lib/record-access.ts','team-access':'lib/team-access.ts','epi-access':'lib/epi-access.ts','hub':'lib/hub.ts','control-route':'app/api/prevention-control/route.ts','records-route':'app/api/records/route.ts','hub-route':'app/api/hub/route.ts'};
  for(const [name,file] of Object.entries(files)){let source=fs.readFileSync(file,'utf8');for(const module of [...Object.keys(files),'access','gmao-server'])source=source.replaceAll("'@/lib/"+module+"'","'./"+module+".mjs'").replaceAll("'./"+module+"'","'./"+module+".mjs'");source=source.replaceAll("'@/db/raw'","'./raw.mjs'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
  sqlite.exec(`PRAGMA foreign_keys=ON;CREATE TABLE users(id TEXT PRIMARY KEY,display_name TEXT,role TEXT);INSERT INTO users VALUES('requester','Demandeur','admin'),('hsee','HSEE','editor'),('recipient','Atelier','reader'),('other','Autre','editor');CREATE TABLE teams(id TEXT PRIMARY KEY);INSERT INTO teams VALUES('qsse'),('production');CREATE TABLE team_access(team_id TEXT,restricted INTEGER);INSERT INTO team_access VALUES('qsse',1),('production',1);CREATE TABLE team_members(team_id TEXT,user_id TEXT,level TEXT);INSERT INTO team_members VALUES('qsse','hsee','contributor');CREATE TABLE epi_managers(user_id TEXT);CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,domain TEXT,status TEXT,priority TEXT,owner TEXT,due TEXT,description TEXT,url TEXT,details TEXT,created TEXT,updated TEXT,revision INTEGER,source_id TEXT);CREATE TABLE record_history(id TEXT,record_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT);CREATE TABLE hub_notifications(id TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),title TEXT,href TEXT,seen INTEGER,created_at TEXT);CREATE TABLE hub_tickets(id TEXT,data TEXT);`);
- sqlite.exec(fs.readFileSync('drizzle/0027_prevention_urgent_reviews.sql','utf8'));
- const load=async name=>import(pathToFileURL(path.join(dir,name+'.mjs'))),control=await load('control-route'),records=await load('records-route'),hub=await load('hub-route'),rules=await load('prevention-rules'),service=await load('prevention-control'),{blank,dateToday,validate,normalize}=await load('workflows');
+ sqlite.exec(fs.readFileSync('drizzle/0027_prevention_urgent_reviews.sql','utf8'));sqlite.exec(fs.readFileSync('drizzle/0028_function_roles_and_notification_receipts.sql','utf8'));
+ const load=async name=>import(pathToFileURL(path.join(dir,name+'.mjs'))),control=await load('control-route'),records=await load('records-route'),hub=await load('hub-route'),notifications=await load('notification-route'),rules=await load('prevention-rules'),service=await load('prevention-control'),{blank,dateToday,validate,normalize}=await load('workflows');
  const day=(offset)=>{const d=new Date(dateToday()+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10)};
  const post=(route,body)=>route.POST(new Request('https://pdp.test/api',{method:'POST',headers:{origin:'https://pdp.test','content-type':'application/json'},body:JSON.stringify(body)}));
  const fixture=()=>({...blank,title:'Maintenance test',kind:'Plans de prévention',domain:'Sécurité',status:'À préparer',owner:'Pilote',url:'https://example.test/ged/plan',details:{planType:'Ponctuel',urgent:'Non',notifyUserIds:'["recipient"]',contractor:'Entreprise test',regime:'Intervention entreprise extérieure',operation:'Maintenance',place:'Atelier',start:day(1),end:day(2),hours:'8',dangerous:'Non',inspection:day(0),inspectionDone:'Oui',euRepresentative:'EU',eeRepresentative:'EE',inspectionAttendees:'EU et EE',sector:'Atelier',dangerZones:'Consignation',circulation:'Voie A',facilities:'Vestiaire',instructions:'Consignes remises',equipment:'Outillage',emergency:'Secours site',coordination:'Pilote',maintenance:'Sans objet',medical:'Aucun',validator:'HSEE',riskRowsJson:JSON.stringify([{phase:'Arrêt',hazard:'Énergie',measure:'Consignation',responsible:'EU'}]),drivingNeeded:'Non',habilitationNeeded:'Non',loanNeeded:'Non',chemicalsNeeded:'Non',externalRiskNeeded:'Non',methodNeeded:'Non',credentialsJson:'[]',loansJson:'[]',agreementEU:'Accord EU',agreementEE:'Accord EE',cseEU:'Oui',cseEUDate:day(-3),cseEUProof:'Courriel EU',cseEE:'Oui',cseEEDate:day(-3),cseEEProof:'Courriel EE'}});
@@ -44,6 +44,22 @@ try{
  const visible=await records.GET(new Request('https://pdp.test/api/records'));assert.ok((await visible.json()).records.some(r=>r.id===plan.id),'Notified recipient can read the single assigned dossier');
  assert.equal((await post(records,{...plan,revision:2})).status,403,'Notification grants no write access');
  let notices=await hub.GET(new Request('https://pdp.test/api/hub?scope=notifications'));assert.ok((await notices.json()).notifications.length>0,'PDP notifications appear in the bell');
+ // Reader can defer/acknowledge only notifications they can currently access.
+ let pending=await (await notifications.GET(new Request('https://pdp.test/api/notifications'))).json();
+ const notificationId=pending.notifications[0].id;assert.ok(notificationId);
+ sqlite.prepare('UPDATE hub_notifications SET seen=1 WHERE id=?').run(notificationId);
+ assert.ok((await (await notifications.GET(new Request('https://pdp.test/api/notifications'))).json()).notifications.some(n=>n.id===notificationId),'Reading the bell is not an acknowledgement');
+ assert.equal((await post(notifications,{id:notificationId,action:'later'})).status,200);
+ assert.ok(!(await (await notifications.GET(new Request('https://pdp.test/api/notifications'))).json()).notifications.some(n=>n.id===notificationId),'Deferred notification stays hidden during this login, across page requests');
+ globalThis.pdpSession='session-b';
+ assert.ok((await (await notifications.GET(new Request('https://pdp.test/api/notifications'))).json()).notifications.some(n=>n.id===notificationId),'Next login brings the reminder back');
+ globalThis.pdpUser=accounts.other;assert.equal((await post(notifications,{id:notificationId,action:'acknowledge'})).status,409,'Cannot acknowledge another person’s message');
+ globalThis.pdpUser=accounts.recipient;assert.equal((await post(notifications,{id:notificationId,action:'acknowledge'})).status,200);
+ assert.ok(sqlite.prepare('SELECT acknowledged_at FROM notification_receipts WHERE notification_id=?').get(notificationId).acknowledged_at);
+ globalThis.pdpSession='session-c';assert.ok(!(await (await notifications.GET(new Request('https://pdp.test/api/notifications'))).json()).notifications.some(n=>n.id===notificationId),'Acknowledgement persists across future logins');
+ const badOrigin=await notifications.POST(new Request('https://pdp.test/api/notifications',{method:'POST',headers:{origin:'https://other.test','content-type':'application/json'},body:JSON.stringify({id:notificationId,action:'later'})}));assert.equal(badOrigin.status,403);
+ const beforeDecisionCount=sqlite.prepare('SELECT COUNT(*) n FROM prevention_urgent_reviews').get().n;
+ assert.equal(beforeDecisionCount,2,'Acknowledging a notification never writes an HSEE approval');
  globalThis.pdpUser=accounts.other;assert.equal((await records.GET(new Request('https://pdp.test/api/records'))).status,200);assert.equal((await (await records.GET(new Request('https://pdp.test/api/records'))).json()).records.length,0);
  globalThis.pdpUser=accounts.requester;
  const before=sqlite.prepare('SELECT count(*) n FROM hub_notifications').get().n;
@@ -59,5 +75,30 @@ try{
  assert.match(await service.preventionServerError({...child,status:'Validé',details:{...child.details,end:day(366)}},all),/cadre annuel/);
  assert.match(await service.preventionServerError({...child,status:'Validé',details:{...child.details,annualScopeConfirmed:'Non'}},all),/cadre annuel/);
  assert.ok(validate({...annual,details:{...annual.details,recurringScope:''}}).some(x=>x.includes('prestations récurrentes')));
+ const roles=await load('function-roles'),{recordAccess}=await load('record-access');
+ sqlite.prepare("INSERT INTO member_function_roles VALUES('other','pdp_manager',NULL,'2026-11-03')").run();
+ assert.equal(await roles.hasFunctionRole(accounts.other,'pdp_manager'),true);
+ let canWrite=await recordAccess(accounts.other,[],true);assert.equal(canWrite({kind:'Plans de prévention'}),true);assert.equal(canWrite({kind:'DUERP'}),false);assert.equal(await service.canApproveUrgency(accounts.other),false,'Managing PDPs does not grant emergency approval');
+ sqlite.prepare("DELETE FROM member_function_roles WHERE user_id='other'").run();canWrite=await recordAccess(accounts.other,[],true);assert.equal(canWrite({kind:'Plans de prévention'}),false,'Revocation is immediate');
+ sqlite.prepare("INSERT INTO member_function_roles VALUES('other','hsee_approver',NULL,'2026-11-03')").run();assert.equal(await service.canApproveUrgency(accounts.other),true);
+ assert.equal((await recordAccess(accounts.other,[],false))({kind:'Plans de prévention'}),true);assert.equal((await recordAccess(accounts.other,[],true))({kind:'Plans de prévention'}),false,'Approver-only role does not grant operational editing');
+ sqlite.prepare("DELETE FROM member_function_roles WHERE user_id='hsee'").run();assert.equal(await service.canApproveUrgency(accounts.hsee),false,'Old team membership cannot silently restore a revoked approval role');
+ sqlite.prepare("INSERT INTO users VALUES('cse-reader','Élu CSE test','reader')").run();
+ sqlite.prepare("INSERT INTO member_function_roles VALUES('cse-reader','cse_representative',NULL,'2026-11-03')").run();
+ const cse={id:'cse-reader',role:'reader',displayName:'Élu CSE test'};
+ assert.equal(await roles.hasFunctionRole(cse,'cse_representative'),true);
+ assert.equal((await recordAccess(cse,[],false))({kind:'Plans de prévention'}),true);assert.equal((await recordAccess(cse,[],true))({kind:'Plans de prévention'}),false);
+ assert.equal(await service.canApproveUrgency(cse),false,'CSE role cannot approve emergencies');
+ await service.notifyPrevention(plan,'Inspection CSE',77);
+ assert.equal(sqlite.prepare("SELECT count(*) n FROM hub_notifications WHERE user_id='cse-reader'").get().n,1,'CSE is notified without being manually selected as a recipient');
+ globalThis.pdpUser=cse;
+ assert.ok((await (await notifications.GET(new Request('https://pdp.test/api/notifications'))).json()).notifications.length>0,'CSE notifications use the login acknowledgement gate');
+ assert.equal((await post(records,{...plan,revision:3})).status,403);
+ sqlite.prepare("DELETE FROM member_function_roles WHERE user_id='cse-reader'").run();
+ assert.equal((await (await notifications.GET(new Request('https://pdp.test/api/notifications'))).json()).notifications.length,0,'Removing the CSE role revokes dossier and notification access');
+ await service.notifyPrevention(plan,'Après retrait CSE',78);
+ assert.equal(sqlite.prepare("SELECT count(*) n FROM hub_notifications WHERE user_id='cse-reader'").get().n,1,'Former CSE member gets no new automatic notifications');
+ console.log('CSE: reader-compatible mandate, PDP-only read access, automatic notifications, no editing/approval and immediate revocation passed.');
+ console.log('Login notifications: ownership, explicit acknowledgement, session-bound defer, next-login replay and role isolation passed.');
  console.log('PDP control: CSE deadline, HSEE-only approval, no retroactive scope waiver, annual linkage, scoped access, visible notifications and deduplication passed.');
 }finally{sqlite.close();fs.rmSync(dir,{recursive:true,force:true})}
