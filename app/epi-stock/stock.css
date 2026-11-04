@@ -7,3 +7,40 @@
 .stock-item-main{display:flex;align-items:center;gap:12px;min-width:0;flex:1}.stock-item-main>span:last-child{min-width:0}.stock-thumb{width:48px;height:48px;flex:none;object-fit:cover;border-radius:10px;background:#edf3f8;border:1px solid #e0e7ef}.stock-thumb-empty{display:grid;place-items:center;color:#8aa0b3}.stock-photo-panel{display:flex;gap:16px;align-items:center;margin:20px 0;padding:12px;border:1px solid #e4eaf0;border-radius:14px;background:#fbfcfe}.stock-photo-preview{width:160px;height:130px;flex:none;border-radius:10px;overflow:hidden;background:#edf3f8}.stock-photo-preview img{width:100%;height:100%;object-fit:contain}.stock-photo-placeholder{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:#76899b;font-size:12px;padding:12px}.stock-photo-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.stock-photo-actions input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.stock-photo-actions button{display:inline-flex;align-items:center;gap:7px}.stock-photo-actions small{width:100%;color:#7c8a98}@media(max-width:550px){.stock-photo-panel{flex-direction:column;align-items:stretch}.stock-photo-preview{width:100%;height:180px}}
 .stock-detail{scroll-margin-top:20px}.stock-qr-panel{margin:14px 0 20px;border:1px solid #dce8f0;border-radius:14px;padding:15px;background:linear-gradient(135deg,#f7fbfe,#fff)}.stock-qr-heading{display:flex;align-items:center;gap:10px;color:#0e5888}.stock-qr-heading div{display:grid;gap:2px}.stock-qr-heading small{color:#6d8293;font-size:12px}.stock-qr-content{display:flex;align-items:center;gap:15px;margin-top:13px}.stock-qr-content>img{width:132px;height:132px;object-fit:contain;background:#fff;border:1px solid #dce8f0;border-radius:9px;padding:5px}.stock-qr-content p{margin:0 0 4px;font-size:13px;font-weight:750;overflow-wrap:anywhere}.stock-qr-content small{color:#6c7f8c;line-height:1.4}.stock-qr-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.stock-qr-actions .outline{display:inline-flex;gap:6px;align-items:center;text-decoration:none;font-size:12px;padding:8px 10px}.stock-print-label{display:none}@media(max-width:550px){.stock-qr-content{align-items:flex-start;flex-direction:column}.stock-qr-content>img{width:150px;height:150px}}@media print{body *{visibility:hidden!important}.stock-print-label,.stock-print-label *{visibility:visible!important}.stock-print-label{display:flex!important;flex-direction:column;align-items:center;gap:5px;position:absolute;left:0;top:0;width:80mm;padding:6mm;background:white;color:#143653;text-align:center;break-inside:avoid}.stock-print-label>strong{font-size:13pt;letter-spacing:.07em}.stock-print-label img{width:52mm;height:52mm;object-fit:contain}.stock-print-label b{font-size:12pt}.stock-print-label span{font-size:10pt;overflow-wrap:anywhere}.stock-print-label small{font-size:8pt;color:#536c7f}}
 .stock-hero-actions{display:flex;gap:9px;flex-wrap:wrap}.stock-hero-actions a{display:inline-flex;align-items:center;gap:7px;text-decoration:none}.stock-hero-actions button{white-space:nowrap}
+
+/* EPI – Indicateurs d'utilisation et coûts, adaptés au téléphone */
+.epi-tabs{flex-wrap:wrap}
+.epi-indicators{display:grid;gap:18px;min-width:0}
+.epi-indicators-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.epi-indicators-header h2{font-size:23px;margin:0 0 5px;color:#25364a}
+.epi-indicators-header p,.epi-indicators-charts p{font-size:13px;color:#748194;margin:0}
+.epi-indicators-header button{display:inline-flex;align-items:center;gap:7px}
+.epi-indicators-filters{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:14px;padding:14px;background:#fff;border:1px solid #e8e9f0;border-radius:13px}
+.epi-indicators-filters>div{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.epi-indicators-filters span{font-size:12px;color:#687589;font-weight:700;margin-right:6px}
+.epi-indicators-filters button{border:1px solid #e0dce7;border-radius:8px;padding:9px 12px;background:white;color:#5b4172;font-size:13px;cursor:pointer}
+.epi-indicators-filters button[aria-pressed=true]{background:#633b7e;border-color:#633b7e;color:white}
+.epi-indicators-filters label{display:grid;gap:5px;font-size:12px;color:#657285;font-weight:700}
+.epi-indicators-filters select{min-width:190px;font-size:13px}
+.epi-indicators-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.epi-indicators-kpis article{display:flex;flex-direction:column;gap:9px;background:white;border:1px solid #e8e9f0;border-radius:13px;padding:16px;min-width:0}
+.epi-indicators-kpis small{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#647182}
+.epi-indicators-kpis strong{font-size:clamp(22px,2.5vw,31px);color:#553376;line-height:1.1;overflow-wrap:anywhere}
+.epi-indicators-kpis span{font-size:12px;color:#7a8795;line-height:1.4}
+.epi-indicators-help{font-size:12px;line-height:1.6;color:#738091;margin:0}
+.epi-indicators-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.epi-indicators-charts .stock-card{min-width:0}
+.epi-indicators-charts h3{margin:0 0 6px;font-size:17px;color:#26374a}
+.epi-chart{width:100%;height:270px;margin-top:18px}
+.epi-indicators-empty{padding:40px 8px;text-align:center;line-height:1.7}
+.epi-indicators-table-wrap{max-height:360px;overflow:auto;margin-top:15px}
+.epi-indicators-table-wrap table{width:100%;border-collapse:collapse;font-size:13px}
+.epi-indicators-table-wrap th{text-align:left;color:#778393;font-weight:700;background:#f8f9fb;position:sticky;top:0}
+.epi-indicators-table-wrap td,.epi-indicators-table-wrap th{padding:10px;border-bottom:1px solid #edf0f4}
+.epi-indicators-table-wrap td:first-child{max-width:240px}
+.epi-indicators-table-wrap td strong,.epi-indicators-table-wrap td small{display:block}
+.epi-indicators-table-wrap td small{font-size:11px;color:#8390a0;margin-top:4px}
+.epi-indicators-table-wrap th:not(:first-child),.epi-indicators-table-wrap td:not(:first-child){text-align:right;white-space:nowrap}
+@media(max-width:1050px){.epi-indicators-charts{grid-template-columns:1fr}}
+@media(max-width:640px){.epi-indicators-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.epi-indicators-header{align-items:flex-start}.epi-indicators-filters{align-items:stretch}.epi-indicators-filters label,.epi-indicators-filters select{width:100%}.epi-chart{height:240px}}
+@media(max-width:370px){.epi-indicators-kpis{grid-template-columns:1fr}}
