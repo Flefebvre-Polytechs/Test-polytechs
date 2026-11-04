@@ -1,0 +1,28 @@
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  width: 100%;
+  padding: 24px 16px;
+  background: #f6faff;
+  color: #235471;
+}
+
+.content {
+  width: min(320px, 100%);
+  text-align: center;
+}
+
+.logo {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.message {
+  margin: 0;
+  padding: 0 8px 24px;
+  color: #547084;
+  font: 400 13px/1.5 Arial, sans-serif;
+}

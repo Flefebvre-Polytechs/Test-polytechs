@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import {GlobalMembersPanel} from '@/components/global-members-panel';
 import {NotificationGate} from '@/components/notification-gate';
 import {ProfileProvider} from '@/components/profile';
+import {BrandLoader} from '@/components/brand-loader';
 import {MailCheck,ShieldCheck,ArrowLeft} from 'lucide-react';
 export type Account={id:string;username:string;displayName:string;role:'admin'|'editor'|'reader';mustChangePassword:boolean;email?:string|null};
 async function auth(body:Record<string,string>){const res=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data:any=await res.json();if(!res.ok)throw Error(data.error||'Connexion impossible.');return data}
@@ -23,7 +24,7 @@ export function AccountGate({children,epiScan=false}:{epiScan?:boolean;children:
   if(epiScan&&data.account&&!data.account.mustChangePassword)await auth({action:'remember-epi'});setAccount(data.account);setMode('login');setChallenge('');setCode('');
  }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function logout(){try{await auth({action:'logout'})}finally{setAccount(null);back()}}
- if(!ready)return <div className="login-page"><p role="status">Ouverture de l’espace QSE…</p></div>;
+ if(!ready)return <BrandLoader message="Ouverture de votre espace…" />;
  if(account&&!account.mustChangePassword&&mode==='login'&&epiScan)return <>{children(account,logout)}</>;
  if(account&&!account.mustChangePassword&&mode==='login')return <ProfileProvider account={account} logout={logout}><NotificationGate logout={logout}>{children(account,logout)}</NotificationGate></ProfileProvider>;
  const changing=!!account?.mustChangePassword&&mode==='login';
