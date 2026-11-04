@@ -49,7 +49,7 @@ export function EpiIndicators(){
         <article><small><ArrowUpFromLine size={15}/> Consommation</small><strong>{qty(s.issuedUnits)}</strong><span>unités sorties sur la période</span></article>
         <article><small><Coins size={15}/> Coût des sorties HT</small><strong>{isCostKnown(s.valuedIssuedUnits,s.unvaluedIssuedUnits)?euros(s.issuedCostCents):'—'}</strong><span>{s.unvaluedIssuedUnits>0?qty(s.unvaluedIssuedUnits)+' unité(s) sans prix à la sortie':'Sorties entièrement valorisées'}</span></article>
         <article><small><Wallet size={15}/> Valeur du stock HT</small><strong>{s.pricedReferences?euros(s.stockValueCents):'—'}</strong><span>{s.unvaluedStockReferences>0?qty(s.unvaluedStockReferences)+' référence(s) en stock sans prix':'Selon les prix actuellement renseignés'}</span></article>
-        <article><small><ArrowDownToLine size={15}/> Entrées magasin</small><strong>{qty(s.receivedUnits)}</strong><span>unités reçues sur la période</span></article>
+        <article><small><ArrowDownToLine size={15}/> Entrées magasin</small><strong>{qty(s.receivedUnits)}</strong><span>Valeur connue des entrées HT : {s.receivedUnits===s.unvaluedReceivedUnits&&s.receivedUnits>0?"—":euros(s.receivedCostCents)}{s.unvaluedReceivedUnits>0?" · "+qty(s.unvaluedReceivedUnits)+" unité(s) sans prix":""}</span></article>
         <article><small><TriangleAlert size={15}/> Seuils atteints</small><strong>{qty(s.atRisk)}</strong><span>références inventoriées à réapprovisionner</span></article>
         <article><small>Couverture tarifaire</small><strong>{s.totalReferences?Math.round(s.pricedReferences/s.totalReferences*100):0} %</strong><span>{s.pricedReferences} / {s.totalReferences} référence(s) avec prix</span></article>
       </div>
