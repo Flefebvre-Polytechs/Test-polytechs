@@ -2091,4 +2091,6 @@ export const additionalTranslations:[string,string,string,string,string][]=[
     "Conferma l’utilizzo del tuo account connesso.",
     "Confirma que deseas usar tu cuenta conectada."
   ]
+  ["Adresse e-mail de connexion","Sign-in email address","E-Mail-Adresse für die Anmeldung","Indirizzo e-mail di accesso","Dirección de correo de inicio de sesión"],
+  ["12 caractères minimum, différent de l’adresse e-mail. Aucun mot de passe n’est envoyé par e-mail.","At least 12 characters, different from the email address. No password is sent by email.","Mindestens 12 Zeichen, anders als die E-Mail-Adresse. Passwörter werden nicht per E-Mail versendet.","Almeno 12 caratteri, diversi dall’indirizzo e-mail. Nessuna password viene inviata via e-mail.","Al menos 12 caracteres, diferentes de la dirección de correo. No se envían contraseñas por correo."],
 ];
