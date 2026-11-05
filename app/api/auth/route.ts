@@ -4,11 +4,12 @@ import {after} from 'next/server';
 import {startChallenge,consumeChallenge,digest} from '@/lib/email-auth';
 import {emailMfaRequired,mailConfigured,validEmail} from '@/lib/security-mail';
 import {database} from '@/db/raw';
-import {account,needsRehash,linkSiteIdentity,throttle,clearThrottle,securityEvent,checkOrigin,checkPassword,clearCookie,currentUser,endSession,hashPassword,issueSession,sessionMaterial,userByName} from '@/lib/access';
+import {account,needsRehash,linkSiteIdentity,throttle,clearThrottle,securityEvent,checkOrigin,checkPassword,clearCookie,currentUser,endSession,hashPassword,issueSession,sessionMaterial,touchSession,userByName} from '@/lib/access';
 
 const fail=(error:string,status=400)=>Response.json({error},{status,headers:{'Cache-Control':'private, no-store'}});
 export async function GET(req:Request){try{return Response.json({account:await (new URL(req.url).searchParams.get('scope')==='epi-scan'?currentEpiUser(req):currentUser(req))},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error(e);return fail('Service de connexion indisponible.',503)}}
 export async function POST(req:Request){try{if(!checkOrigin(req))return fail('Requête non autorisée.',403);const reader=req.body?.getReader();if(!reader)return fail('Demande invalide.');const chunks:Uint8Array[]=[];let size=0;for(;;){const item=await reader.read();if(item.done)break;size+=item.value.byteLength;if(size>4096){await reader.cancel();return fail('Demande trop volumineuse.',413)}chunks.push(item.value)}const raw=Buffer.concat(chunks).toString('utf8');let body:Record<string,unknown>;try{body=JSON.parse(raw)}catch{return fail('Demande invalide.');}if(!body||typeof body!=='object')return fail('Demande invalide.');const action=body.action;
+if(action==='activity'){const valid=await touchSession(req);return valid?Response.json({ok:true},{headers:{'Cache-Control':'private, no-store'}}):fail('Votre session a expiré après 15 minutes d’inactivité. Reconnectez-vous.',401)}
 if(action==='remember-epi'){const user=await currentEpiUser(req);if(!user)return fail('Connexion EPI nécessaire.',401);const response=Response.json({ok:true},{headers:{'Cache-Control':'private, no-store'}});response.headers.set('Set-Cookie',await rememberEpiDevice(req,user));return response}
 if(action==='verify-email')return consumeChallenge(body.challenge,'login',body.code);
 if(action==='reset-password')return consumeChallenge(body.token,'reset','',body.newPassword);
@@ -49,7 +50,7 @@ const result=await db.batch([
  db.prepare(`DELETE FROM sessions WHERE user_id=? AND ${updated}`).bind(user.id,user.id,nextHash),
  db.prepare(`DELETE FROM site_identities WHERE user_id=? AND ${updated}`).bind(user.id,user.id,nextHash),
  db.prepare(`DELETE FROM auth_challenges WHERE user_id=? AND ${updated}`).bind(user.id,user.id,nextHash),
- ...(epiOnly?[]:[db.prepare(`INSERT INTO sessions(token_hash,user_id,expires_at,email_verified) SELECT ?,?,?,? WHERE ${updated}`).bind(session.hash,user.id,session.expires,emailMfaRequired()?1:0,user.id,nextHash)])
+ ...(epiOnly?[]:[db.prepare(`INSERT INTO sessions(token_hash,user_id,expires_at,email_verified,last_activity_at) SELECT ?,?,?,?,? WHERE ${updated}`).bind(session.hash,user.id,session.expires,emailMfaRequired()?1:0,session.lastActivityAt,user.id,nextHash)])
 ]);if(!result[0].meta.changes)return fail('Le compte a changé. Reconnectez-vous avant de réessayer.',409);
 await clearThrottle('password:'+user.id);if(!epiOnly)await linkSiteIdentity(req,user.id);await securityEvent('password_changed',user.id);const response=Response.json({account:{...user,mustChangePassword:false}});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',epiOnly?await rememberEpiDevice(req,{...user,mustChangePassword:false}):session.cookie);return response}
 return fail('Action inconnue.');}catch(e){console.error(e);return fail('Opération impossible. Réessayez.',503)}}

@@ -4,6 +4,7 @@ import {GlobalMembersPanel} from '@/components/global-members-panel';
 import {NotificationGate} from '@/components/notification-gate';
 import {ProfileProvider} from '@/components/profile';
 import {BrandLoader} from '@/components/brand-loader';
+import {SessionIdleGuard} from '@/components/session-idle-guard';
 import {MailCheck,ShieldCheck,ArrowLeft} from 'lucide-react';
 export type Account={id:string;username:string;displayName:string;role:'admin'|'editor'|'reader';mustChangePassword:boolean;email?:string|null};
 async function auth(body:Record<string,string>){const res=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data:any=await res.json();if(!res.ok)throw Error(data.error||'Connexion impossible.');return data}
@@ -26,7 +27,7 @@ export function AccountGate({children,epiScan=false}:{epiScan?:boolean;children:
  async function logout(){try{await auth({action:'logout'})}finally{setAccount(null);back()}}
  if(!ready)return <BrandLoader message="Ouverture de votre espace…" />;
  if(account&&!account.mustChangePassword&&mode==='login'&&epiScan)return <>{children(account,logout)}</>;
- if(account&&!account.mustChangePassword&&mode==='login')return <ProfileProvider account={account} logout={logout}><NotificationGate logout={logout}>{children(account,logout)}</NotificationGate></ProfileProvider>;
+ if(account&&!account.mustChangePassword&&mode==='login')return <SessionIdleGuard onExpired={()=>{setAccount(null);back();setNotice('Session expirée après 15 minutes d’inactivité. Connectez-vous à nouveau.')}}><ProfileProvider account={account} logout={logout}><NotificationGate logout={logout}>{children(account,logout)}</NotificationGate></ProfileProvider></SessionIdleGuard>;
  const changing=!!account?.mustChangePassword&&mode==='login';
  const title=changing?'Sécuriser votre compte':mode==='code'?'Vérifiez votre identité':mode==='forgot'?'Mot de passe oublié':mode==='reset'?'Nouveau mot de passe':'Connexion';
  return <main className="login-page"><section className="login-card auth-card"><img src="/polytechs-logo.png" width="180" height="100" alt="Polytechs"/><span className="brand-sub">POLYTECHS CONNECT</span>{mode==='code'&&<div className="auth-emblem"><MailCheck size={27}/></div>}<h1>{title}</h1><p>{changing?'Choisissez un nouveau mot de passe avant d’accéder à votre espace.':mode==='code'?<>Saisissez le code envoyé à <strong data-no-translate>{destination}</strong>.</>:mode==='forgot'?'Indiquez l’adresse e-mail associée à votre compte.':mode==='reset'?'Choisissez un mot de passe personnel de 12 caractères minimum.':epiScan?'Identifiez-vous une première fois pour les scans EPI sur ce navigateur. Aucun code e-mail n’est demandé. La connexion sera mémorisée 90 jours et renouvelée à chaque scan.':'Connectez-vous à votre espace de travail.'}</p>
