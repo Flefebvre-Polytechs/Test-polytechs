@@ -22,10 +22,32 @@ const newerOptionalTables=[
  'prevention_invites','prevention_files','prevention_urgent_reviews',
  'member_function_roles','notification_receipts','ticket_labels'
 ];
+// Migration 0029 creates seven built-in labels. They are configuration defaults,
+// not user edits, and must remain available after importing a pre-label backup.
+const defaultLabels=new Map([
+ ['env-waste',['topic','Environnement','Déchets','dechets']],
+ ['env-water',['topic','Environnement','Eau','eau']],
+ ['env-air',['topic','Environnement','Air','air']],
+ ['env-spill',['topic','Environnement','Déversement accidentel','deversement accidentel']],
+ ['place-site-1',['location','','Site 1','site 1']],
+ ['place-site-2',['location','','Site 2','site 2']],
+ ['place-maris-51',['location','','MARIS 51','maris 51']]
+]);
 for(const name of newerOptionalTables){
  if(tables.has(name)&&!source.tables.some(t=>t.name===name)){
-  if(db.prepare(`SELECT count(*) n FROM "${name}"`).get().n)throw Error(`Target contains ${name}; import refused`);
-  source.tables.push({name,columns:db.prepare(`PRAGMA table_info("${name}")`).all().map(c=>c.name),rows:[]});
+  const columns=db.prepare(`PRAGMA table_info("${name}")`).all().map(c=>c.name);
+  let rows=[];
+  if(db.prepare(`SELECT count(*) n FROM "${name}"`).get().n){
+   if(name!=='ticket_labels')throw Error(`Target contains ${name}; import refused`);
+   rows=db.prepare('SELECT * FROM "ticket_labels"').all();
+   const defaultOnly=rows.length===defaultLabels.size&&rows.every(row=>{
+    const expected=defaultLabels.get(row.id);
+    return expected&&row.created_by===null&&
+      [row.kind,row.category,row.name,row.name_key].every((value,i)=>value===expected[i]);
+   });
+   if(!defaultOnly)throw Error('Target contains custom ticket labels; import refused');
+  }
+  source.tables.push({name,columns,rows});
  }
 }
 if(new Set(source.tables.map(t=>t.name)).size!==source.tables.length)throw Error('Duplicate tables in export');
