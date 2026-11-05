@@ -36,7 +36,7 @@ export async function consumeChallenge(token:unknown,purpose:'login'|'reset',cod
  const claim=crypto.randomUUID(),now=Date.now(),material=purpose==='login'?await sessionMaterial():null;
  const claimed='EXISTS (SELECT 1 FROM auth_challenges WHERE token_hash=? AND claim=?)';
  const statements=[db.prepare('UPDATE auth_challenges SET used_at=?,claim=? WHERE token_hash=? AND used_at IS NULL AND expires_at>? AND attempts<=5 AND EXISTS (SELECT 1 FROM users WHERE id=user_id AND email=auth_challenges.email AND password_hash=password_snapshot)').bind(now,claim,tokenHash,now)];
- if(material)statements.push(db.prepare(`INSERT INTO sessions(token_hash,user_id,expires_at,email_verified) SELECT ?,?,?,1 WHERE ${claimed}`).bind(material.hash,user.id,material.expires,tokenHash,claim));
+ if(material)statements.push(db.prepare(`INSERT INTO sessions(token_hash,user_id,expires_at,email_verified,last_activity_at) SELECT ?,?,?,1,? WHERE ${claimed}`).bind(material.hash,user.id,material.expires,material.lastActivityAt,tokenHash,claim));
  else{
   statements.push(db.prepare(`UPDATE users SET password_hash=?,must_change_password=0 WHERE id=? AND ${claimed}`).bind(passwordHash,user.id,tokenHash,claim));
   statements.push(db.prepare(`DELETE FROM sessions WHERE user_id=? AND ${claimed}`).bind(user.id,tokenHash,claim));
