@@ -17,13 +17,20 @@ export async function GET(req:Request){try{
   const months=Number(query.get('months')||6);
   if(![1,3,6,12].includes(months))return bad('Période invalide.');
   const family=(query.get('family')||'').trim();
+  const code=(query.get('code')||'').trim();
   if(family.length>100)return bad('Famille invalide.');
+  if(code&&!/^[A-Za-z0-9*_-]{4,80}$/.test(code))return bad('Code EPI invalide.');
   await ensureCatalog();
   const db=database();
   const products=(await db.prepare('SELECT code,name,supplier_reference,family,quantity,minimum,unit_cost_cents,catalog_status FROM epi_products').all()).results as ProductRow[];
   const families=[...new Set(products.filter(p=>p.catalog_status!=='Supprimé').map(p=>p.family))].sort((a,b)=>a.localeCompare(b,'fr'));
   if(family&&!families.includes(family))return bad('Famille inconnue.');
-  const active=products.filter(p=>p.catalog_status!=='Supprimé'&&(!family||p.family===family));
+  const catalog=products.filter(p=>p.catalog_status!=='Supprimé');
+  const selected=code?catalog.find(p=>p.code===code):null;
+  if(code&&!selected)return bad('EPI inconnu ou supprimé.',404);
+  if(selected&&family&&selected.family!==family)return bad('Cet EPI ne fait pas partie de la famille choisie.');
+  const epis=catalog.map(p=>({code:p.code,name:p.name,reference:p.supplier_reference||p.code,family:p.family})).sort((a,b)=>a.name.localeCompare(b.name,'fr')||a.reference.localeCompare(b.reference,'fr')||a.code.localeCompare(b.code,'fr'));
+  const active=catalog.filter(p=>(!family||p.family===family)&&(!code||p.code===code));
   const map=new Map(products.map(p=>[p.code,p]));
   const now=new Date(),year=now.getUTCFullYear(),month=now.getUTCMonth();
   const start=new Date(Date.UTC(year,month-months+1,1)).toISOString();
@@ -38,7 +45,7 @@ export async function GET(req:Request){try{
   let issuedUnits=0,receivedUnits=0,issuedCostCents=0,receivedCostCents=0,valuedIssuedUnits=0,unvaluedIssuedUnits=0,unvaluedReceivedUnits=0;
   for(const m of movements){
     const p=map.get(m.code);
-    if(!p||family&&p.family!==family)continue;
+    if(!p||family&&p.family!==family||code&&p.code!==code)continue;
     const bucket=monthMap.get(m.created_at.slice(0,7));
     if(!bucket)continue;
     const qty=m.kind==='sortie'&&m.delta<0?-m.delta:m.kind==='entree'&&m.delta>0?m.delta:0;
@@ -71,8 +78,8 @@ export async function GET(req:Request){try{
     b.units+=item.units;b.costCents+=item.costCents;b.unvaluedUnits+=item.unvaluedUnits;return result;
   },{});
   return Response.json({
-    period:{months,start:start.slice(0,10),endExclusive:end.slice(0,10),family},
-    families,
+    period:{months,start:start.slice(0,10),endExclusive:end.slice(0,10),family,code},
+    families,epis,
     summary:{issuedUnits,receivedUnits,issuedCostCents,receivedCostCents,valuedIssuedUnits,unvaluedIssuedUnits,unvaluedReceivedUnits,stockValueCents,unvaluedStockUnits,unvaluedStockReferences,pricedReferences,totalReferences:active.length,atRisk,notInventoried},
     monthly:monthly.map(b=>({...b,issuedCostEur:b.issuedCostCents/100})),
     top:ranking,

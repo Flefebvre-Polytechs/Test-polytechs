@@ -44,3 +44,12 @@
 @media(max-width:1050px){.epi-indicators-charts{grid-template-columns:1fr}}
 @media(max-width:640px){.epi-indicators-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.epi-indicators-header{align-items:flex-start}.epi-indicators-filters{align-items:stretch}.epi-indicators-filters label,.epi-indicators-filters select{width:100%}.epi-chart{height:240px}}
 @media(max-width:370px){.epi-indicators-kpis{grid-template-columns:1fr}}
+
+/* Filtre par référence EPI, indépendant du regroupement par famille. */
+.epi-indicators-product-filter{display:flex;flex:1 1 450px;align-items:end;gap:10px;min-width:0}
+.epi-indicators-product-filter label{min-width:0;flex:1;display:grid;gap:5px;font-size:12px;color:#657285;font-weight:700}
+.epi-indicators-product-filter label:last-child{flex:1.8}
+.epi-indicators-product-filter input,.epi-indicators-product-filter select{width:100%;min-width:0;border:1px solid #dce0e8;border-radius:10px;background:white;padding:11px;color:#172435;font-size:13px}
+.epi-indicators-selected{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:10px 14px;background:#f7f3fa;border:1px solid #e4d9eb;border-radius:10px;font-size:13px;color:#5c4071}
+.epi-indicators-selected button{margin-left:auto;border:0;background:transparent;color:#573376;text-decoration:underline;font-weight:700;cursor:pointer}
+@media(max-width:750px){.epi-indicators-product-filter{flex:1 1 100%;flex-wrap:wrap}.epi-indicators-product-filter label{flex:1 1 100%}.epi-indicators-product-filter label:last-child{flex:1 1 100%}.epi-indicators-filters>label{flex:1 1 100%}}

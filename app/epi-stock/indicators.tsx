@@ -6,30 +6,34 @@ import {ArrowDownToLine,ArrowUpFromLine,Coins,TriangleAlert,Wallet} from 'lucide
 type Month={month:string;label:string;issuedUnits:number;receivedUnits:number;issuedCostCents:number;issuedCostEur:number;valuedUnits:number;unvaluedUnits:number};
 type Product={code:string;name:string;reference:string;family:string;units:number;costCents:number;valuedUnits:number;unvaluedUnits:number};
 type Family={family:string;units:number;costCents:number;unvaluedUnits:number};
+type CatalogEpi={code:string;name:string;reference:string;family:string};
 type Summary={issuedUnits:number;receivedUnits:number;issuedCostCents:number;receivedCostCents:number;valuedIssuedUnits:number;unvaluedIssuedUnits:number;unvaluedReceivedUnits:number;stockValueCents:number;unvaluedStockUnits:number;unvaluedStockReferences:number;pricedReferences:number;totalReferences:number;atRisk:number;notInventoried:number};
-type IndicatorsData={period:{months:number;start:string;endExclusive:string;family:string};families:string[];summary:Summary;monthly:Month[];top:Product[];byFamily:Family[];error?:string};
+type IndicatorsData={period:{months:number;start:string;endExclusive:string;family:string;code:string};families:string[];epis:CatalogEpi[];summary:Summary;monthly:Month[];top:Product[];byFamily:Family[];error?:string};
 const euros=(cents:number)=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(cents/100);
 const qty=(value:number)=>new Intl.NumberFormat('fr-FR').format(value);
 const isCostKnown=(priced:number,unknown:number)=>priced>0||unknown===0;
 
 export function EpiIndicators(){
-  const [months,setMonths]=useState(6),[family,setFamily]=useState(''),[data,setData]=useState<IndicatorsData|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  const [months,setMonths]=useState(6),[family,setFamily]=useState(''),[code,setCode]=useState(''),[epiQuery,setEpiQuery]=useState(''),[data,setData]=useState<IndicatorsData|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   useEffect(()=>{
     const controller=new AbortController();
     setLoading(true);setError('');
-    fetch('/api/epi-stock/indicators?months='+months+'&family='+encodeURIComponent(family),{signal:controller.signal,cache:'no-store'})
+    fetch('/api/epi-stock/indicators?months='+months+'&family='+encodeURIComponent(family)+'&code='+encodeURIComponent(code),{signal:controller.signal,cache:'no-store'})
       .then(async response=>{const result=await response.json() as IndicatorsData;if(!response.ok)throw Error(result.error||'Indicateurs indisponibles.');return result})
       .then(result=>{if(!controller.signal.aborted){setData(result);setLoading(false)}})
       .catch(e=>{if(!controller.signal.aborted){setError((e as Error).message);setLoading(false)}});
     return()=>controller.abort();
-  },[months,family]);
+  },[months,family,code]);
   const s=data?.summary;
+  const selectedEpi=data?.epis.find(p=>p.code===code);
+  const possibleEpis=(data?.epis||[]).filter(p=>(!family||p.family===family)&&(!epiQuery||[p.name,p.reference,p.code,p.family].join(' ').toLocaleLowerCase('fr').includes(epiQuery.toLocaleLowerCase('fr'))||p.code===code));
   function exportCsv(){
     if(!data)return;
     const safe=(value:string|number)=>'"'+String(value).replace(/^[=+@\-\t\r]/,"'").replaceAll('"','""')+'"';
     const rows:(string|number)[][]=[
       ['Indicateurs EPI – période',data.period.start,data.period.endExclusive+' (exclue)'],
       ['Famille',data.period.family||'Toutes'],
+      ['EPI',data.period.code?(selectedEpi?selectedEpi.name+' / '+selectedEpi.reference+' / '+selectedEpi.code:data.period.code):'Tous les EPI'],
       [],
       ['Mois','Sorties (unités)','Entrées (unités)','Coût connu des sorties HT (€)','Sorties sans prix (unités)'],
       ...data.monthly.map(m=>[m.month,m.issuedUnits,m.receivedUnits,(m.issuedCostCents/100).toFixed(2),m.unvaluedUnits]),
@@ -38,11 +42,15 @@ export function EpiIndicators(){
       ...data.top.map(p=>[p.code,p.reference,p.name,p.family,p.units,(p.costCents/100).toFixed(2),p.unvaluedUnits])
     ];
     const blob=new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='polytechs-indicateurs-epi.csv';link.click();URL.revokeObjectURL(url);
+    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='polytechs-indicateurs-epi-'+(data.period.code||'tous')+'.csv';link.click();URL.revokeObjectURL(url);
   }
   return <section className="epi-indicators">
     <div className="epi-indicators-header"><div><h2>Consommation et coûts des EPI</h2><p>Sorties réelles du magasin, valorisation HT et suivi des références.</p></div><button className="outline" onClick={exportCsv} disabled={!data||loading}><ArrowDownToLine size={16}/> Exporter CSV</button></div>
-    <div className="epi-indicators-filters"><div role="group" aria-label="Période des indicateurs"><span>Période</span>{[1,3,6,12].map(n=><button type="button" key={n} aria-pressed={months===n} onClick={()=>setMonths(n)}>{n} mois</button>)}</div><label>Famille d’EPI<select value={family} onChange={e=>setFamily(e.target.value)}><option value="">Toutes les familles</option>{(data?.families||[]).map(item=><option key={item} value={item}>{item}</option>)}</select></label></div>
+    <div className="epi-indicators-filters"><div role="group" aria-label="Période des indicateurs"><span>Période</span>{[1,3,6,12].map(n=><button type="button" key={n} aria-pressed={months===n} onClick={()=>setMonths(n)}>{n} mois</button>)}</div><label>Famille d’EPI<select value={family} onChange={e=>{setFamily(e.target.value);setCode('');setEpiQuery('')}}><option value="">Toutes les familles</option>{(data?.families||[]).map(item=><option key={item} value={item}>{item}</option>)}</select></label>
+      <div className="epi-indicators-product-filter"><label htmlFor="epi-indicators-search">Rechercher un EPI<input id="epi-indicators-search" type="search" placeholder="Nom, référence, code QR…" value={epiQuery} onChange={e=>setEpiQuery(e.target.value)}/></label>
+      <label htmlFor="epi-indicators-product">EPI précis<select id="epi-indicators-product" value={code} onChange={e=>{setCode(e.target.value);setEpiQuery('')}}><option value="">Tous les EPI</option>{possibleEpis.map(p=><option key={p.code} value={p.code}>{p.name} · {p.reference} · {p.code}</option>)}</select></label></div>
+    </div>
+    {code&&selectedEpi&&<p className="epi-indicators-selected" role="status">Indicateurs de <strong>{selectedEpi.name}</strong> · Référence {selectedEpi.reference} · QR {selectedEpi.code} <button type="button" onClick={()=>{setCode('');setEpiQuery('')}}>Effacer le filtre</button></p>}
     {error&&<p className="error" role="alert">{error}</p>}
     {loading?<section className="stock-card" role="status">Actualisation des indicateurs…</section>:data&&s&&<>
       <div className="epi-indicators-kpis">
