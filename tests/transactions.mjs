@@ -29,7 +29,7 @@ CREATE TABLE evrp_risk_history(id TEXT,risk_id TEXT,revision INTEGER,snapshot TE
 CREATE TABLE evrp_actions(id TEXT PRIMARY KEY,unit_code TEXT,risk_id TEXT,data TEXT,revision INTEGER,updated_at TEXT,updated_by TEXT);
 CREATE TABLE evrp_action_history(id TEXT,action_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT,saved_by TEXT);
 INSERT INTO evrp_units VALUES('UT1');INSERT INTO epi_products(code,quantity,revision,catalog_status,updated_at) VALUES('EPI1',3,1,'Actif','');`);
-  const records=await import(pathToFileURL(path.join(dir,'records-route.mjs'))),evrp=await import(pathToFileURL(path.join(dir,'evrp-route.mjs'))),{blank}=await import(pathToFileURL(path.join(dir,'workflows.mjs'))),{serviceHref}=await import(pathToFileURL(path.join(dir,'navigation.mjs')));
+  const records=await import(pathToFileURL(path.join(dir,'records-route.mjs'))),evrp=await import(pathToFileURL(path.join(dir,'evrp-route.mjs'))),{blank}=await import(pathToFileURL(path.join(dir,'workflows.mjs'))),{serviceHref,gedHref}=await import(pathToFileURL(path.join(dir,'navigation.mjs')));
   const post=(handler,body)=>handler.POST(new Request('https://example.test/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
   const base={...blank,title:'Vérifier une protection',details:{measure:'Contrôler'}};
   const created=await post(records,base);assert.equal(created.status,200);const {id}=await created.json();
@@ -71,5 +71,9 @@ INSERT INTO evrp_units VALUES('UT1');INSERT INTO epi_products(code,quantity,revi
   assert.equal(serviceHref('/tickets?new=1','qsse'),'/tickets?new=1&team=qsse');
   assert.equal(serviceHref('/routines?team=qsse&date=2026-01-01','production'),'/routines?team=production&date=2026-01-01');
   assert.equal(serviceHref('/tickets?team=qsse&id=123',''),'/tickets?id=123');
+  assert.equal(gedHref('production'),'/ged?scope=service&team=production');
+  assert.equal(gedHref('rh'),'/ged?scope=service&team=rh');
+  assert.equal(gedHref('qsse',true),'/ged?scope=global');
+  assert.equal(gedHref('laboratoire & contrôle'),'/ged?scope=service&team=laboratoire+%26+contr%C3%B4le');
   console.log('Conflits QSE/EVRP, remise EPI unique, solde insuffisant et liens de service vérifiés.');
 }finally{sqlite.close();delete globalThis.auditDatabase;fs.rmSync(dir,{recursive:true,force:true})}
