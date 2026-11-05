@@ -20,7 +20,8 @@ const newerOptionalTables=[
  'team_invitations','hub_run_history','record_deletions',
  'epi_photos','epi_managers','epi_product_edits',
  'prevention_invites','prevention_files','prevention_urgent_reviews',
- 'member_function_roles','notification_receipts','ticket_labels'
+ 'member_function_roles','notification_receipts','ticket_labels',
+ 'ticket_import_reversals'
 ];
 // Migration 0029 creates seven built-in labels. They are configuration defaults,
 // not user edits, and must remain available after importing a pre-label backup.
