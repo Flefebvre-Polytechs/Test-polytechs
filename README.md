@@ -27,6 +27,10 @@ Les contributeurs enregistrent les inventaires, entrées et sorties avec un hist
 
 Les QR codes EPI sont rattachés au **code permanent** du catalogue (identifiant technique immuable). La référence fournisseur, le nom, la famille et les spécificités peuvent être modifiés dans la fiche sans remplacer le QR code ni perdre la photo, le stock, les mouvements ou les dotations. Les changements sont consignés dans `epi_product_edits`.
 
+### GED par service
+
+Le menu déroulant de chaque service affiche « Gestion documentaire » pour les utilisateurs qui ont le droit de consulter sa GED. Le lien ouvre directement `/ged?scope=service&team=...` et applique le filtre du service. Dans QSSE, « Vue globale documentaire » ouvre `/ged?scope=global` pour les membres habilités QSSE et les administrateurs. Les documents RH restent réservés aux personnes habilitées RH, même en vue globale, et les modifications restent limitées aux équipes autorisées. L'API GED et le téléchargement de fichiers conservent leurs contrôles d'accès serveur.
+
 ### Indicateurs EPI
 
 L'onglet **Indicateurs** du module EPI présente les quantités sorties, entrées, coûts HT connus des sorties, valeur HT connue du stock, seuils de réapprovisionnement, couverture des prix, tendances mensuelles, produits et familles les plus consommés. Filtres de période (1, 3, 6, 12 mois), de famille et d'EPI précis (recherche par nom, référence fournisseur ou code QR permanent), export CSV respectant les filtres. Les prix unitaires sont renseignés depuis la fiche catalogue et figés sur chaque nouveau mouvement de stock (y compris les dotations). Les anciens mouvements sans prix restent non valorisés et sont identifiés comme tels ; aucun prix historique n'est inventé. Les inventaires/corrections ne comptent pas comme consommation. Les entrées magasin ne sont pas assimilées automatiquement à des achats facturés. Migration `0033_epi_indicators_unit_cost.sql`.
