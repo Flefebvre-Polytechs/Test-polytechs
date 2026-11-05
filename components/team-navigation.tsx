@@ -53,6 +53,10 @@ export function TeamTree({teams,boards,selected,disabled,onSelect,onTeam}:{teams
       .catch(()=>{}); // Fail closed: never show navigation into restricted GED.
     return()=>controller.abort();
   },[]);
+  function canShowQsseShortcut(href:string){
+    if(!href.startsWith('/ged?'))return true;
+    return href.includes('scope=global')?gedAccess.global:gedAccess.services.has('qsse');
+  }
   function teamNode(t:Team){
     const Icon=teamVisual(t.id).Icon;
     const teamBoards=boards.filter(b=>b.team_id===t.id);
@@ -65,7 +69,7 @@ export function TeamTree({teams,boards,selected,disabled,onSelect,onTeam}:{teams
         </summary>
         <div className="team-boards">
           {t.id!=='qsse'&&gedAccess.services.has(t.id)&&<a className="team-ged-link" href={gedHref(t.id)} aria-label={'Gestion documentaire du service '+t.name}><BookOpen size={15} aria-hidden="true"/><span>Gestion documentaire</span></a>}
-          {t.id==='qsse'&&<div className="qsse-shortcuts">{qsseSections.map(section=><div className="qsse-section" key={section.name}><p>{section.name}</p>{section.links.filter(([_,href])=>!href.startsWith('/ged?')||href.includes('scope=global')?(!href.startsWith('/ged?')||gedAccess.global):gedAccess.services.has('qsse')).map(([label,href,LinkIcon])=><a href={href} key={label}><LinkIcon size={15} aria-hidden="true"/><span>{label}</span></a>)}</div>)}</div>}
+          {t.id==='qsse'&&<div className="qsse-shortcuts">{qsseSections.map(section=><div className="qsse-section" key={section.name}><p>{section.name}</p>{section.links.filter(([,href])=>canShowQsseShortcut(href)).map(([label,href,LinkIcon])=><a href={href} key={label}><LinkIcon size={15} aria-hidden="true"/><span>{label}</span></a>)}</div>)}</div>}
           {t.id==='maintenance'&&<div className="qsse-shortcuts"><div className="qsse-section"><p>GMAO</p>{[['Vue d’ensemble','overview',LayoutDashboard],['Demandes & interventions','orders',Wrench],['Équipements','assets',Settings2],['Maintenance préventive','plans',CalendarDays],['Planning','planning',CalendarDays],['Pièces & stocks','parts',ShoppingCart]].map(([label,tab,Icon]:any)=><a href={'/maintenance?tab='+tab} key={tab}><Icon size={15}/><span>{label}</span></a>)}</div></div>}
           {t.id==='qsse'&&teamBoards.length>0&&<p className="qsse-board-label">Tableaux de bord</p>}
           {teamBoards.map(b=>onSelect?<button key={b.id} disabled={disabled} aria-current={selected===b.id?'page':undefined} onClick={()=>onSelect(b.id)}><LayoutDashboard size={14}/><span>{b.title}</span></button>:<a key={b.id} href={'/unites?board='+encodeURIComponent(b.id)}><LayoutDashboard size={14}/><span>{b.title}</span></a>)}
