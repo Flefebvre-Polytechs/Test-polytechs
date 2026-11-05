@@ -11,9 +11,18 @@ const protectedTables=new Set(['render_schema_migrations','sessions','site_ident
 const tables=new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(x=>x.name));
 const checkName=name=>typeof name==='string'&&/^[a-z_][a-z0-9_]*$/.test(name)&&tables.has(name)&&!protectedTables.has(name);
 if(source.tables.some(x=>!checkName(x.name)||!Array.isArray(x.rows)||!Array.isArray(x.columns)||x.columns.some(c=>typeof c!=='string'||!/^[a-z_][a-z0-9_]*$/.test(c))))throw Error('Invalid table or column name');
-// Older Sites exports predate invitations. An empty additive table can be restored
-// safely on a fresh target; pending invitations must never be overwritten.
-for(const name of ['team_invitations','hub_run_history']){
+// Earlier Site exports predate additive tables introduced by later migrations.
+// Only explicitly approved newer tables may be absent from the export, and only
+// when they are empty on the destination. We never replace existing data.
+// Keep the allowlist explicit: a genuinely missing business table must still
+// reject the import instead of silently losing its data.
+const newerOptionalTables=[
+ 'team_invitations','hub_run_history','record_deletions',
+ 'epi_photos','epi_managers','epi_product_edits',
+ 'prevention_invites','prevention_files','prevention_urgent_reviews',
+ 'member_function_roles','notification_receipts','ticket_labels'
+];
+for(const name of newerOptionalTables){
  if(tables.has(name)&&!source.tables.some(t=>t.name===name)){
   if(db.prepare(`SELECT count(*) n FROM "${name}"`).get().n)throw Error(`Target contains ${name}; import refused`);
   source.tables.push({name,columns:db.prepare(`PRAGMA table_info("${name}")`).all().map(c=>c.name),rows:[]});
