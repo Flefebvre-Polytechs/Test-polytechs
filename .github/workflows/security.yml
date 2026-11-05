@@ -33,6 +33,12 @@ jobs:
           python -m venv "$RUNNER_TEMP/qse-test-python"
           "$RUNNER_TEMP/qse-test-python/bin/python" -m pip install openpyxl==3.1.5 et-xmlfile==2.0.0
           echo "$RUNNER_TEMP/qse-test-python/bin" >> "$GITHUB_PATH"
+      - name: Install PDF text extraction dependency
+        # PDF regression tests call pdftotext to validate the generated report content.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends poppler-utils
+          command -v pdftotext
       - name: Application and security regression tests
         run: |
           for test in tests/*.mjs; do node "$test"; done
