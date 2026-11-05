@@ -31,6 +31,10 @@ Les QR codes EPI sont rattachés au **code permanent** du catalogue (identifiant
 
 L'onglet **Indicateurs** du module EPI présente les quantités sorties, entrées, coûts HT connus des sorties, valeur HT connue du stock, seuils de réapprovisionnement, couverture des prix, tendances mensuelles, produits et familles les plus consommés. Filtres de période (1, 3, 6, 12 mois), de famille et d'EPI précis (recherche par nom, référence fournisseur ou code QR permanent), export CSV respectant les filtres. Les prix unitaires sont renseignés depuis la fiche catalogue et figés sur chaque nouveau mouvement de stock (y compris les dotations). Les anciens mouvements sans prix restent non valorisés et sont identifiés comme tels ; aucun prix historique n'est inventé. Les inventaires/corrections ne comptent pas comme consommation. Les entrées magasin ne sont pas assimilées automatiquement à des achats facturés. Migration `0033_epi_indicators_unit_cost.sql`.
 
+### Connexion et inactivité
+
+Les sessions classiques de Polytechs Connect requièrent une reconnexion après **15 minutes sans interaction utilisateur**. Une activité explicite (saisie, clic, défilement ou toucher) renouvelle la session dans la limite de sa durée absolue. Les requêtes automatiques (chargements de tableaux de bord, notifications, etc.) ne prolongent pas la session. Le contrôle est fait dans SQLite côté serveur et dans l'interface. Les appareils dédiés au scan des QR codes EPI restent dans leur session limitée aux seuls EPI, mémorisée 90 jours, sans accès au reste de l'application.
+
 ## Évaluation des risques professionnels
 
 Le service QSSE regroupe les accès directs au DUERP, au PAPRIPACT et aux registres QSE. Le DUERP ouvre `/duerp`. Les données du classeur transmis sont préparées dans le source **privé** du Site, hors du dépôt GitHub public. À la première ouverture par un administrateur, l’import se lance par blocs sans écraser les fiches déjà modifiées. Il peut être repris depuis la page si nécessaire. Un autre déploiement du code démarre sans les données du classeur. Le contenu confidentiel `private/duerp-source.json` ne doit pas être poussé dans un dépôt public.
