@@ -21,14 +21,14 @@ try{
   for(const name of ['records','evrp']){let source=fs.readFileSync('app/api/'+name+'/route.ts','utf8');for(const [from,to] of [['@/lib/prevention-control','./prevention-control.mjs'],['@/lib/record-access','./record-access.mjs'],['@/lib/team-access','./teams.mjs'],['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/workflows','./workflows.mjs'],['@/lib/evrp','./evrp.mjs'],['@/lib/evrp-private-source','./source.mjs']])source=source.replaceAll("'"+from+"'","'"+to+"'");compile(name+'-route',source)}
   sqlite.exec(`CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,domain TEXT,status TEXT,priority TEXT,owner TEXT,due TEXT,description TEXT,url TEXT,details TEXT,created TEXT,updated TEXT,revision INTEGER,source_id TEXT);
 CREATE TABLE record_history(id TEXT,record_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT);
-CREATE TABLE epi_products(code TEXT PRIMARY KEY,quantity INTEGER,revision INTEGER,catalog_status TEXT,updated_at TEXT);
-CREATE TABLE epi_movements(id TEXT,code TEXT,kind TEXT,delta INTEGER,quantity INTEGER,recipient TEXT,note TEXT,author TEXT,created_at TEXT);
+CREATE TABLE epi_products(code TEXT PRIMARY KEY,quantity INTEGER,revision INTEGER,catalog_status TEXT,updated_at TEXT,unit_cost_cents INTEGER);
+CREATE TABLE epi_movements(id TEXT,code TEXT,kind TEXT,delta INTEGER,quantity INTEGER,recipient TEXT,note TEXT,author TEXT,created_at TEXT,unit_cost_cents INTEGER);
 CREATE TABLE evrp_units(code TEXT PRIMARY KEY);
 CREATE TABLE evrp_risks(id TEXT PRIMARY KEY,unit_code TEXT,data TEXT,original TEXT,status TEXT,revision INTEGER,updated_at TEXT,updated_by TEXT);
 CREATE TABLE evrp_risk_history(id TEXT,risk_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT,saved_by TEXT);
 CREATE TABLE evrp_actions(id TEXT PRIMARY KEY,unit_code TEXT,risk_id TEXT,data TEXT,revision INTEGER,updated_at TEXT,updated_by TEXT);
 CREATE TABLE evrp_action_history(id TEXT,action_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT,saved_by TEXT);
-INSERT INTO evrp_units VALUES('UT1');INSERT INTO epi_products VALUES('EPI1',3,1,'Actif','');`);
+INSERT INTO evrp_units VALUES('UT1');INSERT INTO epi_products(code,quantity,revision,catalog_status,updated_at) VALUES('EPI1',3,1,'Actif','');`);
   const records=await import(pathToFileURL(path.join(dir,'records-route.mjs'))),evrp=await import(pathToFileURL(path.join(dir,'evrp-route.mjs'))),{blank}=await import(pathToFileURL(path.join(dir,'workflows.mjs'))),{serviceHref}=await import(pathToFileURL(path.join(dir,'navigation.mjs')));
   const post=(handler,body)=>handler.POST(new Request('https://example.test/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
   const base={...blank,title:'Vérifier une protection',details:{measure:'Contrôler'}};
