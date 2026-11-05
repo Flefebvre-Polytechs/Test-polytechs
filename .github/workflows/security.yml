@@ -1,13 +1,15 @@
 name: Security checks
 on:
   push:
-    branches: [main]
+    branches: [main, render-production]
   pull_request:
+    branches: [main, render-production]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   security:
+    name: Security checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
