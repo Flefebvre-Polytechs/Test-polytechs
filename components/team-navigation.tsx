@@ -31,6 +31,7 @@ const qsseSections=[
     ['Vue globale documentaire',gedHref('qsse',true),BookOpen],
     ['Réglementation','/qse#'+encodeURIComponent('Réglementation'),FileCheck2],
     ['Plan d’actions','/plan-actions',ClipboardList],
+    ['Budget QSSE','/budget-qsse',BriefcaseBusiness],
     ['Amélioration continue','/qse#'+encodeURIComponent('Amélioration continue'),LayoutList],
   ]},
 ] as const;

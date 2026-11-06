@@ -1,0 +1,24 @@
+import {createHash} from 'node:crypto';
+import {database} from '@/db/raw';
+import {requireRole,checkOrigin} from '@/lib/access';
+import {budgetAccess} from '@/lib/qsse-budget-server';
+import {budgetRecordError,type BudgetRecord} from '@/lib/qsse-budget';
+const headers={'Cache-Control':'private, no-store'};
+const reply=(body:unknown,status=200)=>Response.json(body,{status,headers});
+export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;const access=await budgetAccess(gate.user!);if(!access.read)return reply({error:'Consultation réservée au service QSSE.'},403);const db=database();const rows=await db.prepare('SELECT * FROM qsse_budget_data ORDER BY id').all();const source=await db.prepare('SELECT metadata,created_at FROM qsse_budget_import WHERE id=1').first<{metadata:string;created_at:string}>();const manager=await db.prepare("SELECT u.display_name FROM qsse_budget_owner o JOIN users u ON u.id=o.user_id JOIN member_function_roles r ON r.user_id=u.id AND r.role='budget_manager'").first<{display_name:string}>();return reply({records:rows.results.map((r:any)=>({...JSON.parse(r.data),revision:r.revision})),source:source?JSON.parse(source.metadata):null,canEdit:access.write,canInitialize:gate.user!.role==='admin'&&!source,manager:manager?.display_name||null});}catch(e){console.error(e);return reply({error:'Budget indisponible.'},503)}}
+export async function POST(req:Request){try{if(!checkOrigin(req))return reply({error:'Requête non autorisée.'},403);const gate=await requireRole(req);if(gate.error)return gate.error;const text=await req.text();if(text.length>3_000_000)return reply({error:'Fichier trop volumineux.'},413);const b=JSON.parse(text),db=database(),now=new Date().toISOString();
+ if(b.action==='initialize'){
+  if(gate.user!.role!=='admin')return reply({error:'Initialisation réservée à l’administrateur.'},403);
+  if(await db.prepare('SELECT 1 FROM qsse_budget_import WHERE id=1').first())return reply({error:'Le budget a déjà été intégré. Aucune donnée remplacée.'},409);
+  const s=b.source;if(!s||!Array.isArray(s.records)||s.records.length<1||s.records.length>1000||!s.metadata||JSON.stringify(s.metadata).length>100000)return reply({error:'Fichier invalide.'},400);
+  const ids=new Set();for(const r of s.records){const err=budgetRecordError(r);if(err)return reply({error:err},400);if(ids.has(r.id))return reply({error:'Identifiant dupliqué.'},400);ids.add(r.id)}
+  const sha=createHash('sha256').update(JSON.stringify(s)).digest('hex');if(!b.apply)return reply({sha,count:s.records.length,orders:s.records.filter((r:BudgetRecord)=>r.kind==='order').length,accounts:s.records.filter((r:BudgetRecord)=>r.kind==='account').length});if(b.sha!==sha)return reply({error:'Le fichier a changé. Recommencez la vérification.'},409);
+  await db.batch([db.prepare('INSERT INTO qsse_budget_import VALUES (1,?,?,?,?)').bind(sha,JSON.stringify(s.metadata),now,gate.user!.id),...s.records.map((r:BudgetRecord)=>db.prepare('INSERT INTO qsse_budget_data VALUES (?,?,1,?,?)').bind(r.id,JSON.stringify({...r,revision:1}),now,gate.user!.id))]);return reply({created:s.records.length});
+ }
+ const access=await budgetAccess(gate.user!);if(!access.write)return reply({error:'Seule Karine CONNAN peut gérer le budget QSSE.'},403);
+ if(b.action!=='save')return reply({error:'Action inconnue.'},400);const r=b.record as BudgetRecord;const error=budgetRecordError(r);if(error)return reply({error},400);
+ const previous=await db.prepare('SELECT data,revision FROM qsse_budget_data WHERE id=?').bind(r.id).first<{data:string;revision:number}>();if(previous&&r.revision!==previous.revision||!previous&&r.revision!==0)return reply({error:'Cette ligne a changé. Rechargez-la avant de réessayer.'},409);
+ const original=previous?JSON.parse(previous.data):null;const record={...r,...(original?{kind:original.kind,section:original.section,source:original.source,sheet:original.sheet,row:original.row,raw:original.raw}:{source:'Saisie sur Polytechsconnect',sheet:'',row:0,raw:{}}),revision:r.revision+1};
+ const mutation=previous?db.prepare('UPDATE qsse_budget_data SET data=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?').bind(JSON.stringify(record),now,gate.user!.id,r.id,r.revision):db.prepare('INSERT OR IGNORE INTO qsse_budget_data VALUES (?,?,1,?,?)').bind(r.id,JSON.stringify(record),now,gate.user!.id);
+ const result=await db.batch([mutation,db.prepare('INSERT INTO qsse_budget_history SELECT ?,?,?,?,? WHERE changes()=1').bind(crypto.randomUUID(),r.id,JSON.stringify({before:original,after:record}),now,gate.user!.id)]);if(!result[0].meta.changes)return reply({error:'Modification concurrente. Rechargez la ligne.'},409);return reply({ok:true});
+ }catch(e){console.error(e);return reply({error:'Enregistrement impossible. Aucune modification partielle.'},503)}}

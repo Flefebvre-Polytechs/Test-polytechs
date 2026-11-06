@@ -21,6 +21,7 @@ if(b.action==='revoke-sessions'){
 if(b.action==='function-role'){
  const id=typeof b.id==='string'?b.id:'',role=String(b.functionRole||'') as FunctionRole,enabled=b.enabled,expected=b.expected;
  if(!id||!Object.prototype.hasOwnProperty.call(functionRoles,role)||typeof enabled!=='boolean'||typeof expected!=='boolean')return Response.json({error:'Rôle fonctionnel invalide.'},{status:400});
+ if(role==='budget_manager'&&enabled&&!await db.prepare('SELECT 1 FROM qsse_budget_owner WHERE user_id=?').bind(id).first())return Response.json({error:'La gestion du budget QSSE est réservée à Karine CONNAN.'},{status:403});
  const target=await db.prepare('SELECT role FROM users WHERE id=?').bind(id).first<{role:string}>();if(!target)return Response.json({error:'Compte introuvable.'},{status:404});
  if(enabled&&role!=='cse_representative'&&!['editor','admin'].includes(target.role))return Response.json({error:'Le rôle global Contributeur est nécessaire pour cette fonction.'},{status:400});
  const current=!!await db.prepare('SELECT 1 FROM member_function_roles WHERE user_id=? AND role=?').bind(id,role).first();
