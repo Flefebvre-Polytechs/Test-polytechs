@@ -3,8 +3,8 @@ import {useCallback,useEffect,useMemo,useState,type FormEvent} from 'react';
 import {HubFrame} from '@/components/hub-layout';
 import {AccountGate,type Account} from '@/components/account-gate';
 import {BriefcaseBusiness,Plus,Search,ShieldCheck,ShieldAlert,FileCheck2,Printer,Copy,RefreshCw,Save,Trash2,Upload,Eye,Download,CalendarClock,Users,ShieldX,KeyRound} from 'lucide-react';
-import {habilitationKinds,currentStatus,statusLabel,nextDeadline,todayInFrance,type HabilitationPerson,type HabilitationRecord,type HabilitationFile,type HabilitationKind,QR_VIEWBOX} from '@/lib/habilitations';
-import {qrPath} from '@/lib/qr-code';
+import {habilitationKinds,currentStatus,statusLabel,nextDeadline,todayInFrance,type HabilitationPerson,type HabilitationRecord,type HabilitationFile,type HabilitationKind} from '@/lib/habilitations';
+import {qrPath,QR_VIEWBOX} from '@/lib/qr-code';
 import './style.css';
 
 type Payload={people:HabilitationPerson[];authorizations:HabilitationRecord[];files:HabilitationFile[];canEdit:boolean};
@@ -30,6 +30,7 @@ function HabilitationWorkspace({account}:{account:Account}){
  const selected=entries.find(a=>a.id===authorizationId)||null;
  useEffect(()=>{if(person)setEditPerson({firstName:person.first_name,lastName:person.last_name,service:person.service,active:!!person.active})},[person?.id,person?.revision]);
  useEffect(()=>{if(authorizationId&&!entries.some(x=>x.id===authorizationId)){setAuthorizationId('');setDraft(blank())}},[authorizationId,entries]);
+ useEffect(()=>{if(selected)setDraft(fromRecord(selected))},[selected?.id,selected?.revision]);
  const badgeUrl=person&&origin?origin+'/habilitation/'+person.qr_token:'';
  const qr=useMemo(()=>{try{return badgeUrl?qrPath(badgeUrl):''}catch{return ''}},[badgeUrl]);
  const canEdit=!!data?.canEdit&&account.role!=='reader';
