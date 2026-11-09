@@ -63,7 +63,7 @@ assert.equal(reviewProof.sha256,approvalProof.sha256,'Exact same document files 
 assert.match(approvalProof.sha256,/^[a-f0-9]{64}$/);assert.equal(approvalProof.files.length,1);
 assert.equal(approvalProof.files[0].id,fileId);assert.match(approvalProof.files[0].sha256,/^[a-f0-9]{64}$/);
 assert.equal((await upload(versionId,v.revision)).status,403,'Published version files cannot be modified');
-assert.equal((await files.POST(new Request('https://example.test/api/ged-files',{method:'POST',headers:{origin:'https://example.test','content-type':'application/json'},body:JSON.stringify({action:'remove',versionId,fileId,revision:v.revision})}))).status,403,'Published version files cannot be removed');
+assert.equal((await files.POST(new Request('https://example.test/api/ged-files',{method:'POST',headers:{origin:'https://example.test','content-type':'application/json'},body:JSON.stringify({action:'remove',versionId,fileId,revision:v.revision,confirmation:'SUPPRIMER'})}))).status,403,'Published version files cannot be removed');
 actor('reader','reader');assert.equal((await files.GET(new Request('https://example.test/api/ged-files?id='+fileId))).status,200);globalThis.gedTestAllowed=false;assert.equal((await files.GET(new Request('https://example.test/api/ged-files?id='+fileId))).status,403);globalThis.gedTestAllowed=true;
 actor('author');assert.equal((await post({action:'save-draft',versionId,revision:v.revision,data})).status,403);const second=await post({action:'create-version',documentId:'source-1',data:{...data,index:'b',changeReason:'Amélioration'}});assert.equal(second.status,200);const secondId=(await second.json()).versionId;assert.equal(sqlite.prepare('SELECT published_version_id FROM ged_documents WHERE id=?').get('source-1').published_version_id,versionId);assert.equal((await upload(secondId,1)).status,200);let secondV=version(secondId);assert.equal((await post({action:'save-draft',versionId:secondId,revision:secondV.revision,data:{...data,index:'a'}})).status,200);secondV=version(secondId);assert.equal((await post({action:'submit',versionId:secondId,revision:secondV.revision})).status,400);assert.equal((await post({action:'abandon',versionId:secondId,revision:secondV.revision})).status,200);assert.equal(objects.size,2);
 const users=[{id:'author',role:'editor',managerId:'manager',gedReviewer:false},{id:'manager',role:'editor',managerId:'',gedReviewer:true}];assert.ok(draftErrors({...data,reviewerId:'author'},users,true).length);assert.ok(sqlite.prepare("SELECT count(*) n FROM ged_events WHERE action='Approbation N+1'").get().n===1);assert.ok(sqlite.prepare('SELECT count(*) n FROM hub_notifications').get().n>=4);
@@ -86,9 +86,37 @@ assert.equal((await post({action:'create-version',documentId:'prod-doc',data:{..
 actor('manager');sqlite.prepare('INSERT INTO ged_profiles(user_id,manager_id,qsse) VALUES(?,NULL,1)').run('manager');assert.equal((await list('scope=global')).status,403);
 actor('custom-user');assert.equal((await list('scope=service&team=custom')).status,200);
 const customDraft={...draftFrom(customDoc,'custom-user'),ref:'CUSTOM-NEW',title:'New service document',changeReason:'Creation'};
-const customCreated=await post({action:'create-version',documentId:'',data:customDraft});assert.equal(customCreated.status,200);const customNewId=(await customCreated.json()).id;assert.equal(JSON.parse(sqlite.prepare('SELECT data FROM ged_documents WHERE id=?').get(customNewId).data).serviceId,'custom','New services have their own document ownership');
+const customCreated=await post({action:'create-version',documentId:'',data:customDraft});assert.equal(customCreated.status,200);const customCreation=await customCreated.json(),customNewId=customCreation.id,customNewVersionId=customCreation.versionId;assert.equal(JSON.parse(sqlite.prepare('SELECT data FROM ged_documents WHERE id=?').get(customNewId).data).serviceId,'custom','New services have their own document ownership');
 assert.equal((await post({action:'create-version',documentId:'',data:{...customDraft,ref:'DENIED-MOVE',serviceId:'production'}})).status,403);
+// Both deletion operations must require the precise uppercase phrase on the server.
+const removeAttachment=(body)=>files.POST(new Request('https://example.test/api/ged-files',{method:'POST',headers:{origin:'https://example.test','Content-Type':'application/json'},body:JSON.stringify(body)}));
+const addedFile=await upload(customNewVersionId,1,'temporary.pdf');assert.equal(addedFile.status,200);const tempId=(await addedFile.json()).id;
+const fileRevision=version(customNewVersionId).revision;
+const removePayload={action:'remove',versionId:customNewVersionId,fileId:tempId,revision:fileRevision,confirmation:'SUPPRIMER'};
+for(const confirmation of ['','supprimer',' Supprimer','SUPPRIMER ','SUPPRIMER\\n'])assert.equal((await removeAttachment({...removePayload,confirmation})).status,400);
+assert.ok(sqlite.prepare('SELECT id FROM ged_files WHERE id=?').get(tempId),'Incorrect confirmation must not delete anything');
+assert.equal((await removeAttachment(removePayload)).status,200);
+assert.equal(sqlite.prepare('SELECT id FROM ged_files WHERE id=?').get(tempId),undefined);
+assert.equal(objects.has('ged/'+customNewVersionId+'/'+tempId),false);
+actor('reader','reader');assert.equal((await post({action:'delete-document',documentId:'source-1',revision:2,confirmation:'SUPPRIMER'})).status,403);
+actor('author');assert.equal((await post({action:'delete-document',documentId:'source-1',revision:2,confirmation:'SUPPRIMER'})).status,403);
 actor('admin','admin');assert.ok((await (await list('scope=global')).json()).documents.some(d=>d.id==='rh-doc'));
+const currentRevision=sqlite.prepare('SELECT revision FROM ged_documents WHERE id=?').get('source-1').revision;
+const deletion={action:'delete-document',documentId:'source-1',revision:currentRevision,confirmation:'SUPPRIMER'};
+for(const confirmation of ['','supprimer','SUPPRIMER ',' SUPPRIMER'])assert.equal((await post({...deletion,confirmation})).status,400);
+assert.equal((await post({...deletion,revision:currentRevision-1})).status,409,'Stale revision must not delete');
+assert.equal((await get('source-1')).status,200);
+assert.equal((await post(deletion)).status,200);
+assert.equal((await get('source-1')).status,404,'Deleted catalog document is no longer visible');
+assert.equal((await files.GET(new Request('https://example.test/api/ged-files?id='+fileId))).status,404,'Old attachment URLs must stop working');
+assert.equal((await post(deletion)).status,404,'Duplicate deletion is rejected');
+assert.equal((await (await list('scope=global')).json()).documents.some(d=>d.id==='source-1'),false);
+assert.ok(sqlite.prepare('SELECT id FROM ged_versions WHERE id=?').get(versionId),'Approval versions retained');
+assert.ok(sqlite.prepare("SELECT id FROM ged_events WHERE document_id='source-1' AND action='Suppression de la GED'").get(),'Deletion has an audit event');
+assert.ok(JSON.parse(sqlite.prepare('SELECT data FROM ged_documents WHERE id=?').get('source-1').data).deletedAt,'Tombstone retained');
+assert.equal(objects.has('ged/'+versionId+'/'+fileId),true,'Approved file storage preserved for traceability');
+console.log('GED safe deletion: admin-only document withdrawal, exact SUPPRIMER confirmation, revision conflict, audit retention, hidden GED/SMI source, attachment access blocked and draft file removal passed.');
+
 console.log('GED service ownership, explicit membership, global QSSE consultation, RH document/file confidentiality, custom services and denied cross-service writes passed.');
 if(fs.existsSync('private/ged-source.json')){const src=JSON.parse(fs.readFileSync('private/ged-source.json','utf8'));assert.equal(src.records.length,1319);assert.equal(src.records.filter(d=>d.sourceSheet==='LDA').length,795);assert.equal(src.records.filter(d=>d.sourceArchive).length,524);assert.equal(new Set(src.records.map(d=>d.id)).size,1319);assert.ok(src.records.some(d=>d.sourceArchive&&d.issues.some(i=>i.includes('marqué actif'))));}
 console.log('GED : catalogue, droits, N+1, relecture QSSE, retours pour correction, fichiers figés, versions applicables et conflits vérifiés.');
