@@ -68,3 +68,20 @@
  .ged-preview-office{padding:12px}
  .ged-preview-word{padding:23px 17px}
 }
+
+/* Suppression documentaire protégée */
+.ged-danger-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:1px solid #e6acaa;border-radius:10px;background:#fff6f5;color:#9c302f;font-size:14px;font-weight:700;line-height:1.3;transition:background .2s,border-color .2s}
+.ged-danger-button:not(:disabled):hover{background:#ffe9e8;border-color:#cf6b66}
+.ged-danger-button:disabled{opacity:.5;cursor:not-allowed}
+.ged-current>.ged-danger-button{margin-left:auto}
+.ged-delete-dialog{width:calc(100% - 32px)!important;max-width:540px!important;padding:30px!important;border:1px solid #eddddd!important;border-radius:19px!important;box-shadow:0 24px 80px #17283b30!important}
+.ged-delete-dialog [data-slot=dialog-title]{display:flex;gap:10px;align-items:center;font-size:21px;line-height:1.3;color:#8e3330}
+.ged-delete-dialog [data-slot=dialog-description]{font-size:14px;line-height:1.65;color:#546b7e;margin:10px 0 20px}
+.ged-delete-dialog [data-slot=dialog-description] strong{color:#283f52;overflow-wrap:anywhere}
+.ged-delete-label{display:flex;flex-direction:column;gap:9px;font-size:14px;color:#364e64;line-height:1.5}
+.ged-delete-label strong{font-weight:800;color:#983a37;letter-spacing:.03em}
+.ged-delete-label input{border:1px solid #d4dce4;border-radius:10px;background:#fff;min-height:47px;padding:12px 14px;font:inherit;letter-spacing:.03em;font-weight:650;text-transform:none}
+.ged-delete-label input:focus-visible{outline:2px solid #ad4c48;outline-offset:2px}
+.ged-delete-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:25px;flex-wrap:wrap}
+.ged-delete-actions button{min-height:42px}
+@media(max-width:600px){.ged-delete-dialog{padding:24px 18px!important}.ged-delete-actions{flex-direction:column-reverse}.ged-delete-actions button{width:100%}.ged-current>.ged-danger-button{margin-left:0}}
