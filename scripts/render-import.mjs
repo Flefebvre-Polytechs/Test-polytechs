@@ -16,12 +16,14 @@ if(source.tables.some(x=>!checkName(x.name)||!Array.isArray(x.rows)||!Array.isAr
 // when they are empty on the destination. We never replace existing data.
 // Keep the allowlist explicit: a genuinely missing business table must still
 // reject the import instead of silently losing its data.
+const budgetTables=['qsse_budget_owner','qsse_budget_data','qsse_budget_history','qsse_budget_import'];
+const legacyBudget=budgetTables.every(name=>!source.tables.some(table=>table.name===name));
 const newerOptionalTables=[
  'team_invitations','hub_run_history','record_deletions',
  'epi_photos','epi_managers','epi_product_edits',
  'prevention_invites','prevention_files','prevention_urgent_reviews',
  'member_function_roles','notification_receipts','ticket_labels',
- 'ticket_import_reversals'
+ 'ticket_import_reversals',...(legacyBudget ? budgetTables : [])
 ];
 // Migration 0029 creates seven built-in labels. They are configuration defaults,
 // not user edits, and must remain available after importing a pre-label backup.
@@ -68,6 +70,15 @@ try{
     const statement=db.prepare(`INSERT INTO "${name}" (${columns.map(c=>`"${c}"`).join(',')}) VALUES (${columns.map(()=>'?').join(',')})`);
     for(const row of rows)statement.run(...columns.map(c=>row[c]??null));
     if(db.prepare(`SELECT count(*) AS n FROM "${name}"`).get().n!==rows.length)throw Error(`Count mismatch: ${name}`);
+  }
+  if(legacyBudget){
+    // Apply the ownership rule from migration 0036 after restoring the users.
+    db.exec(`INSERT INTO qsse_budget_owner
+      SELECT 1,id FROM users WHERE lower(trim(email))='karine.connan@polytechs.fr'
+      AND role IN ('editor','admin') AND
+      (SELECT count(*) FROM users WHERE lower(trim(email))='karine.connan@polytechs.fr')=1;
+      INSERT INTO member_function_roles
+      SELECT user_id,'budget_manager',NULL,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM qsse_budget_owner;`);
   }
   const failures=db.prepare('PRAGMA foreign_key_check').all();
   if(failures.length)throw Error(`${failures.length} foreign-key violations`);

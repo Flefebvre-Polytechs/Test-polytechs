@@ -23,6 +23,16 @@ try{
  execFileSync(process.execPath,['scripts/render-import.mjs',snapshot],{env,stdio:'pipe'});
  db=new DatabaseSync(path.join(dir,'polytechs.sqlite'));assert.deepEqual(db.prepare('SELECT id,username,role,password_hash FROM users').all(),before);
  assert.equal(db.prepare('SELECT count(*) n FROM team_invitations').get().n,0);assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
+ const users=tables.find(table=>table.name==='users');
+ users.columns.push('email');
+ users.rows[0].email='karine.connan@polytechs.fr';
+ fs.writeFileSync(snapshot,JSON.stringify({tables}));
+ execFileSync(process.execPath,['scripts/render-import.mjs',snapshot],{env,stdio:'pipe'});
+ assert.equal(db.prepare('SELECT user_id FROM qsse_budget_owner').get().user_id,'existing');
+ assert.equal(db.prepare("SELECT user_id FROM member_function_roles WHERE role='budget_manager'").get().user_id,'existing');
+ db.exec("DELETE FROM member_function_roles WHERE role='budget_manager'; DELETE FROM qsse_budget_owner; INSERT INTO qsse_budget_data VALUES ('saved','{}',1,'now','existing')");
+ assert.throws(()=>execFileSync(process.execPath,['scripts/render-import.mjs',snapshot],{env,stdio:'pipe'}),/Target contains qsse_budget_data/);
+ assert.equal(db.prepare('SELECT id FROM qsse_budget_data').get().id,'saved');
  db.exec('DROP TABLE team_invitations; DROP INDEX users_email_unique; ALTER TABLE users DROP COLUMN email;');
  assert.deepEqual(db.prepare('SELECT id,username,role,password_hash FROM users').all(),before);
  console.log('Invitation migration: existing accounts/roles/passwords retained, idempotent startup, pre-invitation backup restore, FK integrity and reversible schema passed.');
