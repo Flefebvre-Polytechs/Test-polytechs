@@ -23,7 +23,7 @@ overrides:
   '@babel/core@<=7.29.0': 7.29.6
   'browserslist@<=4.28.6': 4.28.7
   'baseline-browser-mapping@<2.11.0': 2.11.0
-  'fast-uri@>=3.0.0 <3.1.8': 3.1.8
+  'fast-uri@>=3.0.0 <3.1.9': 3.1.9
   'source-map-js@>=1.0.0 <1.2.2': 1.2.2
 
 # Targeted exception for the security fix; keep the seven-day default.
