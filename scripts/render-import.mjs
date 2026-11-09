@@ -23,7 +23,9 @@ const newerOptionalTables=[
  'epi_photos','epi_managers','epi_product_edits',
  'prevention_invites','prevention_files','prevention_urgent_reviews',
  'member_function_roles','notification_receipts','ticket_labels',
- 'ticket_import_reversals',...(legacyBudget ? budgetTables : [])
+ 'ticket_import_reversals',
+ 'hr_people','hr_authorizations','hr_authorization_files','hr_authorization_events',
+ ...(legacyBudget ? budgetTables : [])
 ];
 // Migration 0029 creates seven built-in labels. They are configuration defaults,
 // not user edits, and must remain available after importing a pre-label backup.
