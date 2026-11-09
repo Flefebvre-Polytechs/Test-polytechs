@@ -11,7 +11,7 @@ assert.throws(()=>qrPath('a'.repeat(135)),/trop longue/);
 const jsQR=(await import('jsqr')).default;
 const scale=5,width=QR_VIEWBOX*scale,pixels=new Uint8ClampedArray(width*width*4);
 for(let p=0;p<pixels.length;p+=4)pixels[p]=pixels[p+1]=pixels[p+2]=pixels[p+3]=255;
-for(const [,xs,ys] of qrPath(url).matchAll(/M(\\d+) (\\d+)h1v1h-1z/g)){
+for(const [,xs,ys] of qrPath(url).matchAll(/M(\d+) (\d+)h1v1h-1z/g)){
  const x=Number(xs),y=Number(ys);
  for(let dy=0;dy<scale;dy++)for(let dx=0;dx<scale;dx++){
   const offset=((y*scale+dy)*width+x*scale+dx)*4;
