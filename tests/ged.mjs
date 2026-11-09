@@ -98,6 +98,46 @@ assert.ok(sqlite.prepare('SELECT id FROM ged_files WHERE id=?').get(tempId),'Inc
 assert.equal((await removeAttachment(removePayload)).status,200);
 assert.equal(sqlite.prepare('SELECT id FROM ged_files WHERE id=?').get(tempId),undefined);
 assert.equal(objects.has('ged/'+customNewVersionId+'/'+tempId),false);
+// A team admin may withdraw only documents OWNED by their own team.
+actor('prod-user');
+assert.deepEqual((await (await getMeta()).json()).deleteTeams,[],'A contributor cannot delete documents');
+const ownedProduction={action:'delete-document',documentId:'prod-doc',revision:1,confirmation:'SUPPRIMER'};
+assert.equal((await post(ownedProduction)).status,403,'Team contributor is not a team admin');
+sqlite.exec("UPDATE team_members SET level='team_admin' WHERE user_id='prod-user' AND team_id='production'");
+assert.deepEqual((await (await getMeta()).json()).deleteTeams,['production']);
+assert.equal((await post({...ownedProduction,confirmation:'supprimer'})).status,400,'Uppercase confirmation remains mandatory');
+assert.equal((await post({action:'delete-document',documentId:'custom-doc',revision:1,confirmation:'SUPPRIMER'})).status,403,'Cannot delete another service document');
+assert.equal((await post({action:'delete-document',documentId:'source-1',revision:2,confirmation:'SUPPRIMER'})).status,403,'Cannot delete QSSE document');
+assert.equal((await post({action:'delete-document',documentId:'rh-doc',revision:1,confirmation:'SUPPRIMER'})).status,403,'Cannot delete RH document');
+sqlite.exec("UPDATE team_members SET level='contributor' WHERE user_id='prod-user' AND team_id='production'");
+assert.equal((await post(ownedProduction)).status,403,'Revoking team admin removes deletion permission immediately');
+sqlite.exec("UPDATE team_members SET level='team_admin' WHERE user_id='prod-user' AND team_id='production'");
+assert.equal((await post({...ownedProduction,revision:0})).status,409,'Team admin must use current revision');
+assert.equal((await post(ownedProduction)).status,200,'Team admin may delete own team document');
+assert.equal((await get('prod-doc')).status,404,'Team admin deletion hides documents');
+assert.ok(sqlite.prepare("SELECT id FROM ged_events WHERE document_id='prod-doc' AND action='Suppression de la GED'").get(),'Team admin deletion is audited');
+// QSSE global overview or even QSSE team administration never grants RH deletion.
+actor('reviewer');
+assert.deepEqual((await (await getMeta()).json()).deleteTeams,[]);
+assert.equal((await post({action:'delete-document',documentId:'custom-doc',revision:1,confirmation:'SUPPRIMER'})).status,403);
+sqlite.exec("UPDATE team_members SET level='team_admin' WHERE user_id='reviewer' AND team_id='qsse'");
+assert.deepEqual((await (await getMeta()).json()).deleteTeams,['qsse']);
+const scopedRh={...blankDocument(),id:'qsse-rh-doc',serviceId:'qsse',process:'M2',ref:'QSSE-RH',title:'Shared confidential',scopes:['I']};
+sqlite.prepare('INSERT INTO ged_documents(id,data,revision,published_version_id) VALUES(?,?,1,?)').run(scopedRh.id,JSON.stringify(scopedRh),'');
+assert.equal((await post({action:'delete-document',documentId:'qsse-rh-doc',revision:1,confirmation:'SUPPRIMER'})).status,403,'QSSE admin cannot remove a document with RH scope without RH admin rights');
+assert.equal((await post({action:'delete-document',documentId:'custom-doc',revision:1,confirmation:'SUPPRIMER'})).status,403,'QSSE admin cannot remove docs owned by other teams');
+actor('reader','reader');
+sqlite.exec("UPDATE team_members SET level='team_admin' WHERE user_id='reader' AND team_id='qsse'");
+assert.deepEqual((await (await getMeta()).json()).deleteTeams,[],'Read-only account with team_admin entry cannot delete');
+assert.equal((await post({action:'delete-document',documentId:'source-1',revision:2,confirmation:'SUPPRIMER'})).status,403);
+sqlite.exec("UPDATE team_members SET level='viewer' WHERE user_id='reader' AND team_id='qsse'");
+// Team administrators remain allowed to delete documents of their own custom teams.
+actor('custom-user');
+sqlite.exec("UPDATE team_members SET level='team_admin' WHERE user_id='custom-user' AND team_id='custom'");
+assert.deepEqual((await (await getMeta()).json()).deleteTeams,['custom']);
+assert.equal((await post({action:'delete-document',documentId:customNewId,revision:1,confirmation:'SUPPRIMER'})).status,200);
+assert.equal((await get(customNewId)).status,404);
+console.log('GED team-admin deletion: owner scope, cross-service denial, restricted RH, contributors/readers denied, revocation, confirmation and audit passed.');
 actor('reader','reader');assert.equal((await post({action:'delete-document',documentId:'source-1',revision:2,confirmation:'SUPPRIMER'})).status,403);
 actor('author');assert.equal((await post({action:'delete-document',documentId:'source-1',revision:2,confirmation:'SUPPRIMER'})).status,403);
 actor('admin','admin');assert.ok((await (await list('scope=global')).json()).documents.some(d=>d.id==='rh-doc'));
