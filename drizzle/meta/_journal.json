@@ -148,6 +148,13 @@
       "when": 1794222000000,
       "tag": "0020_epi_technical_sheets",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1794230000000,
+      "tag": "0021_hr_habilitations",
+      "breakpoints": true
     }
   ]
 }
