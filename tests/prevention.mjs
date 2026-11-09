@@ -4,9 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import ts from 'typescript';
+import {mock} from 'node:test';
 
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-prevention-'));
 try{
+ mock.timers.enable({apis:['Date'],now:new Date('2026-11-07T12:00:00Z')});
  for(const [name,source] of [['prevention-rules','lib/prevention-rules.ts'],['modules','lib/modules.ts'],['workflows','lib/workflows.ts'],['prevention-readiness','lib/prevention-readiness.ts']]){
   const text=fs.readFileSync(source,'utf8').replaceAll("'./modules'","'./modules.mjs'").replaceAll("'./workflows'","'./workflows.mjs'").replaceAll("'./prevention-rules'","'./prevention-rules.mjs'");
   fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(text,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
@@ -44,4 +46,4 @@ try{
  r.details.chemicalsNeeded='Oui';assert.deepEqual(validate(r),[],'L’acceptation des pièces est vérifiée lors de l’enregistrement serveur.');
  r.status='Clôturé';assert.ok(validate(r).some(x=>x.includes('retour effectif')));assert.ok(validate(r).some(x=>x.includes('Information des intervenants')));r.details.loansJson=JSON.stringify([{equipment:'Nacelle',condition:'Bon état',controls:'VGP vérifiée',responsible:'Polytechs',returnedAt:dateToday()}]);r.details.briefing='Équipe informée';r.details.completedAt=dateToday();assert.deepEqual(validate(r),[]);
  console.log('Plans de prévention : brouillon, inspection préalable, risques par phase, 400 h, travaux dangereux, autre régime et clôture vérifiés.');
-}finally{fs.rmSync(dir,{recursive:true,force:true})}
+}finally{mock.timers.reset();fs.rmSync(dir,{recursive:true,force:true})}
