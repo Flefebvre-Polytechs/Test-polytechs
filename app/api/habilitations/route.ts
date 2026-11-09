@@ -63,6 +63,7 @@ export async function POST(req:Request){
    }else{
     const first=textField(b.firstName,80),last=textField(b.lastName,80),service=textField(b.service,100);
     if(!first||!last||service===null||typeof b.active!=='boolean')return fail('Données du salarié invalides.');
+    if(!b.active&&p.active&&b.confirmation!=='SUPPRIMER')return fail('Saisissez SUPPRIMER pour désactiver le badge.');
     const activating=b.active&&!p.active;
     result=await db.prepare('UPDATE hr_people SET first_name=?,last_name=?,service=?,active=?,qr_token=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?').bind(first,last,service,b.active?1:0,activating?token():p.qr_token,now,b.personId,b.revision).run();
    }
@@ -77,7 +78,7 @@ export async function POST(req:Request){
    const validFrom=textField(b.validFrom,10),validUntil=textField(b.validUntil,10),trainingUntil=textField(b.trainingUntil,10),medicalUntil=textField(b.medicalUntil,10);
    const checked=b.prerequisitesChecked===true;
    if(!kind||!habilitationKinds.includes(kind as typeof habilitationKinds[number])||!title||category===null||equipment===null||zone===null||note===null||!status||!authorizationStatuses.includes(status as typeof authorizationStatuses[number])||!validFrom||!isValidDate(validFrom)||[validUntil,trainingUntil,medicalUntil].some(x=>x===null||!isValidDate(x!,true)))return fail('Type, intitulé, dates ou statut invalide.');
-   if([validUntil,trainingUntil,medicalUntil].some(x=>x!==''&&x!<validFrom))return fail('Une échéance précède le début de validité.');
+   if([validUntil,trainingUntil,medicalUntil].some(x=>x!==''&&x! < validFrom))return fail('Une échéance précède le début de validité.');
    if(kind==='Autorisation de conduite'&&status==='active'&&!checked)return fail('Confirmez les contrôles préalables avant d’activer l’autorisation.');
    const id=typeof b.id==='string'&&b.id?b.id:crypto.randomUUID(),newRecord=!b.id;
    let result;
