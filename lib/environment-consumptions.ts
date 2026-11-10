@@ -23,6 +23,7 @@ export const environmentMetrics=[
  {key:'recycled_material_t',section:'resources',label:'Matières recyclées consommées',unit:'t',direction:'min',description:'Matières recyclées incorporées à la production.'},
  {key:'packaging_t',section:'resources',label:'Emballages utilisés',unit:'t',direction:'max',description:'Emballages consommés, toutes matières confondues.'},
  {key:'waste_t',section:'resources',label:'Déchets générés',unit:'t',direction:'max',description:'Déchets du site en tonnes. À rapprocher du registre des déchets ; pas de synchronisation automatique.'},
+ {key:'water_consumed_m3',section:'water',label:'Consommation d’eau totale mesurée',unit:'m³',direction:'max',description:'Consommation d’eau mesurée sur le périmètre précisé par le relevé, sans supposer qu’elle provient uniquement du réseau.'},
  {key:'water_network_m3',section:'water',label:'Eau du réseau',unit:'m³',direction:'max',description:'Volume prélevé auprès du réseau public.'},
  {key:'water_other_m3',section:'water',label:'Autres prélèvements d’eau',unit:'m³',direction:'max',description:'Eau de forage ou autre ressource, si applicable et mesurée.'},
  {key:'water_reused_m3',section:'water',label:'Eau réutilisée',unit:'m³',direction:'min',description:'Volume d’eau réemployé dans les procédés.'},
@@ -38,7 +39,7 @@ export function metricInfo(key:string){return environmentMetrics.find(m=>m.key==
 export function validMonth(s:string){return /^(20\d\d|2100)-(0[1-9]|1[0-2])$/.test(s)}
 export function currentMonth(){return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit'}).format(new Date())}
 export function monthsEnding(period:string,count:number){if(!validMonth(period)||!Number.isInteger(count)||count<1||count>36)return [];const [y,m]=period.split('-').map(Number);return Array.from({length:count},(_,i)=>{const d=new Date(Date.UTC(y,m-1-(count-1-i),1));return d.toISOString().slice(0,7)})}
-export function formatEnvironmentNumber(n:number|null,maximumFractionDigits=2){return n===null?'—':n.toLocaleString('fr-FR',{maximumFractionDigits})}
+export function formatEnvironmentNumber(n:number|null,maximumFractionDigits=4){return n===null?'—':n.toLocaleString('fr-FR',{maximumFractionDigits})}
 export function sumEnvironment(entries:EnvironmentEntry[],metric:EnvironmentMetric,periods:string[],scope:EnvironmentScope,field:'value'|'target'='value'){
  const selected=entries.filter(r=>r.metric===metric&&periods.includes(r.period)&&(scope==='all'||r.site===scope)&&r[field]!==null);
  const count=selected.length,expected=periods.length*(scope==='all'?2:1);
