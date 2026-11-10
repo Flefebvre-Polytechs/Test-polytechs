@@ -21,7 +21,7 @@ function HabilitationWorkspace({account}:{account:Account}){
  const [origin,setOrigin]=useState(''),[uploading,setUploading]=useState(false),[confirmation,setConfirmation]=useState(''),[confirmTarget,setConfirmTarget]=useState<'person'|'authorization'|''>('');
  useEffect(()=>{setOrigin(location.origin)},[]);
  const load=useCallback(async(preferredPerson?:string)=>{
-  try{const r=await fetch('/api/habilitations',{cache:'no-store'});const d=await r.json() as Payload&{error?:string};if(!r.ok)throw Error(d.error||'Chargement impossible.');setData(d);setError('');setPersonId(old=>preferredPerson||old||d.people[0]?.id||'')}
+  try{const r=await fetch('/api/habilitations',{cache:'no-store'});const d=await r.json() as Payload&{error?:string};if(!r.ok)throw Error(d.error||'Chargement impossible.');setData(d);setError('');setPersonId(old=>{const fromUrl=typeof window!=='undefined'?new URLSearchParams(window.location.search).get('person')||'':'';return preferredPerson||(d.people.some(p=>p.id===fromUrl)?fromUrl:'')||old||d.people[0]?.id||''})}
   catch(e){setError((e as Error).message)}
  },[]);
  useEffect(()=>{void load()},[load]);
@@ -38,7 +38,7 @@ function HabilitationWorkspace({account}:{account:Account}){
  const expiredRecords=all.filter(a=>currentStatus(a)==='expired');
  const dueSoon=all.filter(a=>{const end=nextDeadline(a);if(!end||currentStatus(a)!=='valid')return false;const diff=(Date.parse(end+'T12:00:00Z')-Date.parse(todayInFrance()+'T12:00:00Z'))/86400000;return diff>=0&&diff<=30});
  const people=(data?.people||[]).filter(p=>[p.first_name,p.last_name,p.service].join(' ').toLocaleLowerCase('fr').includes(search.toLocaleLowerCase('fr')));
- function choosePerson(id:string){setPersonId(id);setAuthorizationId('');setDraft(blank());setConfirmation('');setConfirmTarget('');setNotice('')}
+ function choosePerson(id:string){window.history.replaceState(null,'','/habilitations?person='+encodeURIComponent(id));setPersonId(id);setAuthorizationId('');setDraft(blank());setConfirmation('');setConfirmTarget('');setNotice('')}
  function chooseAuthorization(a?:HabilitationRecord){setAuthorizationId(a?.id||'');setDraft(a?fromRecord(a):blank());setConfirmation('');setConfirmTarget('')}
  async function send(body:Record<string,unknown>,onDone?:(d:any)=>void){
   setBusy(true);setError('');setNotice('');
@@ -54,8 +54,8 @@ function HabilitationWorkspace({account}:{account:Account}){
  async function removeFile(id:string){if(window.prompt('Pour retirer définitivement le justificatif, saisissez SUPPRIMER :')!=='SUPPRIMER')return;setUploading(true);try{const r=await fetch('/api/habilitations/files',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'remove',id,confirmation:'SUPPRIMER'})});const d=await r.json() as {error?:string};if(!r.ok)throw Error(d.error||'Suppression impossible');await load();setNotice('Justificatif retiré.')}catch(e){setError((e as Error).message)}finally{setUploading(false)}}
  async function copyBadge(){if(!badgeUrl)return;try{await navigator.clipboard.writeText(badgeUrl);setNotice('Lien de vérification copié.')}catch{setError('Copie impossible : sélectionnez le lien manuellement.')}}
  return <HubFrame active="Habilitations" teamId="rh"><div className="rh-qualifications">
-  <div className="rh-breadcrumb"><a href="/unites?team=rh">Service RH</a><span>/</span>Gestion des habilitations</div>
-  <header className="rh-hero"><div><span className="rh-eyebrow">POLYTECHS · RESSOURCES HUMAINES</span><h1><ShieldCheck size={32}/> Gestion des habilitations</h1><p>Autorisations de conduite, habilitations électriques, CACES et attestations · contrôle terrain par QR code.</p></div>{canEdit&&<button className="rh-primary" onClick={()=>setAddPerson(x=>!x)}><Plus size={17}/> Nouveau salarié</button>}</header>
+  <div className="rh-breadcrumb"><a href="/unites?team=rh">Service RH</a><span>/</span><a href="/rh/personnel">Liste du personnel</a><span>/</span>Gestion des habilitations</div>
+  <header className="rh-hero"><div><span className="rh-eyebrow">POLYTECHS · RESSOURCES HUMAINES</span><h1><ShieldCheck size={32}/> Gestion des habilitations</h1><p>Autorisations de conduite, habilitations électriques, CACES et attestations · contrôle terrain par QR code.</p><a className="rh-outline" href="/rh/personnel"><Users size={16}/> Ouvrir la liste du personnel</a></div>{canEdit&&<button className="rh-primary" onClick={()=>setAddPerson(x=>!x)}><Plus size={17}/> Nouveau salarié</button>}</header>
   {error&&<div className="rh-alert" role="alert">{error}</div>}{notice&&<p className="rh-notice" role="status">{notice}</p>}
   {!data?<section className="rh-card">{error==='Accès au service RH nécessaire.'?<><h2>Accès réservé au service RH</h2><p>La gestion des habilitations est en ligne, mais ce compte ne dispose pas des droits de lecture RH. Demandez à un administrateur de vous attribuer un accès au service RH depuis « Membres et accès ». Les autorisations et justificatifs restent confidentiels.</p><a className="rh-outline" href="/unites">Retour aux services</a></>:<><p>{error?'Registre temporairement indisponible.':'Chargement du registre RH…'}</p><button className="rh-outline" onClick={()=>void load()}>Actualiser</button></>}</section>:<>
    <section className="rh-kpi"><div><Users size={20}/><strong>{data.people.filter(p=>p.active).length}</strong><span>Salariés actifs</span></div><div><ShieldCheck size={20}/><strong>{activeRecords.length}</strong><span>Habilitations valides</span></div><div><CalendarClock size={20}/><strong>{dueSoon.length}</strong><span>Échéances sous 30 jours</span></div><div className={expiredRecords.length?'rh-kpi-alert':''}><ShieldAlert size={20}/><strong>{expiredRecords.length}</strong><span>Expirées</span></div></section>

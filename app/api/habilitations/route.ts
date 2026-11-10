@@ -1,7 +1,7 @@
 import {database} from '@/db/raw';
 import {checkOrigin,requireRole,securityEvent} from '@/lib/access';
 import {teamsAllowed} from '@/lib/team-access';
-import {authorizationStatuses,habilitationKinds,isValidDate} from '@/lib/habilitations';
+import {authorizationStatuses,habilitationKinds,isValidDate,currentStatus,todayInFrance,type HabilitationRecord} from '@/lib/habilitations';
 
 const fail=(error:string,status=400)=>Response.json({error},{status,headers:{'Cache-Control':'no-store'}});
 const ok=(data:unknown)=>Response.json(data,{headers:{'Cache-Control':'private, no-store'}});
@@ -27,6 +27,27 @@ export async function GET(req:Request){
  try{
   const gate=await gateRead(req);if(gate.error)return gate.error;
   const db=database();
+  // The RH directory is intentionally a minimal projection: no QR secrets,
+  // medical expiration dates, notes or attachments reach this screen.
+  if(new URL(req.url).searchParams.get('scope')==='directory'){
+   const [personRows,authorizationRows]=await Promise.all([
+    db.prepare('SELECT id,first_name,last_name,service,active,revision,created_at,updated_at FROM hr_people ORDER BY last_name,first_name').all(),
+    db.prepare('SELECT person_id,kind,status,valid_from,valid_until,training_until,medical_until,prerequisites_checked FROM hr_authorizations').all()
+   ]);
+   const summaries:Record<string,{total:number;valid:number;expired:number;other:number;dueSoon:number}>={};
+   const today=todayInFrance();
+   for(const row of authorizationRows.results as Array<Pick<HabilitationRecord,'person_id'|'kind'|'status'|'valid_from'|'valid_until'|'training_until'|'medical_until'|'prerequisites_checked'>>){
+    const summary=summaries[row.person_id]??={total:0,valid:0,expired:0,other:0,dueSoon:0};
+    const status=currentStatus(row,today);summary.total++;
+    if(status==='valid')summary.valid++;else if(status==='expired')summary.expired++;else summary.other++;
+    const dates=[row.valid_until,row.training_until,row.medical_until].filter(Boolean).sort();
+    if(status==='valid'&&dates.length){
+     const gap=(Date.parse(dates[0]+'T12:00:00Z')-Date.parse(today+'T12:00:00Z'))/86400000;
+     if(gap>=0&&gap<=30)summary.dueSoon++;
+    }
+   }
+   return ok({people:personRows.results,summaries,canEdit:await teamsAllowed(gate.user!,['rh'],true)});
+  }
   const [people,authorizations,files]=await Promise.all([
    db.prepare('SELECT * FROM hr_people ORDER BY last_name,first_name').all(),
    db.prepare('SELECT * FROM hr_authorizations ORDER BY updated_at DESC').all(),
