@@ -48,6 +48,40 @@ assert.ok(db.prepare('SELECT count(*) n FROM gmao_history WHERE entity_id=?').ge
 // A ticket edit racing between read and transaction must abort the GMAO mutation without losing the edit.
 const origBatch=globalThis.gmaoDb.batch;let raced=false;globalThis.gmaoDb.batch=async ss=>{if(!raced){raced=true;db.prepare('UPDATE hub_tickets SET revision=revision+1 WHERE id=?').run(request.ticketId)}return origBatch(ss)};const before=row('orders',id);await result({operation:'order',id,revision:before.revision,data:{...before.data,title:'Tentative simultanée'}},409);assert.equal(row('orders',id).data.title,before.data.title);globalThis.gmaoDb.batch=origBatch;
 db.exec("INSERT INTO teams VALUES('rh','RH',2,'direction');INSERT INTO team_access VALUES('rh',0)");const secretTicket={...lib.newOrder(),...{title:'Secret RH',teams:['rh','maintenance'],actions:[],responsibles:[],category:'Qualité',status:'Ouvert',pilot:'',due:''}};db.prepare('INSERT INTO hub_tickets VALUES(?,?,1,?,?,?)').run('rh-secret',JSON.stringify(secretTicket),'2026','2026','Admin');db.prepare('INSERT INTO hub_files VALUES(?,?,?,?,?,?,?)').run('rh-file','rh-secret','secret.pdf','application/pdf',5,'Admin','2026');db.prepare('INSERT INTO hub_notifications VALUES(?,?,?,?,0,?)').run('rh-notification','tech','Secret RH','/tickets?id=rh-secret','2026');globalThis.gmaoUser=users.tech;assert.equal((await hub.GET(new Request('https://example.test/api?scope=ticket&id=rh-secret'))).status,403);assert.equal((await file.GET(new Request('https://example.test/api?id=rh-file'))).status,403);const rhList=await (await hub.GET(new Request('https://example.test/api?scope=tickets'))).json();assert.ok(!rhList.rows.some(r=>r.id==='rh-secret'));const rhOverview=await (await hub.GET(new Request('https://example.test/api?scope=overview-stats&team=maintenance'))).json();assert.ok(!rhOverview.recent.some(r=>r.id==='rh-secret'));const rhNotifs=await (await hub.GET(new Request('https://example.test/api?scope=notifications'))).json();assert.ok(!rhNotifs.notifications.some(r=>r.id==='rh-notification'));db.prepare('INSERT INTO team_members VALUES(?,?,?)').run('rh','tech','viewer');assert.equal((await hub.GET(new Request('https://example.test/api?scope=ticket&id=rh-secret'))).status,200);assert.equal((await post(hub,{action:'comment',ticketId:'rh-secret',body:'Interdit en consultation',recipients:[]})).status,403);db.prepare('DELETE FROM team_members WHERE team_id=? AND user_id=?').run('rh','tech');assert.equal((await hub.GET(new Request('https://example.test/api?scope=ticket&id=rh-secret'))).status,403);console.log('RH : service fermé même si configuré ouvert, ticket multiservice, accès direct, fichiers, statistiques, notifications, consultation sans modification et retrait immédiat des droits vérifiés.');
+// An RH-linked intervention stays confidential through planning, conversion and stock history.
+globalThis.gmaoUser=users.admin;
+const rhAsset=await result({operation:'asset',id:'',revision:0,data:{...lib.newAsset(),code:'RH-TEST',name:'Équipement RH',teamId:'rh'}});
+const rhPlan=await result({operation:'plan',id:'',revision:0,data:{...lib.newPlan(),name:'Plan RH',assetId:rhAsset.id,start:'2026-10-01',tasks:['Contrôle']}});
+const rhOrder=await result({operation:'from-ticket',ticketId:'rh-secret',data:{...lib.newOrder(),teamId:'production'}});
+assert.equal(row('orders',rhOrder.id).data.teamId,'rh','Conversion must preserve RH scope');
+await result({operation:'stock',partId:part.id,revision:4,kind:'Entrée',amount:2,note:'Livraison'});
+await result({operation:'stock',partId:part.id,revision:5,kind:'Sortie intervention',amount:1,orderId:rhOrder.id,note:'Détail RH confidentiel'});
+db.prepare('INSERT INTO hub_tickets VALUES(?,?,1,?,?,?)').run('prod-link',JSON.stringify({...secretTicket,teams:['production'],title:'Demande initiale'}),'2026','2026','Admin');
+await result({operation:'from-ticket',ticketId:'prod-link',data:{...lib.newOrder(),assetId:rhAsset.id}});
+assert.ok(JSON.parse(db.prepare("SELECT data FROM hub_tickets WHERE id='prod-link'").get().data).teams.includes('rh'));
+await result({operation:'plan',id:'',revision:0,data:{...row('plans',rhPlan.id).data,technicianId:'tech'}},400);
+const historicalRepair=fs.readFileSync('drizzle/0041_gmao_rh_scope.sql','utf8');
+db.prepare("UPDATE gmao_orders SET data=json_set(data,'$.teamId','production') WHERE id=?").run(rhOrder.id);
+db.exec(historicalRepair);
+assert.equal(row('orders',rhOrder.id).data.teamId,'rh');
+db.prepare("UPDATE hub_tickets SET data=json_set(data,'$.teams',json('[\"maintenance\"]')) WHERE id='rh-secret'").run();
+db.exec(historicalRepair);
+assert.ok(JSON.parse(db.prepare("SELECT data FROM hub_tickets WHERE id='rh-secret'").get().data).teams.includes('rh'));
+db.exec("DELETE FROM team_members WHERE user_id='tech' AND team_id='rh'");
+globalThis.gmaoUser=users.tech;
+assert.equal((await api.GET(new Request('https://example.test/api?id='+rhOrder.id))).status,404);
+db.prepare('INSERT INTO hub_notifications VALUES(?,?,?,?,0,?)').run('rh-order-notice','tech','Demande RH','/maintenance?order='+rhOrder.id,'2026');
+const afterRevocation=await (await hub.GET(new Request('https://example.test/api?scope=notifications'))).json();
+assert.ok(!afterRevocation.notifications.some(n=>n.id==='rh-order-notice'));
+const stockHistory=await (await api.GET(new Request('https://example.test/api?kind=part&id='+part.id))).json();
+assert.ok(!stockHistory.movements.some(m=>m.order_id===rhOrder.id));
+await result({operation:'stock',partId:part.id,revision:6,kind:'Sortie intervention',amount:1,orderId:rhOrder.id,note:'Interdit'},403);
+await result({operation:'plan',id:rhPlan.id,revision:1,data:{...row('plans',rhPlan.id).data,assetId:a.id}},403);
+await result({operation:'generate',planId:rhPlan.id,from:'2026-10-01',to:'2026-10-31'},403);
+await result({operation:'generate',from:'2026-10-01',to:'2026-10-31'});
+assert.equal(db.prepare('SELECT count(*) n FROM gmao_orders WHERE plan_id=?').get(rhPlan.id).n,0);
+globalThis.gmaoUser=users.admin;
+assert.equal((await result({operation:'generate',planId:rhPlan.id,from:'2026-10-01',to:'2026-10-31'})).created,1);
 // Context targeting is applied on the server, including for administrators and parent teams.
 globalThis.gmaoUser=users.admin;
 db.exec("INSERT INTO teams VALUES('direction','Direction',1,NULL);CREATE TABLE hub_communications(id TEXT PRIMARY KEY,data TEXT,revision INTEGER,created_at TEXT,updated_at TEXT,author TEXT);CREATE TABLE hub_routines(id TEXT PRIMARY KEY,data TEXT,revision INTEGER,updated_at TEXT);CREATE TABLE hub_runs(id TEXT,routine_id TEXT,date TEXT,data TEXT);");
