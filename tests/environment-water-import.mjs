@@ -42,8 +42,8 @@ assert.match(api,/teamsAllowed\(gate.user!,\['qsse'\],true\)/,'Bulk import must 
 assert.match(api,/INSERT INTO env_consumption_records/,'Bulk import uses insert-only SQL');
 assert.doesNotMatch(api.slice(api.indexOf("if(body.action==='import-production-water')"),api.indexOf("if(body.action!=='save')")),/INSERT OR IGNORE|REPLACE INTO|UPDATE env_consumption_records/,'Never overwrite imported readings');
 assert.match(api,/db\.batch\(statements\)/,'Bulk import must be one transaction');
-assert.match(page,/setYear\(''\)/,'Never assume a year');
-assert.match(page,/setSite\(''\)/,'Never assume a site');
+assert.match(page,/\[year,setYear\]=useState\(''\)/,'Never assume a year');
+assert.match(page,/\[site,setSite\]=useState\(''\)/,'Never assume a site');
 assert.match(page,/setConfirmed\(false\)/,'Explicit acknowledgement is required');
 assert.match(page,/water_consumed_m3/,'Do not assume the public network is the water source');
 
