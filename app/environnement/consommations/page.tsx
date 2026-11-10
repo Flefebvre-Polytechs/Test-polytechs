@@ -4,7 +4,7 @@ import {AccountGate} from '@/components/account-gate';
 import {HubFrame} from '@/components/hub-layout';
 import {Activity,ArrowDownToLine,ArrowRight,BarChart3,CalendarDays,Check,ChevronRight,Droplets,FileClock,FilePlus2,Leaf,LineChart as TrendIcon,LockKeyhole,Plus,RefreshCcw,Save,Search,Sun,Target,TrendingDown,TrendingUp,Warehouse,X,Zap} from 'lucide-react';
 import {Bar,BarChart,CartesianGrid,Legend,Line,ComposedChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
-import {currentMonth,environmentMetrics,environmentSections,environmentSites,environmentIntensity,formatEnvironmentNumber,metricInfo,monthlyEnvironment,monthsEnding,sumEnvironment,type EnvironmentEntry,type EnvironmentMetric,type EnvironmentScope,type EnvironmentSection,type EnvironmentSite} from '@/lib/environment-consumptions';
+import {currentMonth,environmentMetrics,environmentSections,environmentSites,environmentIntensity,environmentShare,formatEnvironmentNumber,metricInfo,monthlyEnvironment,monthsEnding,sumEnvironment,type EnvironmentEntry,type EnvironmentMetric,type EnvironmentScope,type EnvironmentSection,type EnvironmentSite} from '@/lib/environment-consumptions';
 import './style.css';
 
 const icons={activity:Activity,energy:Zap,renewable:Sun,resources:Leaf,water:Droplets};
@@ -39,20 +39,19 @@ function EnvironmentWorkspace(){
  useEffect(()=>{void load()},[load]);
  useEffect(()=>{setFocus(environmentMetrics.find(m=>m.section===tab)!.key);setShowAll(false)},[tab]);
  const section=environmentSections.find(x=>x.id===tab)!,sectionMetrics=environmentMetrics.filter(m=>m.section===tab);
- const focused=metricInfo(focus)||sectionMetrics[0];
+ const focused=sectionMetrics.find(m=>m.key===focus)||sectionMetrics[0];
  const sum=(key:EnvironmentMetric,field:'value'|'target'='value')=>sumEnvironment(records,key,periods,scope,field);
  const tile=(key:EnvironmentMetric):Tile=>{const m=metricInfo(key)!,actual=sum(key),goal=sum(key,'target');return {key,name:m.label,value:actual.value,unit:m.unit,detail:m.description,goal:goal.value,partial:actual.partial,count:actual.count,expected:actual.expected,direction:m.direction}};
- const ratio=(num:number|null,den:number|null,multiplier=1)=>num!==null&&den!==null&&den>0?num/den*multiplier:null;
- const shareMaterials=ratio(sum('recycled_material_t').value,(()=>{const a=sum('recycled_material_t').value,b=sum('virgin_material_t').value;return a===null||b===null?null:a+b})(),100);
- const shareSolar=ratio(sum('solar_self_kwh').value,(()=>{const a=sum('electricity_grid_kwh').value,b=sum('solar_self_kwh').value;return a===null||b===null?null:a+b})(),100);
+ const shareMaterials=environmentShare(records,'recycled_material_t','virgin_material_t',periods,scope);
+ const shareSolar=environmentShare(records,'solar_self_kwh','electricity_grid_kwh',periods,scope);
  const tEnergy=environmentIntensity(records,'electricity_grid_kwh',periods,scope);
  const tWater=environmentIntensity(records,'water_network_m3',periods,scope);
  const tWaste=environmentIntensity(records,'waste_t',periods,scope);
- const selectedCards:Tile[]=tab==='activity'?[tile('production_t'),tile('operating_h'),{key:'energy-intensity',name:'Électricité réseau / tonne',value:tEnergy.value,unit:'kWh/t',detail:'Consommation électrique du réseau rapportée aux tonnes déclarées.',partial:tEnergy.partial},{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production déclarée.',partial:tWater.partial}]:
- tab==='energy'?[tile('electricity_grid_kwh'),tile('natural_gas_kwh'),tile('fuel_l'),{key:'energy-intensity',name:'Intensité électrique réseau',value:tEnergy.value,unit:'kWh/t',detail:'Électricité du réseau divisée par la production.',partial:tEnergy.partial}]:
- tab==='renewable'?[tile('solar_generated_kwh'),tile('solar_self_kwh'),tile('renewable_purchased_kwh'),{key:'solar-share',name:'Part d’autoconsommation',value:shareSolar,unit:'%',detail:'Énergie solaire autoconsommée / (électricité réseau + solaire autoconsommée). Les achats verts ne sont pas additionnés.'}]:
- tab==='resources'?[tile('virgin_material_t'),tile('recycled_material_t'),tile('waste_t'),{key:'recycled-share',name:'Part de matières recyclées',value:shareMaterials,unit:'%',detail:'Matières recyclées / (matières vierges + recyclées).'}]:
- [tile('water_network_m3'),tile('water_other_m3'),tile('water_reused_m3'),{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production.',partial:tWater.partial}];
+ const selectedCards:Tile[]=tab==='activity'?[tile('production_t'),tile('operating_h'),{key:'energy-intensity',name:'Électricité réseau / tonne',value:tEnergy.value,unit:'kWh/t',detail:'Consommation électrique du réseau rapportée aux tonnes déclarées.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected},{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production déclarée.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}]:
+ tab==='energy'?[tile('electricity_grid_kwh'),tile('natural_gas_kwh'),tile('fuel_l'),{key:'energy-intensity',name:'Intensité électrique réseau',value:tEnergy.value,unit:'kWh/t',detail:'Électricité du réseau divisée par la production.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected}]:
+ tab==='renewable'?[tile('solar_generated_kwh'),tile('solar_self_kwh'),tile('renewable_purchased_kwh'),{key:'solar-share',name:'Part d’autoconsommation',value:shareSolar.value,unit:'%',partial:shareSolar.partial,count:shareSolar.count,expected:shareSolar.expected,detail:'Énergie solaire autoconsommée / (électricité réseau + solaire autoconsommée). Les achats verts ne sont pas additionnés.'}]:
+ tab==='resources'?[tile('virgin_material_t'),tile('recycled_material_t'),tile('waste_t'),{key:'recycled-share',name:'Part de matières recyclées',value:shareMaterials.value,unit:'%',partial:shareMaterials.partial,count:shareMaterials.count,expected:shareMaterials.expected,detail:'Matières recyclées / (matières vierges + recyclées).'}]:
+ [tile('water_network_m3'),tile('water_other_m3'),tile('water_reused_m3'),{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}];
  const points=useMemo(()=>monthlyEnvironment(records,focused.key,periods,scope),[records,focused.key,periods,scope]);
  const hasReadings=points.some(x=>x.actual!==null||x.target!==null);
  const relevant=useMemo(()=>records.filter(x=>periods.includes(x.period)&&(scope==='all'||x.site===scope)&&sectionMetrics.some(m=>m.key===x.metric)).sort((a,b)=>b.period.localeCompare(a.period)||a.site.localeCompare(b.site)||a.metric.localeCompare(b.metric)),[records,periods,scope,sectionMetrics]);
@@ -95,7 +94,7 @@ function EnvironmentWorkspace(){
   {!ready?<div className="env-empty-state"><LockKeyhole size={28}/><h2>{error==='Accès au service QSSE nécessaire.'?'Accès QSSE requis':loading?'Chargement des mesures…':'Registre non disponible'}</h2><p>{error==='Accès au service QSSE nécessaire.'?'La consultation des consommations est réservée aux membres autorisés QSSE.':'Actualisez pour récupérer les données du suivi environnemental.'}</p><button className="env-outlined" onClick={()=>void load()}>Réessayer</button></div>:<>
    <section className="env-kpis" aria-label="Indicateurs de consommation">
     {selectedCards.map((card,i)=>{const exceed=card.value!==null&&card.goal!==null&&card.goal!==undefined&&(!card.partial)&& (card.direction==='min'?card.value<card.goal:card.value>card.goal);
-     return <div key={card.key} className={'env-kpi '+(exceed?'env-kpi-warning':'')}><div className="env-kpi-head"><span>{card.name}</span>{i===0?<FocusIcon size={19}/>:card.key.includes('intensity')?<TrendIcon size={19}/>:<BarChart3 size={19}/>}</div><strong>{format(card.value)} <small>{card.unit}</small></strong><div className="env-kpi-foot">{card.goal!==null&&card.goal!==undefined?<span className={exceed?'env-text-red':'env-text-green'}>Objectif : {format(card.goal)} {card.unit}{card.partial?' · partiel':''}</span>:card.partial?<span>Saisie partielle · {card.count}/{card.expected} site-mois</span>:<span>{card.value===null?'Aucune mesure saisie':windowSize+' mois · '+currentScope}</span>}</div><p className="env-kpi-tip">{card.detail}</p></div>})}
+     return <div key={card.key} className={'env-kpi '+(exceed?'env-kpi-warning':'')}><div className="env-kpi-head"><span>{card.name}</span>{i===0?<FocusIcon size={19}/>:card.key.includes('intensity')?<TrendIcon size={19}/>:<BarChart3 size={19}/>}</div><strong>{format(card.value)} <small>{card.unit}</small></strong><div className="env-kpi-foot">{card.goal!==null&&card.goal!==undefined?<span className={exceed?'env-text-red':'env-text-green'}>Objectif : {format(card.goal)} {card.unit}{card.partial?' · partiel':''}</span>:card.partial?<span>Saisie partielle · {card.count??0}/{card.expected??periods.length*(scope==='all'?2:1)} site-mois</span>:<span>{card.value===null?'Aucune mesure saisie':windowSize+' mois · '+currentScope}</span>}</div><p className="env-kpi-tip">{card.detail}</p></div>})}
    </section>
    <div className="env-analysis-grid">
     <section className="env-panel env-chart-panel">
