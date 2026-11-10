@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {environmentMetrics,environmentSections,environmentMetricKeys,validMonth,monthsEnding,sumEnvironment,environmentIntensity,monthlyEnvironment} from '../lib/environment-consumptions.ts';
+import {environmentMetrics,environmentSections,environmentMetricKeys,validMonth,monthsEnding,sumEnvironment,environmentIntensity,environmentShare,monthlyEnvironment} from '../lib/environment-consumptions.ts';
 
 assert.equal(environmentSections.length,5,'Five tabs follow the requested environment navigation');
 assert.equal(new Set(environmentMetrics.map(m=>m.key)).size,environmentMetrics.length,'No duplicate indicator keys');
@@ -27,6 +27,12 @@ assert.deepEqual(sumEnvironment(items,'electricity_grid_kwh',periods,'site-1','t
 assert.equal(environmentIntensity(items,'electricity_grid_kwh',periods,'site-1').value,15);
 assert.equal(environmentIntensity(items,'natural_gas_kwh',periods,'site-1').value,null);
 assert.equal(environmentIntensity(items,'electricity_grid_kwh',periods,'all').partial,true);
+const paired=environmentIntensity(items.filter(x=>!(x.metric==='electricity_grid_kwh'&&x.period==='2026-11')), 'electricity_grid_kwh',periods,'site-1');
+assert.equal(paired.value,18,'Intensity must use only matched site-month production and energy');
+assert.equal(paired.partial,true,'Omitted months are flagged as partial coverage');
+assert.equal(environmentShare([record('site-1','recycled_material_t','2026-11',3),record('site-1','virgin_material_t','2026-11',7)],'recycled_material_t','virgin_material_t',['2026-11'],'site-1').value,30);
+assert.equal(environmentShare(items,'solar_self_kwh','electricity_grid_kwh',periods,'site-1').value,null,'No invented share without renewable source readings');
+
 const monthly=monthlyEnvironment(items,'water_network_m3',periods,'site-1');
 assert.equal(monthly[0].actual,5);assert.equal(monthly[1].actual,null);
 assert.equal(monthly[1].target,null);
