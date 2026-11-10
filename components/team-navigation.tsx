@@ -2,7 +2,7 @@
 import {useEffect,useState,type CSSProperties} from 'react';
 import {teamVisual} from '@/lib/ticket-visuals';
 import {gedHref} from '@/lib/navigation';
-import {LayoutDashboard,FileText,ClipboardList,TriangleAlert,HardHat as EpiIcon,Recycle,Leaf,BookOpen,FileCheck2,Sparkles,HeartPulse,ShieldAlert,LayoutList,Users,BriefcaseBusiness,CalendarDays,FlaskConical,Factory,Truck,HardHat,ShoppingCart,HeartHandshake,Wrench,Settings2,Monitor,ShieldCheck,Lightbulb,Network} from 'lucide-react';
+import {LayoutDashboard,FileText,ClipboardList,TriangleAlert,HardHat as EpiIcon,Recycle,Leaf,BookOpen,FileCheck2,Sparkles,HeartPulse,ShieldAlert,LayoutList,Users,BriefcaseBusiness,CalendarDays,FlaskConical,Factory,Truck,HardHat,ShoppingCart,HeartHandshake,Wrench,Settings2,Monitor,ShieldCheck,Lightbulb,Network,ChartNoAxesCombined} from 'lucide-react';
 export type Team={id:string;name:string;rank:number;parent_id:string|null;revision:number};
 export type BoardLink={id:string;team_id:string;title:string;unit_code:string};
 
@@ -22,6 +22,7 @@ const qsseSections=[
     ['Plans de prévention','/plans-prevention',ShieldAlert],
   ]},
   {name:'Environnement',links:[
+    ['Suivi des consommations','/environnement/consommations',ChartNoAxesCombined],
     ['Gestion des déchets','/dechets',Recycle],
     ['Analyse environnementale','/qse#'+encodeURIComponent('Analyse environnementale'),Leaf],
     ['RSE','/qse#RSE',Sparkles],
