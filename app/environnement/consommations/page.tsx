@@ -5,6 +5,7 @@ import {HubFrame} from '@/components/hub-layout';
 import {Activity,ArrowDownToLine,ArrowRight,BarChart3,CalendarDays,Check,ChevronRight,Droplets,FileClock,FilePlus2,Leaf,LineChart as TrendIcon,LockKeyhole,Plus,RefreshCcw,Save,Search,Sun,Target,TrendingDown,TrendingUp,Warehouse,X,Zap} from 'lucide-react';
 import {Bar,BarChart,CartesianGrid,Legend,Line,ComposedChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
 import {currentMonth,environmentMetrics,environmentSections,environmentSites,environmentIntensity,environmentShare,formatEnvironmentNumber,metricInfo,monthlyEnvironment,monthsEnding,sumEnvironment,type EnvironmentEntry,type EnvironmentMetric,type EnvironmentScope,type EnvironmentSection,type EnvironmentSite} from '@/lib/environment-consumptions';
+import {EnvironmentBulkImport} from './bulk-import';
 import './style.css';
 
 const icons={activity:Activity,energy:Zap,renewable:Sun,resources:Leaf,water:Droplets};
@@ -45,13 +46,13 @@ function EnvironmentWorkspace(){
  const shareMaterials=environmentShare(records,'recycled_material_t','virgin_material_t',periods,scope);
  const shareSolar=environmentShare(records,'solar_self_kwh','electricity_grid_kwh',periods,scope);
  const tEnergy=environmentIntensity(records,'electricity_grid_kwh',periods,scope);
- const tWater=environmentIntensity(records,'water_network_m3',periods,scope);
+ const tWater=environmentIntensity(records,'water_consumed_m3',periods,scope);
  const tWaste=environmentIntensity(records,'waste_t',periods,scope);
- const selectedCards:Tile[]=tab==='activity'?[tile('production_t'),tile('operating_h'),{key:'energy-intensity',name:'Électricité réseau / tonne',value:tEnergy.value,unit:'kWh/t',detail:'Consommation électrique du réseau rapportée aux tonnes déclarées.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected},{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production déclarée.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}]:
+ const selectedCards:Tile[]=tab==='activity'?[tile('production_t'),tile('operating_h'),{key:'energy-intensity',name:'Électricité réseau / tonne',value:tEnergy.value,unit:'kWh/t',detail:'Consommation électrique du réseau rapportée aux tonnes déclarées.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected},{key:'water-intensity',name:'Eau mesurée / tonne',value:tWater.value,unit:'m³/t',detail:'Volume d’eau déclaré rapporté aux tonnes produites, sur les mêmes mois et sites.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}]:
  tab==='energy'?[tile('electricity_grid_kwh'),tile('natural_gas_kwh'),tile('fuel_l'),{key:'energy-intensity',name:'Intensité électrique réseau',value:tEnergy.value,unit:'kWh/t',detail:'Électricité du réseau divisée par la production.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected}]:
  tab==='renewable'?[tile('solar_generated_kwh'),tile('solar_self_kwh'),tile('renewable_purchased_kwh'),{key:'solar-share',name:'Part d’autoconsommation',value:shareSolar.value,unit:'%',partial:shareSolar.partial,count:shareSolar.count,expected:shareSolar.expected,detail:'Énergie solaire autoconsommée / (électricité réseau + solaire autoconsommée). Les achats verts ne sont pas additionnés.'}]:
  tab==='resources'?[tile('virgin_material_t'),tile('recycled_material_t'),tile('waste_t'),{key:'recycled-share',name:'Part de matières recyclées',value:shareMaterials.value,unit:'%',partial:shareMaterials.partial,count:shareMaterials.count,expected:shareMaterials.expected,detail:'Matières recyclées / (matières vierges + recyclées).'}]:
- [tile('water_network_m3'),tile('water_other_m3'),tile('water_reused_m3'),{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}];
+ [tile('water_consumed_m3'),tile('water_network_m3'),tile('water_reused_m3'),{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}];
  const points=useMemo(()=>monthlyEnvironment(records,focused.key,periods,scope),[records,focused.key,periods,scope]);
  const hasReadings=points.some(x=>x.actual!==null||x.target!==null);
  const relevant=useMemo(()=>records.filter(x=>periods.includes(x.period)&&(scope==='all'||x.site===scope)&&sectionMetrics.some(m=>m.key===x.metric)).sort((a,b)=>b.period.localeCompare(a.period)||a.site.localeCompare(b.site)||a.metric.localeCompare(b.metric)),[records,periods,scope,sectionMetrics]);
@@ -63,7 +64,7 @@ function EnvironmentWorkspace(){
  async function save(e:FormEvent){e.preventDefault();if(!editor||busy)return;
   const numeric=(s:string)=>s.trim()===''?null:Number(s.trim().replace(',','.'));
   const current=numeric(value),goal=numeric(target);
-  if([current,goal].some(n=>n!==null&&(!Number.isFinite(n)||n<0||n>1e9||Math.round(n*1000)/1000!==n))){setError('Indiquez des valeurs positives, avec au maximum trois décimales.');return}
+  if([current,goal].some(n=>n!==null&&(!Number.isFinite(n)||n<0||n>1e9||Math.abs(n*1e4-Math.round(n*1e4))>=1e-6))){setError('Indiquez des valeurs positives, avec au maximum quatre décimales.');return}
   setBusy(true);setError('');setNotice('');
   try{
    const r=await fetch('/api/environnement/consommations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',site:editor.site,period:editor.period,metric:editor.metric,value:current,target:goal,note:note.trim(),revision:selected?.revision||0})});
@@ -80,7 +81,7 @@ function EnvironmentWorkspace(){
  const currentScope=environmentSites.find(s=>s.id===scope)?.label||'Tous les sites';
  return <HubFrame active="Environnement" teamId="qsse"><div className="env-workspace">
   <div className="env-crumb"><a href="/unites?team=qsse">QSSE</a><ChevronRight size={14}/><span>Environnement</span><ChevronRight size={14}/><strong>Consommations</strong></div>
-  <header className="env-hero"><div><div className="env-eyebrow"><Leaf size={16}/> PILOTAGE ENVIRONNEMENTAL · POLYTECHS</div><h1>Suivi des consommations</h1><p>Un suivi fiable par site, par mois et par ressource, avec objectifs, tendances et indicateurs rapportés à l’activité.</p></div><div className="env-hero-actions"><a href="/dechets" className="env-outlined">Registre des déchets <ArrowRight size={16}/></a>{canEdit&&<button className="env-primary" type="button" onClick={()=>openEditor()}><Plus size={17}/> Nouvelle saisie</button>}</div></header>
+  <header className="env-hero"><div><div className="env-eyebrow"><Leaf size={16}/> PILOTAGE ENVIRONNEMENTAL · POLYTECHS</div><h1>Suivi des consommations</h1><p>Un suivi fiable par site, par mois et par ressource, avec objectifs, tendances et indicateurs rapportés à l’activité.</p></div><div className="env-hero-actions">{canEdit&&<EnvironmentBulkImport onSuccess={(period,site)=>{setEndMonth(period);setWindowSize(12);setScope(site);setTab('activity')}}/>}<a href="/dechets" className="env-outlined">Registre des déchets <ArrowRight size={16}/></a>{canEdit&&<button className="env-primary" type="button" onClick={()=>openEditor()}><Plus size={17}/> Nouvelle saisie</button>}</div></header>
   <nav className="env-tabs" aria-label="Rubriques du suivi environnemental">{environmentSections.map(item=>{const Icon=icons[item.id];return <button type="button" key={item.id} className={'env-tab '+(tab===item.id?'active':'')} aria-current={tab===item.id?'page':undefined} onClick={()=>chooseTab(item.id)}><Icon size={20}/><span>{item.label}</span></button>})}</nav>
   <div className="env-intro"><div className="env-intro-icon"><FocusIcon size={22}/></div><div><h2>{section.label}</h2><p>{section.intro}</p></div></div>
   <div className="env-filters">
@@ -123,7 +124,7 @@ function EnvironmentWorkspace(){
      <label>Consommation réelle ({metricInfo(editor.metric)?.unit})<input type="text" inputMode="decimal" placeholder="Non renseignée" value={value} onChange={e=>setValue(e.target.value)} maxLength={25}/></label>
      <label>Objectif du mois ({metricInfo(editor.metric)?.unit})<input type="text" inputMode="decimal" placeholder="Facultatif" value={target} onChange={e=>setTarget(e.target.value)} maxLength={25}/></label>
      <label className="env-form-notes">Source / commentaire (facture, compteur, méthode)<textarea rows={2} maxLength={1000} placeholder="Ex. : relève compteur de fin de mois, facture fournisseur…" value={note} onChange={e=>setNote(e.target.value)}/></label>
-    </div><p className="env-edit-hint">Saisissez une valeur en {metricInfo(editor.metric)?.unit} · jusqu’à 3 décimales. Laisser le champ vide signifie « non renseigné ».</p>
+    </div><p className="env-edit-hint">Saisissez une valeur en {metricInfo(editor.metric)?.unit} · jusqu’à 4 décimales. Laisser le champ vide signifie « non renseigné ».</p>
     <div className="env-editor-actions"><button type="button" className="env-outlined" onClick={()=>setEditor(null)}>Annuler</button><button type="submit" className="env-primary" disabled={busy}><Save size={17}/>{busy?'Enregistrement…':'Enregistrer le relevé'}</button></div></form>
    </section>}
    <section className="env-panel env-register">
