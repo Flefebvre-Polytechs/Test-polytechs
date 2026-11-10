@@ -47,7 +47,24 @@ export function sumEnvironment(entries:EnvironmentEntry[],metric:EnvironmentMetr
 export function monthlyEnvironment(entries:EnvironmentEntry[],metric:EnvironmentMetric,periods:string[],scope:EnvironmentScope){
  return periods.map(period=>({period,label:new Date(period+'-01T12:00:00Z').toLocaleDateString('fr-FR',{month:'short',year:'2-digit',timeZone:'UTC'}),actual:sumEnvironment(entries,metric,[period],scope).value,target:sumEnvironment(entries,metric,[period],scope,'target').value}));
 }
+/** Ratios are calculated only over matched site-month cells, never over disjoint periods. */
+export function environmentPaired(entries:EnvironmentEntry[],first:EnvironmentMetric,second:EnvironmentMetric,periods:string[],scope:EnvironmentScope){
+ const sites=scope==='all'?environmentSites.map(s=>s.id):[scope];
+ let firstTotal=0,secondTotal=0,count=0;
+ for(const site of sites)for(const period of periods){
+  const a=entries.find(r=>r.site===site&&r.period===period&&r.metric===first&&r.value!==null);
+  const b=entries.find(r=>r.site===site&&r.period===period&&r.metric===second&&r.value!==null);
+  if(!a||!b)continue;
+  firstTotal+=a.value!;secondTotal+=b.value!;count++;
+ }
+ return {firstTotal,secondTotal,count,expected:sites.length*periods.length,partial:count<sites.length*periods.length};
+}
 export function environmentIntensity(entries:EnvironmentEntry[],numerator:EnvironmentMetric,periods:string[],scope:EnvironmentScope){
- const production=sumEnvironment(entries,'production_t',periods,scope),consumption=sumEnvironment(entries,numerator,periods,scope);
- return {value:production.value!==null&&production.value>0&&consumption.value!==null?consumption.value/production.value:null,partial:production.partial||consumption.partial};
+ const pair=environmentPaired(entries,numerator,'production_t',periods,scope);
+ return {value:pair.count&&pair.secondTotal>0?pair.firstTotal/pair.secondTotal:null,partial:pair.partial,count:pair.count,expected:pair.expected};
+}
+export function environmentShare(entries:EnvironmentEntry[],part:EnvironmentMetric,complement:EnvironmentMetric,periods:string[],scope:EnvironmentScope){
+ const pair=environmentPaired(entries,part,complement,periods,scope);
+ const total=pair.firstTotal+pair.secondTotal;
+ return {value:pair.count&&total>0?100*pair.firstTotal/total:null,partial:pair.partial,count:pair.count,expected:pair.expected};
 }
