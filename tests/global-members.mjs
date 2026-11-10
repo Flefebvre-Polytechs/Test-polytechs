@@ -17,6 +17,10 @@ try{
  const listing=await (await users.GET(req(cookies.admin))).json();assert.equal(listing.users.length,4);assert.ok(listing.users.every(u=>u.email&&!('password_hash' in u)&&!('photo_key' in u)));
  assert.equal(listing.users.find(u=>u.id==='lead').photo_updated_at,'2026-11-02T11:00:00.000Z');assert.equal(listing.users.find(u=>u.id==='reader').photo_updated_at,null,'No image request is necessary for a member without a photo');
  const allTeams=await (await teams.GET(req(cookies.admin))).json();assert.ok(allTeams.teams.length>=2);assert.ok(allTeams.users.some(u=>u.id==='reader'),'Global management includes people with no team');assert.equal(allTeams.users.find(u=>u.id==='lead').photo_updated_at,'2026-11-02T11:00:00.000Z');assert.equal(allTeams.users.find(u=>u.id==='reader').photo_updated_at,null);
+ const budgetGrant={action:'function-role',functionRole:'budget_manager',enabled:true,expected:false};
+ for(const id of ['lead','other-admin'])assert.equal((await post({...budgetGrant,id})).status,200);
+ assert.equal((await post({...budgetGrant,id:'reader'})).status,400);
+ assert.equal((await post({...budgetGrant,id:'lead',enabled:false,expected:true})).status,200);
  const cseGrant={action:'function-role',id:'reader',functionRole:'cse_representative',enabled:true,expected:false};
  assert.equal((await post(cseGrant,'lead')).status,403);
  assert.equal((await post(cseGrant)).status,200,'An elected CSE member may keep their global reader role');

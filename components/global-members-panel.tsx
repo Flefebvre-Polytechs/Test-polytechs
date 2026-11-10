@@ -11,7 +11,7 @@ import {ListPagination,useListPage} from '@/components/list-pagination';
 import {TeamMark} from '@/components/ticket-visuals';
 import {PersonAvatar} from '@/components/person-avatar';
 import './global-members.css';
-type User={id:string;username:string;display_name:string;role:Account['role'];must_change_password:number;email:string|null;created_at:string;photo_updated_at:string|null;epi_manager:number;budget_eligible:number;function_roles:string};
+type User={id:string;username:string;display_name:string;role:Account['role'];must_change_password:number;email:string|null;created_at:string;photo_updated_at:string|null;epi_manager:number;function_roles:string};
 type Team={id:string;name:string;rank:number};
 type Membership={team_id:string;user_id:string;level:string};
 type Data={users:User[];teams:Team[];members:Membership[];settings:{team_id:string;restricted:number}[];emailSecurity:{configured:boolean;required:boolean}};
@@ -24,7 +24,6 @@ function holdsMission(user:User,mission:Mission){
 }
 function missionRestriction(user:User,mission:Mission){
  if(mission==='epi_manager'&&user.role==='admin')return 'Accès inclus dans le rôle global';
- if(mission==='budget_manager'&&!user.budget_eligible)return 'Réservé à Karine CONNAN';
  if(user.role==='reader'&&mission!=='cse_representative')return 'Compte contributeur requis';
  return '';
 }
