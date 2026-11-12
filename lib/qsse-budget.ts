@@ -15,3 +15,11 @@ export function budgetRecordError(r:BudgetRecord){
 }
 export function sumBudget(rows:BudgetRecord[],field:typeof amountFields[number]){return Math.round(rows.reduce((sum,r)=>sum+(r[field]??0),0)*100)/100}
 export function budgetIssues(r:BudgetRecord){const issues:string[]=[];if(r.kind==='order'){if(r.amount===null)issues.push('Montant à compléter');if(!r.date)issues.push('Date à compléter');if(r.status==='À vérifier')issues.push('À vérifier');}else if(r.budget2027!==null&&Math.abs(r.months.reduce<number>((a,b)=>a+(b??0),0)-r.budget2027)>0.02)issues.push('Mensualisation à ajuster');return issues;}
+
+// Preserve the accounting section from Excel, independently of expense labels.
+export const budgetSectionDetails:Record<BudgetSection,string>={'2500':'Sécurité','2600':'Recyclage et extérieurs','4520':'Assurance qualité','interim':'Personnel intérimaire QSSE'};
+export function budgetSubtotal(rows:BudgetRecord[],field:typeof amountFields[number]){const known=rows.filter(r=>r[field]!==null);return {amount:known.length?sumBudget(known,field):null,missing:rows.length-known.length,count:rows.length}}
+export function groupBudgetRows(rows:BudgetRecord[]){return (Object.keys(budgetSections) as BudgetSection[]).map(section=>({section,rows:rows.filter(r=>r.section===section)}))}
+
+export const budgetSourceTabs={account:[{section:'2500',label:'2500'},{section:'2600',label:'2600'},{section:'4520',label:'4520'}],order:[{section:'',label:'TDB Budgets'},{section:'2500',label:'2500 - 2026'},{section:'2600',label:'2600 - 2026'},{section:'4520',label:'4520 - 2026'},{section:'interim',label:'Interim 2026'}]} as const;
+export function budgetTabLabel(kind:BudgetRecord['kind'],section:string){return budgetSourceTabs[kind].find(tab=>tab.section===section)?.label||budgetSections[section as BudgetSection]||'Vue d’ensemble'}
