@@ -33,11 +33,17 @@ export async function GET(req:Request){try{
   const active=catalog.filter(p=>(!family||p.family===family)&&(!code||p.code===code));
   const map=new Map(products.map(p=>[p.code,p]));
   const now=new Date(),year=now.getUTCFullYear(),month=now.getUTCMonth();
-  const start=new Date(Date.UTC(year,month-months+1,1)).toISOString();
-  const end=new Date(Date.UTC(year,month+1,1)).toISOString();
+  const from=query.get('from')||'',to=query.get('to')||'';
+  const validMonth=(v:string)=>/^(20\d{2})-(0[1-9]|1[0-2])$/.test(v);
+  if((from||to)&&(!validMonth(from)||!validMonth(to)))return bad('Choisissez un mois de début et de fin valides.');
+  const first=from?new Date(from+'-01T00:00:00.000Z'):new Date(Date.UTC(year,month-months+1,1));
+  const last=to?new Date(to+'-01T00:00:00.000Z'):new Date(Date.UTC(year,month,1));
+  const count=(last.getUTCFullYear()-first.getUTCFullYear())*12+last.getUTCMonth()-first.getUTCMonth()+1;
+  if(count<1||count>24)return bad('La période doit couvrir de 1 à 24 mois.');
+  const start=first.toISOString(),end=new Date(Date.UTC(last.getUTCFullYear(),last.getUTCMonth()+1,1)).toISOString();
   const movements=(await db.prepare('SELECT code,kind,delta,unit_cost_cents,created_at FROM epi_movements WHERE created_at>=? AND created_at<? ORDER BY created_at,id').bind(start,end).all()).results as MovementRow[];
-  const monthly:Bucket[]=Array.from({length:months},(_,i)=>{
-    const date=new Date(Date.UTC(year,month-months+1+i,1));
+  const monthly:Bucket[]=Array.from({length:count},(_,i)=>{
+    const date=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+i,1));
     return {month:date.toISOString().slice(0,7),label:new Intl.DateTimeFormat('fr-FR',{month:'short',year:'2-digit',timeZone:'UTC'}).format(date),issuedUnits:0,receivedUnits:0,issuedCostCents:0,receivedCostCents:0,valuedUnits:0,unvaluedUnits:0};
   });
   const monthMap=new Map(monthly.map(b=>[b.month,b]));
@@ -72,17 +78,18 @@ export async function GET(req:Request){try{
     if(p.unit_cost_cents===null){unvaluedStockUnits+=p.quantity;unvaluedStockReferences++}
     else stockValueCents+=p.quantity*p.unit_cost_cents;
   }
-  const ranking=[...top.values()].sort((a,b)=>b.units-a.units||b.costCents-a.costCents||a.name.localeCompare(b.name,'fr')).slice(0,12);
+  const ranking=[...top.values()].sort((a,b)=>b.units-a.units||b.costCents-a.costCents||a.name.localeCompare(b.name,'fr'));
   const byFamily=[...top.values()].reduce<Record<string,{family:string;units:number;costCents:number;unvaluedUnits:number}>>((result,item)=>{
     const b=result[item.family]||(result[item.family]={family:item.family,units:0,costCents:0,unvaluedUnits:0});
     b.units+=item.units;b.costCents+=item.costCents;b.unvaluedUnits+=item.unvaluedUnits;return result;
   },{});
   return Response.json({
-    period:{months,start:start.slice(0,10),endExclusive:end.slice(0,10),family,code},
+    period:{months:count,start:start.slice(0,10),endExclusive:end.slice(0,10),family,code},
     families,epis,
     summary:{issuedUnits,receivedUnits,issuedCostCents,receivedCostCents,valuedIssuedUnits,unvaluedIssuedUnits,unvaluedReceivedUnits,stockValueCents,unvaluedStockUnits,unvaluedStockReferences,pricedReferences,totalReferences:active.length,atRisk,notInventoried},
     monthly:monthly.map(b=>({...b,issuedCostEur:b.issuedCostCents/100})),
     top:ranking,
+    stock:active.map(p=>({code:p.code,name:p.name,reference:p.supplier_reference||p.code,family:p.family,quantity:p.quantity,minimum:p.minimum,unitCostCents:p.unit_cost_cents,inactive:p.catalog_status==='Inactif'})),
     byFamily:Object.values(byFamily).sort((a,b)=>b.units-a.units||a.family.localeCompare(b.family,'fr'))
   },{headers:{'Cache-Control':'private, no-store'}});
 }catch(e){console.error(e);return bad('Indicateurs EPI indisponibles.',503)}}
