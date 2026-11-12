@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import {AccountGate,type Account} from '@/components/account-gate';
 import {Package,Search,ArrowDownToLine,ArrowUpFromLine,ClipboardCheck,TriangleAlert,Camera,Trash2,Printer,Download,ScanLine,Plus,Pencil} from 'lucide-react';
 import {HubFrame} from '@/components/hub-layout';
+import {EpiTechnicalSheet} from '@/components/epi-technical-sheet';
 import {Dotations} from './dotations';
 import {EpiIndicators} from './indicators';
 import type {Product} from './types';
@@ -77,6 +78,7 @@ function Epi({account}:{account:Account}){
           <p>Le code QR permanent <strong>{selected.code}</strong> reste inchangé. Les anciens QR codes, la photo, les stocks, les mouvements et les dotations sont conservés.</p>
           <button className="primary" disabled={busy}>{busy?'Enregistrement…':'Enregistrer les modifications'}</button>
         </form>}
+        <EpiTechnicalSheet key={selected.code} code={selected.code} canManage={canEdit}/>
         {selected.catalog_status==='À confirmer'&&<p className="stock-pending">Vérifiez le code et le libellé de cette référence avant de la confirmer.</p>}
         {account.role==='admin'&&<div className="stock-catalog-actions"><button className="outline" disabled={busy||selected.catalog_status==='Actif'} onClick={()=>send({action:'catalog',code:selected.code,revision:selected.revision,status:'Actif'})}>Confirmer</button><button className="outline" disabled={busy||selected.catalog_status==='Inactif'} onClick={()=>send({action:'catalog',code:selected.code,revision:selected.revision,status:'Inactif'})}>Désactiver</button></div>}
         <div className="stock-balance"><span>Stock disponible</span><strong>{selected.quantity===null?'Non inventorié':selected.quantity}</strong>{selected.minimum!==null&&<small>Seuil d’alerte : {selected.minimum}</small>}{selected.location&&<small>Emplacement : {selected.location}</small>}{selected.unit_cost_cents!==null&&<small>Prix unitaire HT : {(selected.unit_cost_cents/100).toLocaleString('fr-FR',{style:'currency',currency:'EUR'})}</small>}{selected.unit_cost_cents!==null&&selected.quantity!==null&&<small>Valeur du stock HT : {(selected.unit_cost_cents*selected.quantity/100).toLocaleString('fr-FR',{style:'currency',currency:'EUR'})}</small>}</div>

@@ -1,5 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
+import {EpiTechnicalSheet} from '@/components/epi-technical-sheet';
 import {EpiQrScanner} from '@/components/epi-qr-scanner';
 import {AccountGate,type Account} from '@/components/account-gate';
 import {ArrowDownToLine,ArrowUpFromLine,ClipboardCheck,Package,ScanLine} from 'lucide-react';
@@ -27,7 +28,7 @@ function StockScan({account,logout}:{account:Account;logout:()=>void}){
     {loading?<section className="epi-scan-card" role="status">Chargement de l’EPI…</section>:<>
       {error&&<p className="epi-scan-error" role="alert">{error}</p>}{notice&&<p className="epi-scan-success" role="status">{notice}</p>}
       {product&&<section className="epi-scan-card"><div className="epi-scan-product"><div className="epi-scan-photo">{product.has_photo?<img src={'/api/epi-stock/photo?code='+encodeURIComponent(product.code)+'&v='+encodeURIComponent(product.photo_updated_at||'')} alt={'Photo de '+product.name}/>:<Package size={38} aria-hidden="true"/>}</div><div><span className="epi-scan-family">{product.family}</span><h2>{product.name}</h2><p>{product.specifics}</p><p><strong>Référence fournisseur :</strong> {product.supplier_reference||product.code}</p><code>Code QR permanent : {product.code}</code></div></div>
-        <div className="epi-scan-balance"><span>Stock actuel</span><strong>{product.quantity===null?'Non inventorié':product.quantity}</strong>{product.minimum!==null&&<small>Seuil d’alerte : {product.minimum}</small>}{product.location&&<small>Emplacement : {product.location}</small>}</div>
+        <EpiTechnicalSheet key={product.code} code={product.code}/><div className="epi-scan-balance"><span>Stock actuel</span><strong>{product.quantity===null?'Non inventorié':product.quantity}</strong>{product.minimum!==null&&<small>Seuil d’alerte : {product.minimum}</small>}{product.location&&<small>Emplacement : {product.location}</small>}</div>
         {data.canEdit?<form onSubmit={save}><h3>Mouvement de stock</h3><div className="epi-scan-kinds" role="group" aria-label="Type de mouvement"><button type="button" aria-pressed={kind==='inventaire'} onClick={()=>setKind('inventaire')}><ClipboardCheck size={17}/> Inventaire</button><button type="button" aria-pressed={kind==='entree'} onClick={()=>setKind('entree')} disabled={product.quantity===null||product.catalog_status==='Inactif'}><ArrowDownToLine size={17}/> Entrée</button><button type="button" aria-pressed={kind==='sortie'} onClick={()=>setKind('sortie')} disabled={product.quantity===null}><ArrowUpFromLine size={17}/> Sortie</button></div>
           <label>{kind==='inventaire'?'Quantité comptée':'Quantité du mouvement'}<input type="number" inputMode="numeric" min={kind==='inventaire'?0:1} max="1000000" step="1" required value={amount} onChange={e=>setAmount(e.target.value)}/></label>
           {kind==='sortie'&&<label>Bénéficiaire ou service<input required maxLength={150} value={recipient} onChange={e=>setRecipient(e.target.value)}/></label>}
