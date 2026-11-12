@@ -85,3 +85,7 @@ export const envConsumptionRecords=sqliteTable('env_consumption_records',{id:tex
 export const envConsumptionHistory=sqliteTable('env_consumption_history',{id:text('id').primaryKey(),recordId:text('record_id').notNull().references(()=>envConsumptionRecords.id),previousSnapshot:text('previous_snapshot').notNull(),newSnapshot:text('new_snapshot').notNull(),actorId:text('actor_id').notNull(),actor:text('actor').notNull(),createdAt:text('created_at').notNull()},t=>[index('idx_env_consumption_history').on(t.recordId,t.createdAt)]);
 
 export const epiTechnicalSheets=sqliteTable('epi_technical_sheets',{code:text('code').primaryKey().references(()=>epiProducts.code,{onDelete:'cascade'}),objectKey:text('object_key').notNull(),name:text('name').notNull(),size:integer('size').notNull(),version:text('version').notNull(),author:text('author').notNull(),updatedAt:text('updated_at').notNull()});
+
+export const qsseBudgetYears=sqliteTable('qsse_budget_years',{year:integer('year').primaryKey(),asOfMonth:integer('as_of_month').notNull().default(12),createdAt:text('created_at').notNull()});
+export const qsseBudgetAnnual=sqliteTable('qsse_budget_annual',{id:text('id').primaryKey(),year:integer('year').notNull().references(()=>qsseBudgetYears.year),data:text('data').notNull(),revision:integer('revision').notNull().default(1),updatedAt:text('updated_at').notNull(),updatedBy:text('updated_by').notNull()});
+export const qsseBudgetYearImport=sqliteTable('qsse_budget_year_import',{id:integer('id').primaryKey()});

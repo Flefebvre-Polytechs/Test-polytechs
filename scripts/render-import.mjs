@@ -20,6 +20,7 @@ const budgetTables=['qsse_budget_owner','qsse_budget_data','qsse_budget_history'
 const legacyBudget=budgetTables.every(name=>!source.tables.some(table=>table.name===name));
 const newerOptionalTables=[
  'team_invitations','hub_run_history','record_deletions',
+ 'qsse_budget_years','qsse_budget_annual','qsse_budget_year_import',
  'epi_technical_sheets','epi_photos','epi_managers','epi_product_edits',
  'prevention_invites','prevention_files','prevention_urgent_reviews',
  'member_function_roles','notification_receipts','ticket_labels',
