@@ -12,6 +12,7 @@ try{
  const user=id=>({...db.prepare('SELECT * FROM users WHERE id=?').get(id),displayName:id});const post=(b,origin='https://budget.test')=>api.POST(new Request('https://budget.test/api',{method:'POST',headers:{origin},body:JSON.stringify(b)}));const get=()=>api.GET(new Request('https://budget.test/api'));
  assert.equal((await get()).status,401);for(const id of ['admin','qsse','other'])assert.equal((await budgetAccess(user(id))).write,false);assert.deepEqual(await budgetAccess(user('karine')),{read:true,write:true});assert.equal((await budgetAccess(user('other'))).read,false);
  const sample={id:'test',kind:'order',section:'2500',label:'Test',account:'',date:'',dateSource:'',reference:'',category:'',amount:null,status:'À vérifier',actual2025:null,actual2026:null,budgetYtd2026:null,budget2026:null,forecast2026:null,budget2027:null,months:Array(12).fill(null),notes:'',source:'test.xlsx',sheet:'Test',row:2,raw:{D2:'??'},revision:0};
+ assert.equal(budgetRecordError(sample),'');assert.equal(budgetRecordError({...sample,budgetState:'Engagé'}),'');assert.notEqual(budgetRecordError({...sample,budgetState:'Inconnu'}),'');
 
  assert.deepEqual(budgetSourceTabs.order.map(t=>t.label),['TDB Budgets','2500 - 2026','2600 - 2026','4520 - 2026','Interim 2026']);
  assert.deepEqual(budgetSourceTabs.account.map(t=>t.label),['2500','2600','4520']);
