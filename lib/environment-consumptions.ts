@@ -7,7 +7,7 @@ export const environmentSections=[
  {id:'energy',label:'Énergies',description:'Électricité, gaz et carburants.',intro:'Comparez les consommations réelles, les cibles et l’intensité énergétique.'},
  {id:'renewable',label:'Énergies renouvelables',description:'Production et autoconsommation solaire.',intro:'Distinguez la production renouvelable, l’autoconsommation et les achats garantis.'},
  {id:'resources',label:'Utilisation des ressources',description:'Matières, emballages et déchets.',intro:'Mesurez la consommation de matières et l’intégration de recyclé.'},
- {id:'water',label:'Utilisations de l’eau',description:'Prélèvements, réutilisation et rejets.',intro:'Suivez les volumes mesurés, sans confondre prélèvement, réemploi et rejet.'}
+ {id:'water',label:'Utilisations de l’eau',description:'Eau de ville, réutilisation et rejets.',intro:'La consommation suivie correspond exclusivement à l’eau du réseau d’eau de ville. La réutilisation et les rejets sont suivis séparément.'}
 ] as const;
 export type EnvironmentSection=(typeof environmentSections)[number]['id'];
 export const environmentMetrics=[
@@ -23,7 +23,7 @@ export const environmentMetrics=[
  {key:'recycled_material_t',section:'resources',label:'Matières recyclées consommées',unit:'t',direction:'min',description:'Matières recyclées incorporées à la production.'},
  {key:'packaging_t',section:'resources',label:'Emballages utilisés',unit:'t',direction:'max',description:'Emballages consommés, toutes matières confondues.'},
  {key:'waste_t',section:'resources',label:'Déchets générés',unit:'t',direction:'max',description:'Déchets du site en tonnes. À rapprocher du registre des déchets ; pas de synchronisation automatique.'},
- {key:'water_consumed_m3',section:'water',label:'Consommation d’eau totale mesurée',unit:'m³',direction:'max',description:'Consommation d’eau mesurée sur le périmètre précisé par le relevé, sans supposer qu’elle provient uniquement du réseau.'},
+ {key:'water_consumed_m3',section:'water',label:'Consommation d’eau de ville',unit:'m³',direction:'max',description:'Volume consommé provenant exclusivement du réseau public d’eau de ville, selon les compteurs ou les factures du site.'},
  {key:'water_network_m3',section:'water',label:'Eau du réseau',unit:'m³',direction:'max',description:'Volume prélevé auprès du réseau public.'},
  {key:'water_other_m3',section:'water',label:'Autres prélèvements d’eau',unit:'m³',direction:'max',description:'Eau de forage ou autre ressource, si applicable et mesurée.'},
  {key:'water_reused_m3',section:'water',label:'Eau réutilisée',unit:'m³',direction:'min',description:'Volume d’eau réemployé dans les procédés.'},

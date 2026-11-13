@@ -39,7 +39,7 @@ function EnvironmentWorkspace(){
  },[start,end]);
  useEffect(()=>{void load()},[load]);
  useEffect(()=>{setFocus(environmentMetrics.find(m=>m.section===tab)!.key);setShowAll(false)},[tab]);
- const section=environmentSections.find(x=>x.id===tab)!,sectionMetrics=environmentMetrics.filter(m=>m.section===tab);
+ const section=environmentSections.find(x=>x.id===tab)!,sectionMetrics=environmentMetrics.filter(m=>m.section===tab&&(!['water_network_m3','water_other_m3'].includes(m.key)||records.some(r=>r.metric===m.key)));
  const focused=sectionMetrics.find(m=>m.key===focus)||sectionMetrics[0];
  const sum=(key:EnvironmentMetric,field:'value'|'target'='value')=>sumEnvironment(records,key,periods,scope,field);
  const tile=(key:EnvironmentMetric):Tile=>{const m=metricInfo(key)!,actual=sum(key),goal=sum(key,'target');return {key,name:m.label,value:actual.value,unit:m.unit,detail:m.description,goal:goal.value,partial:actual.partial,count:actual.count,expected:actual.expected,direction:m.direction}};
@@ -48,11 +48,11 @@ function EnvironmentWorkspace(){
  const tEnergy=environmentIntensity(records,'electricity_grid_kwh',periods,scope);
  const tWater=environmentIntensity(records,'water_consumed_m3',periods,scope);
  const tWaste=environmentIntensity(records,'waste_t',periods,scope);
- const selectedCards:Tile[]=tab==='activity'?[tile('production_t'),tile('operating_h'),{key:'energy-intensity',name:'Électricité réseau / tonne',value:tEnergy.value,unit:'kWh/t',detail:'Consommation électrique du réseau rapportée aux tonnes déclarées.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected},{key:'water-intensity',name:'Eau mesurée / tonne',value:tWater.value,unit:'m³/t',detail:'Volume d’eau déclaré rapporté aux tonnes produites, sur les mêmes mois et sites.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}]:
+ const selectedCards:Tile[]=tab==='activity'?[tile('production_t'),tile('operating_h'),{key:'energy-intensity',name:'Électricité réseau / tonne',value:tEnergy.value,unit:'kWh/t',detail:'Consommation électrique du réseau rapportée aux tonnes déclarées.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected},{key:'water-intensity',name:'Eau de ville / tonne',value:tWater.value,unit:'m³/t',detail:'Consommation du réseau d’eau de ville rapportée aux tonnes produites, sur les mêmes mois et sites.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}]:
  tab==='energy'?[tile('electricity_grid_kwh'),tile('natural_gas_kwh'),tile('fuel_l'),{key:'energy-intensity',name:'Intensité électrique réseau',value:tEnergy.value,unit:'kWh/t',detail:'Électricité du réseau divisée par la production.',partial:tEnergy.partial,count:tEnergy.count,expected:tEnergy.expected}]:
  tab==='renewable'?[tile('solar_generated_kwh'),tile('solar_self_kwh'),tile('renewable_purchased_kwh'),{key:'solar-share',name:'Part d’autoconsommation',value:shareSolar.value,unit:'%',partial:shareSolar.partial,count:shareSolar.count,expected:shareSolar.expected,detail:'Énergie solaire autoconsommée / (électricité réseau + solaire autoconsommée). Les achats verts ne sont pas additionnés.'}]:
  tab==='resources'?[tile('virgin_material_t'),tile('recycled_material_t'),tile('waste_t'),{key:'recycled-share',name:'Part de matières recyclées',value:shareMaterials.value,unit:'%',partial:shareMaterials.partial,count:shareMaterials.count,expected:shareMaterials.expected,detail:'Matières recyclées / (matières vierges + recyclées).'}]:
- [tile('water_consumed_m3'),tile('water_network_m3'),tile('water_reused_m3'),{key:'water-intensity',name:'Eau réseau / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}];
+ [tile('water_consumed_m3'),tile('water_discharge_m3'),tile('water_reused_m3'),{key:'water-intensity',name:'Eau de ville / tonne',value:tWater.value,unit:'m³/t',detail:'Eau du réseau rapportée à la production.',partial:tWater.partial,count:tWater.count,expected:tWater.expected}];
  const points=useMemo(()=>monthlyEnvironment(records,focused.key,periods,scope),[records,focused.key,periods,scope]);
  const hasReadings=points.some(x=>x.actual!==null||x.target!==null);
  const relevant=useMemo(()=>records.filter(x=>periods.includes(x.period)&&(scope==='all'||x.site===scope)&&sectionMetrics.some(m=>m.key===x.metric)).sort((a,b)=>b.period.localeCompare(a.period)||a.site.localeCompare(b.site)||a.metric.localeCompare(b.metric)),[records,periods,scope,sectionMetrics]);
@@ -124,7 +124,7 @@ function EnvironmentWorkspace(){
     <form onSubmit={save}><div className="env-form-fields">
      <label>Site<select value={editor.site} onChange={e=>setEditor({...editor,site:e.target.value as EnvironmentSite})}>{environmentSites.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select></label>
      <label>Mois<input type="month" required min="2020-01" max="2100-12" value={editor.period} onChange={e=>setEditor({...editor,period:e.target.value})}/></label>
-     <label>Indicateur<select value={editor.metric} onChange={e=>setEditor({...editor,metric:e.target.value as EnvironmentMetric})}>{environmentMetrics.filter(m=>m.section===tab).map(m=><option key={m.key} value={m.key}>{m.label} ({m.unit})</option>)}</select></label>
+     <label>Indicateur<select value={editor.metric} onChange={e=>setEditor({...editor,metric:e.target.value as EnvironmentMetric})}>{environmentMetrics.filter(m=>m.section===tab&&(!['water_network_m3','water_other_m3'].includes(m.key)||m.key===editor.metric)).map(m=><option key={m.key} value={m.key}>{m.label} ({m.unit})</option>)}</select></label>
      <label>Consommation réelle ({metricInfo(editor.metric)?.unit})<input type="text" inputMode="decimal" placeholder="Non renseignée" value={value} onChange={e=>setValue(e.target.value)} maxLength={25}/></label>
      <label>Objectif du mois ({metricInfo(editor.metric)?.unit})<input type="text" inputMode="decimal" placeholder="Facultatif" value={target} onChange={e=>setTarget(e.target.value)} maxLength={25}/></label>
      <label className="env-form-notes">Source / commentaire (facture, compteur, méthode)<textarea rows={2} maxLength={1000} placeholder="Ex. : relève compteur de fin de mois, facture fournisseur…" value={note} onChange={e=>setNote(e.target.value)}/></label>

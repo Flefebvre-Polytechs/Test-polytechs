@@ -29,7 +29,7 @@ assert.match(duplicates.errors.join(' '),/double/);
 assert.equal(parseWaterTable('Janvier | 1000,12345 | 2000').rows.length,0);
 assert.equal(parseWaterTable('Janvier;1000,0000;4000').rows.length,1,'Semicolon CSV is accepted');
 assert.equal(parseWaterTable('Janvier\t1000,0000\t4000').rows.length,1,'Tab-delimited tables are accepted');
-assert.equal(environmentMetricKeys.has('water_consumed_m3'),true,'Total measured water is not silently categorized as tap water');
+assert.equal(environmentMetricKeys.has('water_consumed_m3'),true,'Existing water readings retain their stable key');
 assert.equal(formatEnvironmentNumber(1234.5678),new Intl.NumberFormat('fr-FR',{maximumFractionDigits:4}).format(1234.5678));
 assert.equal(environmentMetrics.some(m=>m.key==='water_consumed_m3'&&m.unit==='m³'),true);
 
@@ -45,7 +45,7 @@ assert.match(api,/db\.batch\(statements\)/,'Bulk import must be one transaction'
 assert.match(page,/\[year,setYear\]=useState\(''\)/,'Never assume a year');
 assert.match(page,/\[site,setSite\]=useState\(''\)/,'Never assume a site');
 assert.match(page,/setConfirmed\(false\)/,'Explicit acknowledgement is required');
-assert.match(page,/water_consumed_m3/,'Do not assume the public network is the water source');
+assert.match(page,/water_consumed_m3/,'Use the existing consumption key for city water');
 
 const db=new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys=ON;'+fs.readFileSync('drizzle/0039_environment_consumptions.sql','utf8'));
@@ -62,3 +62,5 @@ assert.throws(()=>{
 assert.equal(db.prepare("SELECT count(*) n FROM env_consumption_records WHERE period='2026-02'").get().n,0,'Duplicate import rolls back other rows');
 db.close();
 console.log('French four-decimal input, site/year confirmation, import-only transaction and no-duplicate regressions passed.');
+
+assert.match(environmentMetrics.find(m=>m.key==='water_consumed_m3').label,/eau de ville/);
