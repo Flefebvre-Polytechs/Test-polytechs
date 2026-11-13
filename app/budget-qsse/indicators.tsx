@@ -13,7 +13,7 @@ type Props = {
   section: string;
   accounts: AnnualBudget[];
   orders: AnnualBudget[];
-  onOrders: (state: BudgetState) => void;
+  onOrders: (state: BudgetState | 'review') => void;
   onSection: (section: BudgetSection) => void;
 };
 
@@ -42,6 +42,11 @@ export function BudgetIndicators({year, period, section, accounts, orders, onOrd
         <small>{card.missing ? card.missing + ' montant(s) manquant(s) · total partiel' : card.detail}</small>
       </article>)}
     </section>
+    {summary.blockers.length>0&&<section className="budget-register budget-balance-blockers" aria-label="Données à compléter">
+      <strong>Reste disponible à vérifier</strong>
+      <ul>{summary.blockers.map(blocker=><li key={blocker}>{blocker}</li>)}</ul>
+      {summary.review.length>0&&<button className="outline" onClick={()=>onOrders('review')}>Ouvrir les commandes à rapprocher</button>}
+    </section>}
     <section className="budget-register">
       <div className="budget-register-head"><div>
         <h2><ChartNoAxesCombined size={20}/> Suivi par rubrique</h2>

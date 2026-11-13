@@ -5,8 +5,8 @@ globalThis.yearDb={prepare:stmt,async batch(ss){db.exec('BEGIN');try{const out=[
 try{
  db.exec('CREATE TABLE qsse_budget_data(id TEXT PRIMARY KEY,data TEXT,revision INTEGER,updated_at TEXT,updated_by TEXT);CREATE TABLE qsse_budget_import(id INTEGER);CREATE TABLE qsse_budget_history(id TEXT PRIMARY KEY,record_id TEXT,snapshot TEXT,saved_at TEXT,saved_by TEXT);');db.exec(fs.readFileSync('drizzle/0043_budget_exercises.sql','utf8'));
  fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.yearDb;');fs.writeFileSync(path.join(dir,'access.mjs'),"export const requireRole=async()=>({user:{id:'manager'}});export const checkOrigin=r=>r.headers.get('origin')==='https://budget.test';");fs.writeFileSync(path.join(dir,'server.mjs'),'export const budgetAccess=async()=>globalThis.yearAccess;');
- function compile(src,out){let s=fs.readFileSync(src,'utf8');for(const [a,b] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/qsse-budget-server','./server.mjs'],['@/lib/qsse-budget-year-server','./year-server.mjs'],['@/lib/qsse-budget-years','./years.mjs'],['./qsse-budget-years','./years.mjs'],['./qsse-budget','./legacy.mjs']])s=s.replaceAll("'"+a+"'","'"+b+"'");fs.writeFileSync(path.join(dir,out),ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
- compile('lib/qsse-budget.ts','legacy.mjs');compile('lib/qsse-budget-years.ts','years.mjs');compile('lib/qsse-budget-indicators.ts','indicators.mjs');compile('lib/qsse-budget-year-server.ts','year-server.mjs');compile('app/api/budget-qsse/years/route.ts','route.mjs');const api=await import(path.join(dir,'route.mjs'));
+ function compile(src,out){let s=fs.readFileSync(src,'utf8');for(const [a,b] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/qsse-budget-server','./server.mjs'],['@/lib/qsse-budget-year-server','./year-server.mjs'],['@/lib/qsse-budget-years','./years.mjs'],['./qsse-budget-years','./years.mjs'],['./qsse-budget','./legacy.mjs'],['@/lib/qsse-budget-controls','./controls.mjs'],['./qsse-budget-controls','./controls.mjs'],['@/lib/qsse-budget-closing-server','./closing.mjs']])s=s.replaceAll("'"+a+"'","'"+b+"'");fs.writeFileSync(path.join(dir,out),ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
+ compile('lib/qsse-budget.ts','legacy.mjs');compile('lib/qsse-budget-years.ts','years.mjs');compile('lib/qsse-budget-indicators.ts','indicators.mjs');compile('lib/qsse-budget-controls.ts','controls.mjs');compile('lib/qsse-budget-closing-server.ts','closing.mjs');compile('lib/qsse-budget-year-server.ts','year-server.mjs');compile('app/api/budget-qsse/years/route.ts','route.mjs');const api=await import(path.join(dir,'route.mjs'));
  const get=async year=>{const r=await api.GET(new Request('https://budget.test/api?year='+year));return {status:r.status,...await r.json()}};const post=b=>api.POST(new Request('https://budget.test/api',{method:'POST',headers:{origin:'https://budget.test'},body:JSON.stringify(b)}));
  if(process.env.QSSE_BUDGET_SOURCE){
   const imported=JSON.parse(fs.readFileSync(process.env.QSSE_BUDGET_SOURCE,'utf8'));
@@ -24,7 +24,14 @@ try{
  db.prepare('INSERT INTO qsse_budget_data VALUES(?,?,1,?,?)').run('a',JSON.stringify(legacy),'now','manager');db.prepare('INSERT INTO qsse_budget_data VALUES(?,?,1,?,?)').run('order',JSON.stringify({...legacy,id:'order',kind:'order',date:'2026-02-01',amount:10}),'now','manager');
  let y=await get(2027);assert.equal(y.records[0].budget,240);assert.deepEqual(y.records[0].months,Array(12).fill(20));assert.equal(y.records[0].actual,null);assert.equal(y.records[0].budgetState,'À prévoir');assert.equal(y.records.length,1);assert.equal((await get(2025)).records[0].actual,50);let six=await get(2026);assert.equal(six.records.find(r=>r.kind==='account').actual,60);assert.equal(six.records.find(r=>r.kind==='order').budgetState,'Engagé');assert.equal(six.years.find(y=>y.year===2026).as_of_month,7);assert.equal(six.records.filter(r=>r.kind==='order').length,1);
  const {summarizeBudget,monthlyBudget}=await import(path.join(dir,'indicators.mjs'));
- const account=six.records.find(r=>r.kind==='account'),order=six.records.find(r=>r.kind==='order');
+ const account=six.records.find(r=>r.kind==='account'),legacyOrder=six.records.find(r=>r.kind==='order');
+ assert.equal(summarizeBudget([account],[legacyOrder]).available,null);
+ assert.equal(summarizeBudget([account],[legacyOrder]).review.length,1);
+ assert.equal((await post({action:'save',record:legacyOrder})).status,400);
+ assert.equal((await post({action:'save',record:legacyOrder,confirmReconciliation:true})).status,200);
+ const order=(await get(2026)).records.find(r=>r.kind==='order');
+ assert.ok(order.reconciledAt);
+ assert.equal(summarizeBudget([account],[order]).review.length,0);
  const indicators=summarizeBudget([account],[order,{...order,budgetState:'Réalisé',amount:900}]);
  assert.equal(indicators.available,50,'Only open commitments reduce available budget');
  assert.equal(indicators.variance,-10,'Compare cumulative actual against the same period');
@@ -41,7 +48,20 @@ try{
  assert.equal((await post({action:'create-year',year:2029})).status,409);assert.equal((await post({action:'create-year',year:2024,fromYear:2027})).status,400);
  let record={...eight.records[0],budget:360,months:Array(12).fill(30)};assert.equal((await post({action:'save',record})).status,200);assert.equal((await post({action:'save',record})).status,409);assert.equal((await get(2027)).records[0].budget,240,'Editing 2028 never changes 2027');
  record={...(await get(2028)).records[0],year:2029};assert.equal((await post({action:'save',record})).status,400);record={...eight.records[0],id:'new-order',revision:0,kind:'order',date:'2027-12-31',amount:5};assert.equal((await post({action:'save',record})).status,400);record.date='2028-02-29';assert.equal((await post({action:'save',record})).status,200);record={...record,id:'invalid-state',revision:0,budgetState:'Inconnu'};assert.equal((await post({action:'save',record})).status,400);record={...record,id:'invalid-day',revision:0,budgetState:'À prévoir',date:'2028-02-30'};assert.equal((await post({action:'save',record})).status,400);
- assert.equal((await post({action:'period',year:2028,month:6,expectedMonth:12})).status,200);assert.equal((await post({action:'period',year:2028,month:7,expectedMonth:12})).status,409);
+ const closing={action:'period',year:2026,month:8,expectedMonth:7,lines:[{id:account.id,revision:account.revision,actual:65,budgetYtd:75}]};
+ assert.equal((await post({...closing,lines:undefined})).status,400);
+ assert.equal((await post({...closing,lines:[{...closing.lines[0],revision:99}]})).status,409);
+ assert.equal((await get(2026)).years.find(y=>y.year===2026).as_of_month,7);
+ globalThis.yearFault=true;
+ try{assert.equal((await post(closing)).status,503)}finally{globalThis.yearFault=false}
+ assert.equal((await get(2026)).years.find(y=>y.year===2026).as_of_month,7);
+ assert.equal((await get(2026)).records.find(r=>r.kind==='account').actual,60);
+ assert.equal((await post(closing)).status,200);
+ const closed=await get(2026);
+ assert.equal(closed.years.find(y=>y.year===2026).as_of_month,8);
+ assert.equal(closed.records.find(r=>r.kind==='account').actual,65);
+ assert.equal(closed.records.find(r=>r.kind==='account').budgetYtd,75);
+ assert.equal((await post(closing)).status,409);
  globalThis.yearAccess={read:true,write:false};assert.equal((await post({action:'create-year',year:2030})).status,403);assert.equal((await get(2028)).status,200);globalThis.yearAccess={read:false,write:false};assert.equal((await get(2028)).status,403);globalThis.yearAccess={read:true,write:true};
  globalThis.yearFault=true;const log=console.error;console.error=()=>{};assert.equal((await post({action:'create-year',year:2030,fromYear:2029})).status,503);console.error=log;globalThis.yearFault=false;assert.equal(db.prepare('SELECT year FROM qsse_budget_years WHERE year=2030').get(),undefined);
  assert.equal((await get('bad')).status,400);assert.ok(db.prepare('SELECT count(*) n FROM qsse_budget_history').get().n>=5);console.log('Budget exercises: legacy preservation, 2027 monthly plan, annual isolation, rollover with/without amounts, no copied actuals/orders, invalid dates, role gates, optimistic writes, period audit, duplicates and rollback passed.');

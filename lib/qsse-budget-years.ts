@@ -1,5 +1,5 @@
 import {budgetSections,budgetStateOf,validBudgetState,type BudgetSection,type BudgetRecord,type BudgetState} from './qsse-budget';
-export type AnnualBudget={id:string;year:number;kind:'account'|'order';section:BudgetSection;label:string;account:string;category:string;date:string;reference:string;status:BudgetRecord['status'];budgetState:BudgetState;amount:number|null;actual:number|null;budgetYtd:number|null;budget:number|null;forecast:number|null;months:(number|null)[];notes:string;source:string;sheet:string;row:number;raw:BudgetRecord['raw'];revision:number};
+export type AnnualBudget={id:string;year:number;kind:'account'|'order';section:BudgetSection;label:string;account:string;category:string;date:string;reference:string;status:BudgetRecord['status'];budgetState:BudgetState;amount:number|null;actual:number|null;budgetYtd:number|null;budget:number|null;forecast:number|null;months:(number|null)[];notes:string;source:string;sheet:string;row:number;raw:BudgetRecord['raw'];revision:number;reconciledAt?:string};
 export const annualBudgetState=(record:Partial<AnnualBudget>&{kind:'account'|'order'}):BudgetState=>budgetStateOf(record);
 export const annualFields=['actual','budgetYtd','budget','forecast'] as const;
 export const validBudgetYear=(year:unknown):year is number=>Number.isInteger(year)&&Number(year)>=2000&&Number(year)<=2100;

@@ -32,3 +32,13 @@
   .budget-tabs { flex-wrap:wrap; }
   .budget-months li { grid-template-columns:5rem minmax(1rem,1fr) auto; gap:6px; font-size:12px; }
 }
+
+.budget-balance-blockers { padding:16px 20px; border-left:4px solid #ad701e; }
+.budget-balance-blockers ul { padding-left:1.3rem; margin:8px 0 12px; }
+.budget-reconciliation { display:flex; align-items:baseline; gap:9px; background:#fbf4e9; border-radius:9px; padding:12px; margin-bottom:14px; }
+.budget-closing-month { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:12px 0; }
+.budget-closing-month select,.budget-closing-lines input { border:1px solid #b8c6d4; border-radius:6px; padding:8px; max-width:100%; }
+.budget-closing-lines { max-height:50vh; }
+.budget-closing-lines th[scope="row"] { position:static; text-align:left; }
+.budget-closing-lines th[scope="row"] small { display:block; font-weight:400; }
+.budget-closing-lines input { width:8rem; }
