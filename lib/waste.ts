@@ -8,6 +8,15 @@ export function tonnes(r:WasteRecord):number|null {if(r.status!=='Enlevé'||!val
 export function wasteMetrics(records:WasteRecord[]){const masses=records.flatMap(r=>{const mass=tonnes(r);return mass===null?[]:[{r,mass}]});const total=masses.reduce((a,x)=>a+x.mass,0),material=masses.filter(x=>x.r.treatment==='Le recyclage matière').reduce((a,x)=>a+x.mass,0);return {total,material,materialRate:total?material/total*100:null,dangerous:masses.filter(x=>x.r.danger==='Oui').reduce((a,x)=>a+x.mass,0),weighed:masses.length,planned:records.filter(r=>r.status==='Prévu').length,review:records.filter(r=>wasteIssues(r).length).length,pallets:records.filter(r=>r.status==='Enlevé'&&validDate(r.date)&&r.unit==='unité'&&r.family==='Palettes').reduce((a,r)=>a+(r.quantity??0),0)}}
 export function wastePoints(records:WasteRecord[],by:'month'|'family'|'treatment'){const groups=new Map<string,number>();for(const r of records){const mass=tonnes(r);if(mass===null)continue;const key=by==='month'?r.date.slice(0,7):by==='family'?r.family:r.treatment||'Non renseigné';groups.set(key,(groups.get(key)||0)+mass)}return [...groups].sort((a,b)=>by==='month'?a[0].localeCompare(b[0]):b[1]-a[1]).map(([label,value])=>({label,value}))}
 export function blankWaste():WasteRecord{return {id:'',revision:0,date:'',dateSource:'',status:'Prévu',type:'',family:'DIB',code:'',danger:'À vérifier',quantity:null,estimate:null,unit:'t',excluded:false,client:false,collector:'',destination:'',treatment:'',bsd:'',owner:'',notes:'',documentUrl:'',sourceRow:0,issues:[]}}
+export function duplicateWaste(record: WasteRecord): WasteRecord {
+ return {
+  ...blankWaste(),
+  type: record.type, family: record.family, code: record.code, danger: record.danger,
+  status: record.status, unit: record.unit, excluded: record.excluded, client: record.client,
+  collector: record.collector, destination: record.destination, treatment: record.treatment,
+  owner: record.owner,
+ };
+}
 export function validateWaste(r:WasteRecord){const errors:string[]=[];if(!r.type.trim())errors.push('Renseignez le type de déchet.');if(r.date&&!validDate(r.date))errors.push('La date est invalide.');for(const key of ['quantity','estimate'] as const)if(r[key]!==null&&(typeof r[key]!=='number'||!Number.isFinite(r[key])||r[key]!<0||r[key]!>1000000))errors.push('La quantité doit être un nombre positif ou zéro.');if(!['Prévu','Enlevé'].includes(r.status)||!['t','kg','unité','à vérifier'].includes(r.unit)||!['Oui','Non','À vérifier'].includes(r.danger))errors.push('Valeur de sélection invalide.');if(r.documentUrl&&!/^https?:\/\//i.test(r.documentUrl))errors.push('Le lien du document doit commencer par https:// ou http://.');return errors}
 
 /** Convert both amounts only when switching between compatible mass units. */

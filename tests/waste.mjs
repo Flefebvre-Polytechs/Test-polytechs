@@ -14,7 +14,7 @@ function compile(name,source){fs.writeFileSync(path.join(dir,name+'.mjs'),ts.tra
 try{
 compile('waste',fs.readFileSync('lib/waste.ts','utf8'));
 compile('waste-table',fs.readFileSync('lib/waste-table.ts','utf8').replaceAll("'./waste'","'./waste.mjs'"));
-const {blankWaste,changeWasteUnit,wasteMetrics,wasteIssues,tonnes,validateWaste}=await import(pathToFileURL(path.join(dir,'waste.mjs')));
+const {blankWaste,duplicateWaste,changeWasteUnit,wasteMetrics,wasteIssues,tonnes,validateWaste}=await import(pathToFileURL(path.join(dir,'waste.mjs')));
 const mass={...blankWaste(),id:'excel-dechets-6',type:'Carton',family:'Cartons',date:'2026-01-10',quantity:2,unit:'t',status:'Enlevé',danger:'Non',collector:'Collecteur',destination:'Destination',treatment:'Le recyclage matière',sourceRow:6,raw:{AJ:'2'}};
 const kg={...mass,id:'kg',quantity:500,unit:'kg',treatment:'Autre'};
 const pieces={...mass,id:'palettes',family:'Palettes',quantity:204,unit:'unité'};
@@ -72,6 +72,16 @@ assert.equal((await api.POST(request({...current,quantity:6}))).status,200);
 current=(await (await api.GET(new Request('https://example.test/api/dechets?id=excel-dechets-6'))).json()).record;
 assert.equal(current.cellOverrides.AJ,undefined);assert.equal(current.cellOverrides.BG,'Observation complète');
 const created=await api.POST(request({...blankWaste(),type:'Nouveau déchet'}));assert.equal(created.status,200);
+const draft=duplicateWaste({...current,bsd:'BSD-ancien',documentUrl:'https://example.test/old',estimate:9,notes:'Ancien enlèvement'});
+assert.equal(draft.quantity,null);assert.equal(draft.estimate,null);assert.equal(draft.date,'');
+assert.equal(draft.bsd,'');assert.equal(draft.documentUrl,'');assert.equal(draft.raw,undefined);assert.equal(draft.cellOverrides,undefined);
+const copied=await api.POST(request({...draft,date:'2026-03-04',quantity:8}));
+assert.equal(copied.status,200);
+const copiedId=(await copied.json()).id;
+assert.notEqual(copiedId,current.id);
+const savedCopy=(await (await api.GET(new Request('https://example.test/api/dechets?id='+copiedId))).json()).record;
+assert.equal(savedCopy.type,current.type);assert.equal(savedCopy.collector,current.collector);assert.equal(savedCopy.quantity,8);
+assert.equal((await (await api.GET(new Request('https://example.test/api/dechets?id='+current.id))).json()).record.quantity,6);
 const sourcePath='private/waste-source.json';if(fs.existsSync(sourcePath)){const original=JSON.parse(fs.readFileSync(sourcePath,'utf8'));assert.ok(original.records.length>=1733);assert.equal(new Set(original.records.map(r=>r.id)).size,original.records.length);assert.equal(original.records.find(r=>r.sourceRow===66).unit,'à vérifier');assert.equal(original.records.find(r=>r.sourceRow===6).quantity,204);assert.equal(original.records.find(r=>r.sourceRow===6).unit,'unité');assert.ok(original.records.every(r=>r.raw.AD));}
 console.log('Déchets : unités, dates, estimations, confidentialité, droits, historique et modifications concurrentes vérifiés.');
 }finally{sqlite.close();fs.rmSync(dir,{recursive:true,force:true})}
