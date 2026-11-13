@@ -18,7 +18,7 @@ const items=[
  record('site-1','production_t','2026-10',10,12),
  record('site-2','production_t','2026-10',2,null),
  record('site-1','production_t','2026-11',2,null),
- record('site-1','water_network_m3','2026-10',5,5)
+ record('site-1','water_consumed_m3','2026-10',5,5)
 ];
 assert.deepEqual(sumEnvironment(items,'natural_gas_kwh',periods,'all'),{value:null,count:0,expected:4,partial:false},'Missing readings are not zero');
 assert.deepEqual(sumEnvironment(items,'electricity_grid_kwh',periods,'all'),{value:200,count:3,expected:4,partial:true});
@@ -33,7 +33,7 @@ assert.equal(paired.partial,true,'Omitted months are flagged as partial coverage
 assert.equal(environmentShare([record('site-1','recycled_material_t','2026-11',3),record('site-1','virgin_material_t','2026-11',7)],'recycled_material_t','virgin_material_t',['2026-11'],'site-1').value,30);
 assert.equal(environmentShare(items,'solar_self_kwh','electricity_grid_kwh',periods,'site-1').value,null,'No invented share without renewable source readings');
 
-const monthly=monthlyEnvironment(items,'water_network_m3',periods,'site-1');
+const monthly=monthlyEnvironment(items,'water_consumed_m3',periods,'site-1');
 assert.equal(monthly[0].actual,5);assert.equal(monthly[1].actual,null);
 assert.equal(monthly[1].target,null);
 
@@ -44,6 +44,24 @@ assert.equal(db.prepare('SELECT value FROM env_consumption_records WHERE id=?').
 assert.throws(()=>db.prepare("INSERT INTO env_consumption_records(id,site,period,metric,value,target,note,revision,updated_at,updated_by) VALUES('second','site-1','2026-11','electricity_grid_kwh',1,NULL,'',1,'now','tester')").run(),/UNIQUE/,'One reading per metric/site/month');
 assert.throws(()=>db.prepare("INSERT INTO env_consumption_records(id,site,period,metric,value,target,note,revision,updated_at,updated_by) VALUES('neg','site-2','2026-11','fuel_l',-1,NULL,'',1,'now','tester')").run(),/CHECK/);
 assert.throws(()=>db.prepare("INSERT INTO env_consumption_history VALUES('h','not-found','{}','{}','tester','tester','now')").run(),/FOREIGN KEY/);
+const insertWater=db.prepare("INSERT INTO env_consumption_records VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'now', 'tester')");
+insertWater.run('network-only','site-2','2026-10','water_network_m3',6,null,'facture');
+insertWater.run('network-duplicate','site-1','2026-10','water_network_m3',7,12,'compteur');
+insertWater.run('city','site-1','2026-10','water_consumed_m3',0,null,'');
+db.prepare("INSERT INTO env_consumption_history VALUES('original-event','network-duplicate','{}','{}','tester','tester','now')").run();
+const waterMigration=fs.readFileSync('drizzle/0044_water_city_readings.sql','utf8');
+db.exec(waterMigration);
+db.exec(waterMigration);
+assert.deepEqual(db.prepare("SELECT id,value,target,note FROM env_consumption_records WHERE metric='water_consumed_m3' ORDER BY site").all().map(row=>({...row})),[
+ {id:'city',value:0,target:12,note:'compteur'},
+ {id:'network-only',value:6,target:null,note:'facture'}
+]);
+assert.equal(db.prepare("SELECT count(*) n FROM env_consumption_records WHERE metric='water_network_m3'").get().n,0);
+assert.equal(db.prepare("SELECT record_id FROM env_consumption_history WHERE id='original-event'").get().record_id,'city');
+const mergeHistory=db.prepare("SELECT previous_snapshot FROM env_consumption_history WHERE record_id='city' AND actor_id='migration-0044'").all();
+assert.equal(mergeHistory.length,1);
+assert.equal(JSON.parse(mergeHistory[0].previous_snapshot).value,7);
+assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
 db.close();
 const api=fs.readFileSync('app/api/environnement/consommations/route.ts','utf8');
 assert.match(api,/teamsAllowed\(gate.user!,\['qsse'\]\)/,'Read is permission-gated to QSSE');

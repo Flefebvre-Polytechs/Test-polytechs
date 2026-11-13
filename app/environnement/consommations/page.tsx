@@ -39,7 +39,7 @@ function EnvironmentWorkspace(){
  },[start,end]);
  useEffect(()=>{void load()},[load]);
  useEffect(()=>{setFocus(environmentMetrics.find(m=>m.section===tab)!.key);setShowAll(false)},[tab]);
- const section=environmentSections.find(x=>x.id===tab)!,sectionMetrics=environmentMetrics.filter(m=>m.section===tab&&(!['water_network_m3','water_other_m3'].includes(m.key)||records.some(r=>r.metric===m.key)));
+ const section=environmentSections.find(x=>x.id===tab)!,sectionMetrics=environmentMetrics.filter(m=>m.section===tab&&(m.key!=='water_other_m3'||records.some(r=>r.metric===m.key)));
  const focused=sectionMetrics.find(m=>m.key===focus)||sectionMetrics[0];
  const sum=(key:EnvironmentMetric,field:'value'|'target'='value')=>sumEnvironment(records,key,periods,scope,field);
  const tile=(key:EnvironmentMetric):Tile=>{const m=metricInfo(key)!,actual=sum(key),goal=sum(key,'target');return {key,name:m.label,value:actual.value,unit:m.unit,detail:m.description,goal:goal.value,partial:actual.partial,count:actual.count,expected:actual.expected,direction:m.direction}};
@@ -124,7 +124,7 @@ function EnvironmentWorkspace(){
     <form onSubmit={save}><div className="env-form-fields">
      <label>Site<select value={editor.site} onChange={e=>setEditor({...editor,site:e.target.value as EnvironmentSite})}>{environmentSites.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select></label>
      <label>Mois<input type="month" required min="2020-01" max="2100-12" value={editor.period} onChange={e=>setEditor({...editor,period:e.target.value})}/></label>
-     <label>Indicateur<select value={editor.metric} onChange={e=>setEditor({...editor,metric:e.target.value as EnvironmentMetric})}>{environmentMetrics.filter(m=>m.section===tab&&(!['water_network_m3','water_other_m3'].includes(m.key)||m.key===editor.metric)).map(m=><option key={m.key} value={m.key}>{m.label} ({m.unit})</option>)}</select></label>
+     <label>Indicateur<select value={editor.metric} onChange={e=>setEditor({...editor,metric:e.target.value as EnvironmentMetric})}>{environmentMetrics.filter(m=>m.section===tab&&(m.key!=='water_other_m3'||m.key===editor.metric)).map(m=><option key={m.key} value={m.key}>{m.label} ({m.unit})</option>)}</select></label>
      <label>Consommation réelle ({metricInfo(editor.metric)?.unit})<input type="text" inputMode="decimal" placeholder="Non renseignée" value={value} onChange={e=>setValue(e.target.value)} maxLength={25}/></label>
      <label>Objectif du mois ({metricInfo(editor.metric)?.unit})<input type="text" inputMode="decimal" placeholder="Facultatif" value={target} onChange={e=>setTarget(e.target.value)} maxLength={25}/></label>
      <label className="env-form-notes">Source / commentaire (facture, compteur, méthode)<textarea rows={2} maxLength={1000} placeholder="Ex. : relève compteur de fin de mois, facture fournisseur…" value={note} onChange={e=>setNote(e.target.value)}/></label>

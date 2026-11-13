@@ -43,8 +43,8 @@ export async function POST(req:Request){
   if(body.action==='import-production-water'){
    // Import is INSERT-ONLY. A duplicate key aborts the entire transaction,
    // never overwrites a previously audited reading.
-   const year=body.year,site=body.site,waterMetric=body.waterMetric,rows=body.rows,source=body.source;
-   if(!Number.isSafeInteger(year)||Number(year)<2000||Number(year)>2100||!validSite(site)||!['water_consumed_m3','water_network_m3','water_other_m3'].includes(String(waterMetric))||!Array.isArray(rows)||rows.length<1||rows.length>12||typeof source!=='string'||!source.trim()||source.length>160)return fail('Année, site, nature de l’eau, tableau ou source invalide.');
+   const year=body.year,site=body.site,waterMetric=body.waterMetric==='water_network_m3'?'water_consumed_m3':body.waterMetric,rows=body.rows,source=body.source;
+   if(!Number.isSafeInteger(year)||Number(year)<2000||Number(year)>2100||!validSite(site)||!['water_consumed_m3','water_other_m3'].includes(String(waterMetric))||!Array.isArray(rows)||rows.length<1||rows.length>12||typeof source!=='string'||!source.trim()||source.length>160)return fail('Année, site, nature de l’eau, tableau ou source invalide.');
    const months=new Set<number>();
    const clean:Array<{month:number;production:number;water:number}>=[];
    for(const item of rows){
@@ -74,7 +74,8 @@ export async function POST(req:Request){
    return response({ok:true,inserted:statements.length/2,skipped,months:clean.length,source:source.trim()});
   }
   if(body.action!=='save')return fail('Action inconnue.');
-  const {site,metric,period,value,target,note,revision}=body;
+  const {site,period,value,target,note,revision}=body;
+  const metric=body.metric==='water_network_m3'?'water_consumed_m3':body.metric;
   if(!validSite(site)||typeof metric!=='string'||!environmentMetricKeys.has(metric)||typeof period!=='string'||!validMonth(period))return fail('Site, période ou indicateur invalide.');
   if(!validNumber(value)||!validNumber(target)||typeof note!=='string'||note.length>1000||!Number.isSafeInteger(revision)||Number(revision)<0)return fail('Valeurs, note ou révision invalides. Utilisez au maximum quatre décimales.');
   const db=database(),old=await db.prepare('SELECT id,site,period,metric,value,target,note,revision,updated_at,updated_by FROM env_consumption_records WHERE site=? AND metric=? AND period=?').bind(site,metric,period).first<EnvironmentEntry>();

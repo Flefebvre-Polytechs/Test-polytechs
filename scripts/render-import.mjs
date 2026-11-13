@@ -85,6 +85,7 @@ try{
       SELECT user_id,'budget_manager',NULL,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM qsse_budget_owner;`);
   }
   db.exec(readFileSync(new URL('../drizzle/0041_gmao_rh_scope.sql',import.meta.url),'utf8'));
+  db.exec(readFileSync(new URL('../drizzle/0044_water_city_readings.sql',import.meta.url),'utf8'));
   const failures=db.prepare('PRAGMA foreign_key_check').all();
   if(failures.length)throw Error(`${failures.length} foreign-key violations`);
   db.exec('COMMIT');

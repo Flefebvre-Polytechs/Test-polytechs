@@ -24,7 +24,6 @@ export const environmentMetrics=[
  {key:'packaging_t',section:'resources',label:'Emballages utilisés',unit:'t',direction:'max',description:'Emballages consommés, toutes matières confondues.'},
  {key:'waste_t',section:'resources',label:'Déchets générés',unit:'t',direction:'max',description:'Déchets du site en tonnes. À rapprocher du registre des déchets ; pas de synchronisation automatique.'},
  {key:'water_consumed_m3',section:'water',label:'Consommation d’eau de ville',unit:'m³',direction:'max',description:'Volume consommé provenant exclusivement du réseau public d’eau de ville, selon les compteurs ou les factures du site.'},
- {key:'water_network_m3',section:'water',label:'Eau du réseau',unit:'m³',direction:'max',description:'Volume prélevé auprès du réseau public.'},
  {key:'water_other_m3',section:'water',label:'Autres prélèvements d’eau',unit:'m³',direction:'max',description:'Eau de forage ou autre ressource, si applicable et mesurée.'},
  {key:'water_reused_m3',section:'water',label:'Eau réutilisée',unit:'m³',direction:'min',description:'Volume d’eau réemployé dans les procédés.'},
  {key:'water_discharge_m3',section:'water',label:'Eaux rejetées',unit:'m³',direction:'max',description:'Volume des rejets mesurés, distinct des prélèvements.'}
