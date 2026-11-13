@@ -1,5 +1,5 @@
 import {database} from '@/db/raw';
-import {requireRole,checkOrigin} from '@/lib/access';
+import {requireRole,checkOrigin,type Account} from '@/lib/access';
 import {teamsAllowed} from '@/lib/team-access';
 import {loadWasteSource} from '@/lib/waste-private-source';
 import {blankWaste,wasteIssues,validateWaste,type WasteRecord} from '@/lib/waste';
@@ -7,13 +7,15 @@ import {applyWasteCell,wasteManagedColumns,wasteTableValue,wasteTableColumns} fr
 async function allRecords(wasteSource:ReturnType<typeof loadWasteSource>){const db=database(),records=new Map<string,WasteRecord>((wasteSource?.records||[]).map(r=>[r.id,{...r,issues:wasteIssues(r)}]));
 const [legacy,overrides]=await Promise.all([db.prepare("SELECT * FROM records WHERE kind='Gestion des déchets'").all(),db.prepare('SELECT * FROM waste_records').all()]);
 for(const x of legacy.results as any[]){const d=JSON.parse(x.details||'{}'),q=d.quantity===''||d.quantity===undefined?null:Number(d.quantity);const r:WasteRecord={...blankWaste(),id:'legacy-'+x.id,date:d.date||'',dateSource:d.date||'',type:x.title,family:'Autres',code:d.code||'',quantity:Number.isFinite(q)?q:null,unit:'kg',danger:['Oui','Non'].includes(d.dangerous)?d.dangerous:'À vérifier',status:x.status==='Prévu'?'Prévu':'Enlevé',collector:d.collector||'',destination:d.destination||'',treatment:d.treatment||'',bsd:d.bsd||'',notes:x.description||'',owner:x.owner||'',documentUrl:x.url||'',raw:{'Ancienne fiche':x.id,'Statut antérieur':x.status}};records.set(r.id,{...r,issues:wasteIssues(r)})}
-for(const x of overrides.results as any[]){const stored=JSON.parse(x.data),original=records.get(x.id);const r={...stored,id:x.id,revision:x.revision,updatedAt:x.updated_at,updatedBy:x.updated_by,raw:original?.raw,sourceRow:original?.sourceRow||0,dateSource:original?.dateSource||''};records.set(x.id,{...r,issues:wasteIssues(r)})}return records}
+for(const x of overrides.results as any[]){const stored=JSON.parse(x.data);if(stored.deletedAt){records.delete(x.id);continue}const original=records.get(x.id);const r={...stored,id:x.id,revision:x.revision,updatedAt:x.updated_at,updatedBy:x.updated_by,raw:original?.raw,sourceRow:original?.sourceRow||0,dateSource:original?.dateSource||''};records.set(x.id,{...r,issues:wasteIssues(r)})}return records}
 const noStore={'Cache-Control':'private, no-store'};
+const canDeleteWaste = (user: Account) =>
+ teamsAllowed(user,['qsse'],true,'manage');
 export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;if(!await teamsAllowed(gate.user!,['qsse']))return Response.json({error:'Accès QSSE nécessaire.'},{status:403});const wasteSource=loadWasteSource(),p=new URL(req.url).searchParams,id=p.get('id');
 if(p.get('reference'))return Response.json({reference:wasteSource?.adrReference||[]},{headers:noStore});
 const records=await allRecords(wasteSource);if(id){const record=records.get(id);if(!record)return Response.json({error:'Enlèvement introuvable.'},{status:404});const history=(await database().prepare('SELECT snapshot,saved_at,saved_by FROM waste_history WHERE record_id=? ORDER BY saved_at DESC LIMIT 30').bind(id).all()).results;return Response.json({record,history,headers:wasteSource?.headers||[]},{headers:noStore})}
 const rawIds=p.get('rawIds');if(rawIds!==null){const ids=rawIds==='all'?[...records.keys()]:rawIds.split(',');if((ids.length>100&&rawIds!=='all')||ids.some(x=>x.length>100))return Response.json({error:'Sélection trop importante.'},{status:400,headers:noStore});return Response.json({headers:wasteSource?.headers||[],rows:ids.flatMap(x=>{const r=records.get(x);return r?[{id:x,raw:r.raw||{}}]:[]})},{headers:noStore})}
-return Response.json({records:[...records.values()].map(({raw,...r})=>r),source:wasteSource?{name:wasteSource.source,count:wasteSource.records.length}:null,canEdit:gate.user!.role!=='reader'&&await teamsAllowed(gate.user!,['qsse'],true)},{headers:noStore})
+return Response.json({records:[...records.values()].map(({raw,...r})=>r),source:wasteSource?{name:wasteSource.source,count:wasteSource.records.length}:null,canDelete:await canDeleteWaste(gate.user!),canEdit:gate.user!.role!=='reader'&&await teamsAllowed(gate.user!,['qsse'],true)},{headers:noStore})
 }catch(e){console.error(e);return Response.json({error:'Le registre est indisponible. Réessayez.'},{status:503})}}
 export async function POST(req:Request){try{if(!checkOrigin(req))return Response.json({error:'Requête non autorisée.'},{status:403});const gate=await requireRole(req,'editor');if(gate.error)return gate.error;if(!await teamsAllowed(gate.user!,['qsse'],true))return Response.json({error:'Droit de modification QSSE nécessaire.'},{status:403});const b=await req.json() as WasteRecord;if(!b||typeof b!=='object'||Array.isArray(b))return Response.json({error:'Fiche invalide.'},{status:400});
 for(const k of ['id','date','type','family','code','status','unit','danger','collector','destination','treatment','bsd','owner','notes','documentUrl'] as const)if(typeof b[k]!=='string'||b[k].length>(k==='notes'?5000:500))return Response.json({error:'Champ invalide : '+k},{status:400});if(typeof b.excluded!=='boolean'||typeof b.client!=='boolean'||!Number.isInteger(b.revision)||b.revision<0)return Response.json({error:'Fiche invalide.'},{status:400});const errors=validateWaste(b);if(errors.length)return Response.json({error:errors.join('\n')},{status:400});
@@ -54,4 +56,43 @@ export async function PATCH(req:Request){
   if(!result[0].meta.changes)return Response.json({error:'Une autre personne a modifié cette fiche. Rechargez-la avant de réessayer.'},{status:409,headers:noStore});
   return Response.json({id:previous.id,revision:next.revision},{headers:noStore});
  }catch(e){console.error(e);return Response.json({error:'Modification impossible. Votre saisie est conservée.'},{status:503,headers:noStore})}
+}
+
+
+export async function DELETE(req:Request){
+ const fail=(error:string,status:number)=>Response.json({error},{status,headers:noStore});
+ try{
+  if(!checkOrigin(req))return fail('Requête non autorisée.',403);
+  const gate=await requireRole(req,'editor');
+  if(gate.error)return gate.error;
+  const user=gate.user!;
+  if(!await canDeleteWaste(user))return fail('Suppression réservée aux administrateurs généraux ou du service QSSE.',403);
+  const body=await req.json().catch(()=>null) as {id?:unknown;revision?:number;confirmation?:unknown}|null;
+  if(!body||typeof body.id!=='string'||!body.id||body.id.length>100||
+     typeof body.revision!=='number'||!Number.isSafeInteger(body.revision)||body.revision<0)return fail('Enlèvement ou révision invalide.',400);
+  if(body.confirmation!=='SUPPRIMER')return fail('Saisissez exactement SUPPRIMER en majuscules.',400);
+
+  const record=(await allRecords(loadWasteSource())).get(body.id);
+  if(!record)return fail('Enlèvement introuvable ou déjà supprimé.',404);
+  if(record.revision!==body.revision)return fail('La fiche a changé. Rechargez-la avant de confirmer la suppression.',409);
+
+  const now=new Date().toISOString(),db=database();
+  const snapshot={...record,revision:record.revision+1,deletedAt:now,deletedBy:user.id};
+  // Keep a local marker so that imported and legacy movements stay hidden.
+  const mutation=record.revision===0
+   ?db.prepare('INSERT OR IGNORE INTO waste_records (id,data,revision,updated_at,updated_by) VALUES (?,?,?,?,?)')
+     .bind(record.id,JSON.stringify(snapshot),1,now,user.displayName)
+   :db.prepare('UPDATE waste_records SET data=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?')
+     .bind(JSON.stringify(snapshot),now,user.displayName,record.id,record.revision);
+  const [result]=await db.batch([
+   mutation,
+   db.prepare('INSERT INTO waste_history (id,record_id,snapshot,saved_at,saved_by) SELECT ?,?,?,?,? WHERE changes()=1')
+     .bind(crypto.randomUUID(),record.id,JSON.stringify(snapshot),now,user.displayName),
+  ]);
+  if(!result.meta.changes)return fail('La fiche a changé. Rechargez le registre.',409);
+  return Response.json({id:record.id,deleted:true},{headers:noStore});
+ }catch(error){
+  console.error(error);
+  return fail('Suppression impossible. Réessayez.',503);
+ }
 }

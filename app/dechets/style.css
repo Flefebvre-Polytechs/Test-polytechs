@@ -40,3 +40,10 @@
 }
 
 .waste-duplicate { display:inline-flex; align-items:center; gap:6px; margin-top:8px; white-space:nowrap; }
+
+.waste-delete-trigger { display:inline-flex; align-items:center; gap:6px; margin:8px 0 0 6px; white-space:nowrap; color:#9b252c; }
+.waste-delete-dialog { max-width:460px; }
+.waste-delete-dialog label { display:block; margin:16px 0; }
+.waste-delete-dialog input { display:block; width:100%; margin-top:8px; padding:10px; border:1px solid #a9bdcb; border-radius:7px; }
+.waste-delete-confirm { border:1px solid #9b252c; border-radius:8px; padding:10px 14px; color:white; background:#9b252c; }
+.waste-delete-confirm:disabled { opacity:.48; cursor:not-allowed; }
