@@ -1,12 +1,16 @@
 export const budgetSections={'2500':'Sécurité','2600':'Recyclage et extérieurs','4520':'Assurance qualité','interim':'Intérim QSSE'} as const;
 export type BudgetSection=keyof typeof budgetSections;
-export type BudgetRecord={id:string;kind:'account'|'order';section:BudgetSection;label:string;account:string;date:string;dateSource:string;reference:string;category:string;amount:number|null;status:'À vérifier'|'Suivi'|'Annulée'|'Non validée';actual2025:number|null;actual2026:number|null;budgetYtd2026:number|null;budget2026:number|null;forecast2026:number|null;budget2027:number|null;months:(number|null)[];notes:string;source:string;sheet:string;row:number;raw:Record<string,string|number>;revision:number};
+export const budgetStates=['À prévoir','Engagé','Réalisé'] as const;
+export type BudgetState=(typeof budgetStates)[number];
+export const validBudgetState=(value:unknown):value is BudgetState=>typeof value==='string'&&(budgetStates as readonly string[]).includes(value);
+export type BudgetRecord={id:string;kind:'account'|'order';section:BudgetSection;label:string;account:string;date:string;dateSource:string;reference:string;category:string;amount:number|null;status:'À vérifier'|'Suivi'|'Annulée'|'Non validée';budgetState?:BudgetState;actual2025:number|null;actual2026:number|null;budgetYtd2026:number|null;budget2026:number|null;forecast2026:number|null;budget2027:number|null;months:(number|null)[];notes:string;source:string;sheet:string;row:number;raw:Record<string,string|number>;revision:number};
+export function budgetStateOf(record:{kind:'account'|'order';budgetState?:unknown}):BudgetState{return validBudgetState(record.budgetState)?record.budgetState:record.kind==='order'?'Engagé':'À prévoir'}
 export const amountFields=['amount','actual2025','actual2026','budgetYtd2026','budget2026','forecast2026','budget2027'] as const;
 export function budgetRecordError(r:BudgetRecord){
  if(!r||typeof r!=='object'||Array.isArray(r))return 'Ligne invalide.';
  if(!Object.hasOwn(budgetSections,r.section)||!['account','order'].includes(r.kind))return 'Section ou type invalide.';
  for(const k of ['id','label','account','date','dateSource','reference','category','status','notes','source','sheet'] as const)if(typeof r[k]!=='string'||r[k].length>(k==='notes'?10000:500))return 'Texte invalide.';
- if(!r.id||!r.label.trim()||!['À vérifier','Suivi','Annulée','Non validée'].includes(r.status)||!Number.isInteger(r.row)||r.row<0||!Number.isInteger(r.revision)||r.revision<0)return 'Ligne incomplète.';
+ if(!r.id||!r.label.trim()||!['À vérifier','Suivi','Annulée','Non validée'].includes(r.status)||r.budgetState!==undefined&&!validBudgetState(r.budgetState)||!Number.isInteger(r.row)||r.row<0||!Number.isInteger(r.revision)||r.revision<0)return 'Ligne incomplète.';
  if(r.date&&(!/^\d{4}-\d{2}-\d{2}$/.test(r.date)||Number.isNaN(Date.parse(r.date))||new Date(r.date).toISOString().slice(0,10)!==r.date))return 'Date invalide.';
  for(const k of amountFields)if(r[k]!==null&&(typeof r[k]!=='number'||!Number.isFinite(r[k])||Math.abs(r[k]!)>1e10))return 'Montant invalide.';
  if(!Array.isArray(r.months)||r.months.length!==12||r.months.some(v=>v!==null&&(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1e10)))return 'Mensualisation invalide.';
