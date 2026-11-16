@@ -77,5 +77,30 @@ try{
  response=await typedSave({...typedSaved.data,completed:true,answers:typedSaved.data.answers.map(a=>a.id==='number'?{...a,type:'conformity',result:'Conforme'}:a)},2);assert.equal(response.status,200);typedSaved=await response.json();assert.equal(typedSaved.data.answers.find(a=>a.id==='number').type,'number','Ignore forged answer type');assert.equal(typedSaved.data.answers.find(a=>a.id==='number').result,'Information');assert.equal(lib.auditScore(typedSaved.data.answers).percent,0);assert.equal(lib.auditScore(typedSaved.data.answers).requiredPending,0);
  response=await report.GET(new Request('https://example.test/api/routines/report?routine=typed&date=2026-10-26'));assert.equal(response.status,200);const typedFile=path.resolve('tmp/audit-reports/typed-qa.pdf');fs.writeFileSync(typedFile,Buffer.from(await response.arrayBuffer()));const typedText=execFileSync('pdftotext',['-layout',typedFile,'-'],{encoding:'utf8'});assert.ok(typedText.includes('Lot TEST-026'));assert.ok(typedText.includes('2026-10-27'));assert.ok(typedText.includes('Audit terminé'));
  const listed=await (await hub.GET(new Request('https://example.test/api/hub?scope=routines&from=2026-10-01&to=2026-10-31'))).json();assert.equal(listed.routines.find(r=>r.id==='typed').has_runs,1,'The builder must know a grid is frozen');
+ globalThis.auditUser={id:'editor',role:'editor',displayName:'Auditeur de test'};
+ db.exec("INSERT INTO team_members VALUES('qsse','editor','user')");
+ const auditToday=lib.todayParis();
+ db.prepare('INSERT INTO hub_routines VALUES(?,?,1,?)').run('catalogue',JSON.stringify({...routine,mode:'catalog',start:auditToday}),auditToday);
+ const session=(params)=>hub.POST(request({action:'audit-session',routineId:'catalogue',...params}));
+ assert.deepEqual(lib.scheduledAuditDates({...routine,mode:'catalog'},routine.start,routine.start),[]);
+ assert.equal((await session({intent:'schedule',date:auditToday,time:'10:00'})).status,403,'A contributor who can fill audits cannot schedule them');
+ const quick=await session({intent:'now'});
+ assert.equal(quick.status,200);
+ const {id:quickId,date:quickDate}=await quick.json();
+ const quickRow=JSON.parse(db.prepare('SELECT data FROM hub_routines WHERE id=?').get(quickId).data);
+ assert.deepEqual(lib.scheduledAuditDates(quickRow,quickDate,quickDate),[],'A field audit never creates a calendar event');
+ assert.equal((await hub.POST(request({action:'run',routineId:quickId,date:quickDate,revision:0,data:{
+  answers:routine.questions.map(q=>({id:q.id,result:'Conforme',comment:''})),notes:'',completed:true,
+ }}))).status,200);
+ assert.equal((await hub.POST(request({action:'run',routineId:'catalogue',date:quickDate,revision:0,data:{}}))).status,400);
+ db.exec("UPDATE team_members SET level='contributor' WHERE team_id='qsse' AND user_id='editor'");
+ assert.equal((await session({intent:'schedule',date:'2020-01-01',time:'09:00'})).status,400);
+ const scheduled=await session({intent:'schedule',date:auditToday,time:'10:00'});
+ assert.equal(scheduled.status,200);
+ const {id:scheduledId}=await scheduled.json();
+ const scheduledRow=JSON.parse(db.prepare('SELECT data FROM hub_routines WHERE id=?').get(scheduledId).data);
+ assert.deepEqual(lib.scheduledAuditDates(scheduledRow,auditToday,auditToday),[auditToday]);
+ assert.notEqual(scheduledId,quickId);
+ assert.equal(JSON.parse(db.prepare("SELECT data FROM hub_routines WHERE id='catalogue'").get().data).mode,'catalog');
  console.log('Audit reports: real SQLite permissions, RH isolation, immediate revocation, server timestamps, N/A scoring, saved-only PDF, photos, concurrent revisions, history, legacy data and long pagination passed.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.auditDb;delete globalThis.auditBucket;delete globalThis.auditUser;delete globalThis.auditOrigin}

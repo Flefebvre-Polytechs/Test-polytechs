@@ -16,8 +16,8 @@ export function auditBuilderIssues(r:Routine):BuilderIssue[]{
  if(r.questions.length>40)issues.push({level:'advice',step:'grid',message:'Cette grille dépasse 40 questions. Envisagez plusieurs audits plus ciblés.'});
  if(r.questions.length&&!r.questions.some(q=>!q.type||q.type==='conformity'))issues.push({level:'advice',step:'grid',message:'Cette grille collecte uniquement des informations : aucun score de conformité ne sera calculé.'});
  const issue=routineError(r);if(issue&&!issues.some(i=>i.level==='error'))issues.push({level:'error',step:/calendrier/.test(issue)?'schedule':'grid',message:issue});
- if(r.end&&r.end<todayParis())issues.push({level:'advice',step:'schedule',message:'La dernière date est passée : aucune nouvelle occurrence ne sera programmée.'});
- if(r.repeat==='none'&&r.start<todayParis())issues.push({level:'advice',step:'schedule',message:'La date est passée. L’audit apparaîtra comme étant à rattraper.'});return issues;
+ if(r.mode!=='catalog'&&r.end&&r.end<todayParis())issues.push({level:'advice',step:'schedule',message:'La dernière date est passée : aucune nouvelle occurrence ne sera programmée.'});
+ if(r.mode!=='catalog'&&r.repeat==='none'&&r.start<todayParis())issues.push({level:'advice',step:'schedule',message:'La date est passée. L’audit apparaîtra comme étant à rattraper.'});return issues;
 }
 export function nextAuditDates(r:Routine,from=todayParis()){const start=from>r.start?from:r.start,toDate=new Date(start+'T12:00:00Z');if(Number.isNaN(toDate.getTime())||r.interval<1)return [];toDate.setUTCFullYear(toDate.getUTCFullYear()+5);return occurrenceDates({...r,active:true},start,toDate.toISOString().slice(0,10)).slice(0,4)}
 
