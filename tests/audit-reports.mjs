@@ -144,11 +144,24 @@ try{
  db.exec("UPDATE team_members SET level='user' WHERE user_id='editor'");
  assert.equal((await auditTicket()).status,403);
  db.exec("UPDATE team_members SET level='contributor' WHERE user_id='editor'");
- const tickets=await Promise.all([auditTicket(),auditTicket()]);
+ db.exec("CREATE TABLE hub_notifications(id TEXT PRIMARY KEY,user_id TEXT,title TEXT,href TEXT,seen INTEGER,created_at TEXT); CREATE TABLE ticket_labels(id TEXT,kind TEXT,category TEXT,name TEXT); INSERT INTO ticket_labels VALUES('dechets','topic','Environnement','Déchets')");
+ const ticketData={...lib.newTicket(),title:'Écart précis',description:'Constat',category:'Environnement',teams:['qsse'],
+  pilot:'editor',status:'En cours',due:auditToday,topicTags:['dechets'],
+  actions:[{id:'action-test',title:'Corriger l’écart',pilot:'editor',done:false,due:auditToday}]};
+ assert.equal((await auditTicket({data:{...ticketData,teams:['rh']}})).status,403);
+ assert.equal((await auditTicket({data:{...ticketData,topicTags:['inconnue']}})).status,400);
+ assert.equal((await auditTicket({data:{...ticketData,pilot:'inconnu'}})).status,400);
+ const tickets=await Promise.all([auditTicket({data:ticketData}),auditTicket({data:ticketData})]);
  assert.deepEqual(tickets.map(result=>result.status),[200,200]);
  const linked=await Promise.all(tickets.map(result=>result.json()));
  assert.equal(linked[0].id,linked[1].id);
  assert.equal(linked.filter(ticket=>ticket.created).length,1);
+ const storedTicket=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(linked[0].id).data);
+ assert.deepEqual(storedTicket.actions,ticketData.actions);
+ assert.equal(storedTicket.pilot,'editor');
+ assert.deepEqual(storedTicket.topicTags,['dechets']);
+ assert.equal(storedTicket.status,'En cours');
+ assert.equal(db.prepare('SELECT count(*) AS n FROM hub_notifications').get().n,1);
  const ticketAuditUrl='https://example.test/api/hub?scope=run&id='+ticketSession.id+'&date='+auditToday;
  const reopened=await (await hub.GET(new Request(ticketAuditUrl))).json();
  assert.equal(reopened.run.data.completed,false);

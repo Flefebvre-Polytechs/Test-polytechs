@@ -132,9 +132,18 @@ if(b.action==='audit-ticket'){
  const saved:Run=JSON.parse(run.data);
  const answer=saved.answers.find(answer=>answer.id===b.questionId);
  if(!answer||answer.result!=='Non conforme')return fail('Ce point doit être enregistré comme non conforme.');
- const ticket:Ticket={...newTicket(),title:b.title,category:b.category,description:b.description,due:b.due,teams:routine.teams,
+ const draft=b.data??{...newTicket(),title:b.title,category:b.category,description:b.description,due:b.due,teams:routine.teams};
+ const draftIssue=ticketError(draft);if(draftIssue)return fail(draftIssue);
+ const {title,category,description,due,teams,pilot,status,actions,responsibles,topicTags,locationTags}=draft as Ticket;
+ const ticket:Ticket={title,category,description,due,teams,pilot,status,actions,responsibles,topicTags,locationTags,
   source:{routineId:b.routineId,date:b.date,questionId:b.questionId}};
- const issue=ticketError(ticket);if(issue)return fail(issue);
+ if(!teams.length||routine.teams.includes('rh')&&!teams.includes('rh')||!await teamsAllowed(user,teams,true))
+  return fail('Choisissez des services autorisés et conservez le rattachement RH lorsque l’audit concerne les RH.',403);
+ const knownTeams=(await db.prepare('SELECT id FROM teams').all()).results;
+ if(teams.some(id=>!knownTeams.some(team=>team.id===id)))return fail('Équipe inconnue.');
+ const recipientsToNotify=[...new Set([pilot,...responsibles,...actions.map(action=>action.pilot)].filter(Boolean))];
+ if(!await recipients(recipientsToNotify))return fail('Pilote ou responsable inconnu.');
+ const labelsError=await ticketLabelError(ticket);if(labelsError)return fail(labelsError);
  const matching=`json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?
   AND json_extract(data,'$.source.questionId')=?`;
  const linkArgs=[b.routineId,b.date,b.questionId];
@@ -145,7 +154,10 @@ if(b.action==='audit-ticket'){
   AND EXISTS(SELECT 1 FROM hub_runs WHERE id=? AND revision=?)
   AND EXISTS(SELECT 1 FROM hub_routines WHERE id=? AND revision=?)`)
   .bind(id,JSON.stringify(ticket),now,now,author,...linkArgs,runId,run.revision,b.routineId,row.revision).run();
- if(result.meta.changes)return ok({id,title:ticket.title,questionId:b.questionId,status:ticket.status,created:true});
+ if(result.meta.changes){
+  const warning=await notify(recipientsToNotify,'Nouveau ticket · '+ticket.title,'/tickets?id='+encodeURIComponent(id));
+  return ok({id,title:ticket.title,questionId:b.questionId,status:ticket.status,created:true,warning});
+ }
  const existing=await db.prepare(`SELECT id,data FROM hub_tickets WHERE ${matching}`).bind(...linkArgs).first<{id:string;data:string}>();
  if(existing){
   const data:Ticket=JSON.parse(existing.data);
