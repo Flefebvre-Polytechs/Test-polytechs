@@ -102,5 +102,27 @@ try{
  assert.deepEqual(lib.scheduledAuditDates(scheduledRow,auditToday,auditToday),[auditToday]);
  assert.notEqual(scheduledId,quickId);
  assert.equal(JSON.parse(db.prepare("SELECT data FROM hub_routines WHERE id='catalogue'").get().data).mode,'catalog');
+ const deleteAudit=(id,revision,confirmation='SUPPRIMER')=>hub.POST(request({action:'delete-audit',id,revision,confirmation}));
+ assert.equal((await deleteAudit(quickId,1)).status,403);
+ db.exec("UPDATE team_members SET level='team_admin' WHERE team_id='qsse' AND user_id='editor'");
+ assert.equal((await deleteAudit(quickId,1,'Supprimer')).status,400);
+ assert.equal((await deleteAudit(quickId,2)).status,409);
+ assert.equal((await deleteAudit(quickId,1)).status,200);
+ assert.equal((await deleteAudit(quickId,1)).status,409);
+ const archived=JSON.parse(db.prepare('SELECT data FROM hub_routines WHERE id=?').get(quickId).data);
+ assert.equal(archived.active,false);
+ assert.equal(archived.archivedBy,'editor');
+ assert.ok(archived.archivedAt);
+ assert.equal((await hub.POST(request({action:'run',routineId:quickId,date:quickDate,revision:1,data:{}}))).status,400);
+ const runRequest=new Request('https://example.test/api/hub?scope=run&id='+quickId+'&date='+quickDate);
+ assert.equal((await (await hub.GET(runRequest)).json()).run.data.completed,true);
+ const archiveRequest=new Request('https://example.test/api/hub?scope=audit-history&id='+quickId);
+ assert.deepEqual((await (await hub.GET(archiveRequest)).json()).reports,[{date:quickDate,completed:1}]);
+ assert.equal((await report.GET(new Request('https://example.test/api/routines/report?routine='+quickId+'&date='+quickDate))).status,200);
+ assert.equal((await deleteAudit(scheduledId,1)).status,200);
+ const archivedSchedule=JSON.parse(db.prepare('SELECT data FROM hub_routines WHERE id=?').get(scheduledId).data);
+ assert.deepEqual(lib.scheduledAuditDates(archivedSchedule,auditToday,auditToday),[]);
+ db.exec("DELETE FROM team_members WHERE user_id='editor'");
+ assert.equal((await hub.GET(archiveRequest)).status,403);
  console.log('Audit reports: real SQLite permissions, RH isolation, immediate revocation, server timestamps, N/A scoring, saved-only PDF, photos, concurrent revisions, history, legacy data and long pagination passed.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.auditDb;delete globalThis.auditBucket;delete globalThis.auditUser;delete globalThis.auditOrigin}

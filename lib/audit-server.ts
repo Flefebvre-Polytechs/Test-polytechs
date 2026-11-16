@@ -16,7 +16,7 @@ export async function auditAccess(req:Request,routineId:string,date:string,write
   const contextTeam=new URL(req.url).searchParams.get('team');
   if(contextTeam&&!routine.data.teams.includes(contextTeam))return {error:auditFail('Cette routine ne concerne pas cette équipe.',404)};
   if(!await someTeamAllowed(gate.user!,routine.data.teams)||contextTeam&&!await someTeamAllowed(gate.user!,[contextTeam]))return {error:auditFail('Accès à cette routine non autorisé.',403)};
-  if(write&&(!routine.data.active||!await teamsAllowed(gate.user!,routine.data.teams,true,'contribute')))return {error:auditFail('Modification de cet audit non autorisée.',403)};
+  if(write&&(!routine.data.active||routine.data.archivedAt||!await teamsAllowed(gate.user!,routine.data.teams,true,'contribute')))return {error:auditFail('Modification de cet audit non autorisée.',403)};
   const runRow=await database().prepare('SELECT * FROM hub_runs WHERE id=?').bind(routineId+':'+date).first<{id:string;routine_id:string;date:string;data:string;revision:number;author:string;updated_at:string}>();
   if(!runRow)return {error:auditFail('Enregistrez le compte rendu avant de continuer.',404)};
   return {user:gate.user!,routine,run:{...runRow,data:JSON.parse(runRow.data) as Run}};
@@ -27,7 +27,8 @@ export async function auditAccess(req:Request,routineId:string,date:string,write
 export async function updateAudit(run:{id:string;revision:number;data:Run;author:string;updated_at:string},data:Run,author:string,now:string){
   const db=database();
   const result=await db.batch([
-    db.prepare('UPDATE hub_runs SET data=?,revision=revision+1,author=?,updated_at=? WHERE id=? AND revision=?').bind(JSON.stringify(data),author,now,run.id,run.revision),
+    db.prepare(`UPDATE hub_runs SET data=?,revision=revision+1,author=?,updated_at=? WHERE id=? AND revision=?
+      AND EXISTS(SELECT 1 FROM hub_routines WHERE hub_routines.id=hub_runs.routine_id AND json_extract(hub_routines.data,'$.archivedAt') IS NULL)`).bind(JSON.stringify(data),author,now,run.id,run.revision),
     db.prepare('INSERT INTO hub_run_history(run_id,revision,snapshot,author,saved_at) SELECT ?,?,?,?,? WHERE changes()=1').bind(run.id,run.revision,JSON.stringify(run.data),run.author,run.updated_at)
   ]);
   return !!result[0].meta.changes;

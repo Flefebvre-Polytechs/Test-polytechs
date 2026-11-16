@@ -8,7 +8,8 @@ import {AccountGate,type Account} from '@/components/account-gate';
 import {HubFrame,hubRequest,useHubMeta,useServiceFilter} from '@/components/hub-layout';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {auditQuestionType,auditCompletionError,scheduledAuditDates,routineError,validDate,todayParis,type Routine,type Row,type Run} from '@/lib/hub';
-import {ListChecks,Play,Search,Plus,ChevronLeft,ChevronRight,ClipboardCheck,CalendarDays,CheckCircle2,Clock3} from 'lucide-react';
+import {MoreHorizontal,Trash2,ListChecks,Play,Search,Plus,ChevronLeft,ChevronRight,ClipboardCheck,CalendarDays,CheckCircle2,Clock3} from 'lucide-react';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import {ListPagination,useListPage} from '@/components/list-pagination';
 const frenchDate=(date:string)=>!validDate(date)?'Date à préciser':new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium',timeZone:'Europe/Paris'}).format(new Date(date+'T12:00:00Z'));
 const labelRepeat={none:'Ponctuelle',daily:'Tous les jours',weekly:'Toutes les semaines',monthly:'Tous les mois'};
@@ -17,6 +18,8 @@ function Routines({account}:{account:Account}){
 const [view,setView]=useState<'list'|'calendar'>('list'),[search,setSearch]=useState('');
 const [schedule,setSchedule]=useState<{routine:Row<Routine>;date:string;time:string}|null>(null);
 const [scheduleError,setScheduleError]=useState('');
+const [deleteTarget,setDeleteTarget]=useState<Row<Routine>|null>(null);
+const [deleteText,setDeleteText]=useState(''),[deleteError,setDeleteError]=useState('');
 const {askConfirm,confirmation}=useConfirmation();const [team,setTeam]=useServiceFilter();const {meta,error:metaError}=useHubMeta(),[month,setMonth]=useState(todayParis().slice(0,7)),[rows,setRows]=useState<Row<Routine>[]>([]),[runs,setRuns]=useState<any[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[edit,setEdit]=useState<Row<Routine>|null>(null),[baseline,setBaseline]=useState(''),[runEdit,setRunEdit]=useState<{routine:Row<Routine>;date:string;revision:number;data:Run}|null>(null),[runBaseline,setRunBaseline]=useState(''),[modalError,setModalError]=useState(''),[notice,setNotice]=useState('');const canFill=account.role!=='reader'&&(account.role==='admin'||!!runEdit&&runEdit.routine.data.teams.length>0&&runEdit.routine.data.teams.every(t=>meta.contributingTeams?.includes(t))),canEdit=account.role!=='reader'&&(account.role==='admin'||(team?!!meta.editableTeams?.includes(team):!!meta.editableTeams?.length)),from=month+'-01',to=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10),dirty=edit?JSON.stringify(edit.data)!==baseline:runEdit?JSON.stringify(runEdit.data)!==runBaseline:false;
 async function load(){setLoading(true);try{const d=await hubRequest('/api/hub?scope=routines&from='+from+'&to='+to+'&team='+encodeURIComponent(team));setRows(d.routines);setRuns(d.runs);setError('')}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
 useEffect(()=>{let live=true;setLoading(true);hubRequest('/api/hub?scope=routines&from='+from+'&to='+to+'&team='+encodeURIComponent(team)).then(d=>{if(live){setRows(d.routines);setRuns(d.runs);setError('')}}).catch(e=>{if(live)setError(e.message)}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[month,team]);
@@ -34,6 +37,24 @@ const canUse=(routine:Row<Routine>,capability:'coordinate'|'contribute')=>{
  const teams=capability==='coordinate'?meta.editableTeams:meta.contributingTeams;
  return account.role==='admin'||account.role!=='reader'&&routine.data.teams.length>0&&routine.data.teams.every(id=>teams?.includes(id));
 };
+function canDelete(routine:Row<Routine>){
+ return !routine.data.archivedAt&&(account.role==='admin'||account.role==='editor'&&
+  routine.data.teams.length>0&&routine.data.teams.every(teamId=>meta.managedTeams?.includes(teamId)));
+}
+function requestDelete(routine:Row<Routine>){
+ if(busy||!canDelete(routine))return;
+ setDeleteText('');setDeleteError('');setDeleteTarget(routine);
+}
+async function deleteAudit(){
+ if(!deleteTarget||deleteText!=='SUPPRIMER'||busy)return;
+ setBusy(true);setDeleteError('');
+ try{
+  await hubRequest('/api/hub',{action:'delete-audit',id:deleteTarget.id,revision:deleteTarget.revision,confirmation:deleteText});
+  setDeleteTarget(null);setEdit(null);setNotice('Audit retiré de la liste et du calendrier.');
+  await load();
+ }catch(error){setDeleteError((error as Error).message)}
+ finally{setBusy(false)}
+}
 async function createSession(routine:Row<Routine>,intent:'now'|'schedule',date?:string,time?:string){
  if(busy)return;
  setBusy(true);setError('');setScheduleError('');
@@ -55,13 +76,14 @@ async function createSession(routine:Row<Routine>,intent:'now'|'schedule',date?:
 
 const visible=rows.filter(r=>!team||r.data.teams.includes(team));
 const events=visible.flatMap(r=>scheduledAuditDates(r.data,from,to).map(date=>({routine:r,date})));
-const otherReports=runs.filter(run=>visible.some(row=>row.id===run.routine_id&&row.data.mode!=='on-demand')&&
+const otherReports=runs.filter(run=>visible.some(row=>row.id===run.routine_id&&row.data.mode!=='on-demand'&&!row.data.archivedAt)&&
  !events.some(event=>event.routine.id===run.routine_id&&event.date===run.date));
 const padding=(new Date(from+'T12:00:00Z').getUTCDay()+6)%7,days=Number(to.slice(8));
 const name=(id:string)=>meta.users.find(u=>u.id===id)?.display_name||'Pilote à désigner';
 const matches=(r:Row<Routine>)=>[r.data.title,r.data.description,name(r.data.pilot)].join(' ').toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr'));
-const catalogue=visible.filter(r=>r.data.mode!=='on-demand'&&r.data.mode!=='scheduled-copy'&&matches(r)).sort((a,b)=>a.data.title.localeCompare(b.data.title,'fr'));
-const sessions=visible.filter(r=>(r.data.mode==='on-demand'||r.data.mode==='scheduled-copy')&&matches(r))
+const archived=visible.filter(r=>r.data.archivedAt&&r.has_runs&&matches(r));
+const catalogue=visible.filter(r=>!r.data.archivedAt&&r.data.mode!=='on-demand'&&r.data.mode!=='scheduled-copy'&&matches(r)).sort((a,b)=>a.data.title.localeCompare(b.data.title,'fr'));
+const sessions=visible.filter(r=>!r.data.archivedAt&&(r.data.mode==='on-demand'||r.data.mode==='scheduled-copy')&&matches(r))
  .sort((a,b)=>b.data.start.localeCompare(a.data.start)||b.data.time.localeCompare(a.data.time));
 const sessionPage=useListPage(sessions,JSON.stringify([team,search]));
 const teamFilter=<select aria-label="Équipe" value={team} onChange={event=>setTeam(event.target.value)}><option value="">Toutes les équipes</option>{meta.teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>;
@@ -93,6 +115,7 @@ return <HubFrame active="Routines"><div className="audit-routines-page">
      {data.active&&canUse(r,'coordinate')&&<button className="outline" disabled={busy} onClick={()=>{setScheduleError('');setSchedule({routine:r,date:todayParis(),time:data.time||'09:00'})}}><CalendarDays size={16}/>Programmer</button>}
      {planned&&data.repeat==='none'&&<button className="outline" disabled={busy} onClick={()=>void openRun(r.id,data.start)}>{r.scheduled_run_complete?'Compte rendu':'Ouvrir l’audit programmé'}</button>}
      {canUse(r,'coordinate')&&<><button className="outline" disabled={busy} onClick={()=>openRoutine(r)}>Modifier</button><button className="outline" disabled={busy} onClick={()=>duplicateRoutine(r)}>Dupliquer</button></>}
+     {canDelete(r)&&<AuditDeleteMenu title={data.title} disabled={busy} onDelete={()=>requestDelete(r)}/>}
     </div></article>;
    })}
    {!catalogue.length&&<p>Aucun audit pour cette sélection.</p>}
@@ -106,9 +129,14 @@ return <HubFrame active="Routines"><div className="audit-routines-page">
    </div><div className="audit-routine-actions">
     <button className="outline" disabled={busy} onClick={()=>void openRun(r.id,r.data.start)}>{r.scheduled_run_complete?'Voir le compte rendu':'Ouvrir l’audit'}</button>
     {r.data.mode==='scheduled-copy'&&canUse(r,'coordinate')&&<button className="outline" disabled={busy} onClick={()=>openRoutine(r)}>Modifier</button>}
+    {canDelete(r)&&<AuditDeleteMenu title={r.data.title} disabled={busy} onDelete={()=>requestDelete(r)}/>}
    </div></article>)}</div>
    <ListPagination page={sessionPage.page} pages={sessionPage.pages} total={sessions.length} onChange={sessionPage.setPage}/>
   </section>}
+  {archived.length>0&&<details className="audit-session-list audit-archive">
+   <summary>Comptes rendus des audits archivés ({archived.length})</summary>
+   <div className="hub-routine-list">{archived.map(row=><ArchivedAuditReports key={row.id+':'+team} audit={row} team={team} busy={busy} onOpen={date=>void openRun(row.id,date)}/>)}</div>
+  </details>}
  </>:<>
  <div className="audit-page-stats" aria-label="Bilan du mois affiché"><article><span className="audit-stat-icon"><CalendarDays size={20}/></span><div><small>Occurrences programmées</small><strong>{loading?'—':events.length}</strong></div><span>Ce mois-ci</span></article><article data-tone="success"><span className="audit-stat-icon"><CheckCircle2 size={20}/></span><div><small>Comptes rendus terminés</small><strong>{loading?'—':runs.filter(r=>r.data.completed&&events.some(event=>event.routine.id===r.routine_id&&event.date===r.date)).length}</strong></div><span>Ce mois-ci</span></article><article data-tone="warning"><span className="audit-stat-icon"><Clock3 size={20}/></span><div><small>À rattraper</small><strong>{loading?'—':events.filter(e=>e.date<todayParis()&&!runs.some(r=>r.routine_id===e.routine.id&&r.date===e.date&&r.data.completed)).length}</strong></div><span>Ce mois-ci</span></article></div>
  <div className="hub-filters">
@@ -134,5 +162,46 @@ return <HubFrame active="Routines"><div className="audit-routines-page">
    </form>}
   </DialogContent>
  </Dialog>
-<Dialog open={!!edit||!!runEdit} onOpenChange={v=>{if(!v)close()}}><DialogContent className={'hub-form-dialog '+(edit?'audit-builder-dialog':'')} showCloseButton={!busy}><DialogTitle>{edit?<><img className="ab-dialog-logo" src="/polytechs-logo.png" alt="Polytechs"/><span className="ab-dialog-divider"/><span>{edit.id?'Modifier un audit':'Créer un audit'}</span></>:runEdit?.routine.data.title}</DialogTitle><DialogDescription>{edit?'Organisez la grille, testez le formulaire et programmez sa réalisation.':(runEdit?.routine.data.mode==='on-demand'?'Audit ponctuel du ':'Compte rendu du ')+(runEdit?frenchDate(runEdit.date):'')+' · '+runEdit?.routine.data.time}</DialogDescription>{modalError&&<p role="alert" className="error">{modalError}</p>}{edit&&<AuditBuilder key={edit.id||'new'} value={edit.data} meta={meta} busy={busy} locked={!!edit.has_runs} existing={!!edit.id} onChange={data=>setEdit({...edit,data})} onSave={saveRoutine} onConfirm={askConfirm}/>}{runEdit&&<AuditRunEditor audit={runEdit} canFill={canFill} canEdit={canEdit} busy={busy} dirty={dirty} team={team} onChange={data=>setRunEdit({...runEdit,data})} onSave={saveRun} onSaved={(data,revision)=>{setRunEdit({...runEdit,data,revision});setRunBaseline(JSON.stringify(data));load()}} onBusy={setBusy} onError={setModalError}/> }</DialogContent></Dialog></div>{confirmation}</HubFrame>
+<Dialog open={!!edit||!!runEdit} onOpenChange={v=>{if(!v)close()}}><DialogContent className={'hub-form-dialog '+(edit?'audit-builder-dialog':'')} showCloseButton={!busy}><DialogTitle>{edit?<><img className="ab-dialog-logo" src="/polytechs-logo.png" alt="Polytechs"/><span className="ab-dialog-divider"/><span>{edit.id?'Modifier un audit':'Créer un audit'}</span></>:runEdit?.routine.data.title}</DialogTitle>{edit?.id&&canDelete(edit)&&<div className="audit-editor-menu"><AuditDeleteMenu title={edit.data.title} disabled={busy||dirty} onDelete={()=>requestDelete(edit)}/></div>}<DialogDescription>{edit?'Organisez la grille, testez le formulaire et programmez sa réalisation.':(runEdit?.routine.data.mode==='on-demand'?'Audit ponctuel du ':'Compte rendu du ')+(runEdit?frenchDate(runEdit.date):'')+' · '+runEdit?.routine.data.time}</DialogDescription>{modalError&&<p role="alert" className="error">{modalError}</p>}{edit&&<AuditBuilder key={edit.id||'new'} value={edit.data} meta={meta} busy={busy} locked={!!edit.has_runs} existing={!!edit.id} onChange={data=>setEdit({...edit,data})} onSave={saveRoutine} onConfirm={askConfirm}/>}{runEdit&&<AuditRunEditor audit={runEdit} canFill={canFill} canEdit={canEdit} busy={busy} dirty={dirty} team={team} onChange={data=>setRunEdit({...runEdit,data})} onSave={saveRun} onSaved={(data,revision)=>{setRunEdit({...runEdit,data,revision});setRunBaseline(JSON.stringify(data));load()}} onBusy={setBusy} onError={setModalError}/> }</DialogContent></Dialog><Dialog open={!!deleteTarget} onOpenChange={open=>{if(!open&&!busy)setDeleteTarget(null)}}>
+ <DialogContent className="hub-form-dialog audit-delete-dialog" showCloseButton={!busy}>
+  <DialogTitle>Supprimer cet audit</DialogTitle>
+  <DialogDescription><strong>{deleteTarget?.data.title}</strong> sera retiré de la liste et du calendrier. Ses comptes rendus éventuels restent consultables dans les archives.</DialogDescription>
+  <form onSubmit={event=>{event.preventDefault();void deleteAudit()}}>
+   <label>Saisissez <strong>SUPPRIMER</strong> en majuscules<input autoFocus autoComplete="off" spellCheck={false} value={deleteText} disabled={busy} onChange={event=>setDeleteText(event.target.value)}/></label>
+   {deleteError&&<p className="error" role="alert">{deleteError}</p>}
+   <div className="audit-routine-actions">
+    <button type="button" className="outline" disabled={busy} onClick={()=>setDeleteTarget(null)}>Annuler</button>
+    <button type="submit" className="audit-delete-confirm" disabled={busy||deleteText!=='SUPPRIMER'}>{busy?'Suppression…':'Supprimer l’audit'}</button>
+   </div>
+  </form>
+ </DialogContent>
+</Dialog>
+</div>{confirmation}</HubFrame>
+}
+
+function AuditDeleteMenu({title,disabled,onDelete}:{title:string;disabled:boolean;onDelete:()=>void}){
+ return <DropdownMenu modal={false}>
+  <DropdownMenuTrigger asChild><button type="button" className="outline audit-more" aria-label={'Actions pour '+title} disabled={disabled}><MoreHorizontal size={20}/></button></DropdownMenuTrigger>
+  <DropdownMenuContent align="end"><DropdownMenuItem variant="destructive" onSelect={onDelete}><Trash2 size={16}/>Supprimer l’audit</DropdownMenuItem></DropdownMenuContent>
+ </DropdownMenu>;
+}
+
+function ArchivedAuditReports({audit,team,busy,onOpen}:{audit:Row<Routine>;team:string;busy:boolean;onOpen:(date:string)=>void}){
+ const [reports,setReports]=useState<{date:string;completed:number}[]|null>(null);
+ const [loading,setLoading]=useState(false),[error,setError]=useState('');
+ async function loadReports(){
+  if(loading||reports)return;
+  setLoading(true);setError('');
+  try{
+   const result=await hubRequest('/api/hub?scope=audit-history&id='+encodeURIComponent(audit.id)+'&team='+encodeURIComponent(team));
+   setReports(result.reports);
+  }catch(error){setError((error as Error).message)}
+  finally{setLoading(false)}
+ }
+ return <article><div><h3>{audit.data.title}</h3>
+  {loading&&<p role="status">Chargement des comptes rendus…</p>}
+  {error&&<p className="error" role="alert">{error}</p>}
+  {reports&&<div className="audit-routine-actions">{reports.length?reports.map(report=><button key={report.date} className="outline" disabled={busy}
+   onClick={()=>onOpen(report.date)}>{frenchDate(report.date)} · {report.completed?'Réalisé':'Brouillon'}</button>):<p>Aucun compte rendu enregistré.</p>}</div>}
+ </div>{!reports&&<button className="outline" disabled={loading||busy} onClick={()=>void loadReports()}>{error?'Réessayer':'Voir les comptes rendus'}</button>}</article>;
 }
