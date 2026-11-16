@@ -7,6 +7,10 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-builder-'));
 try{
  for(const name of ['hub','audit-builder']){const source=fs.readFileSync('lib/'+name+'.ts','utf8').replace("from './hub'","from './hub.mjs'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
  const hub=await import(path.join(dir,'hub.mjs')),builder=await import(path.join(dir,'audit-builder.mjs'));
+ assert.deepEqual(hub.auditConformityChoices(true),['Conforme','Non conforme']);
+ const control={id:'binary',label:'Contrôle'};
+ assert.equal(hub.auditAnswerError(control,{...control,result:'Non applicable',comment:''},true),'Résultat invalide.');
+ assert.equal(hub.auditAnswerError(control,{...control,result:'Non applicable',comment:''}),'');
  const routine={title:'Audit',description:'',teams:['qsse'],pilot:'pilot',start:'2028-01-31',time:'09:00',repeat:'monthly',interval:1,end:'',active:true,questions:[{id:'a',label:'Contrôle A',section:'Terrain'},{id:'b',label:'Contrôle B',section:'Terrain'},{id:'c',label:'Contrôle C',section:'Machines'}]};
  assert.deepEqual(builder.moveAuditQuestion(routine.questions,'b',-1).map(q=>q.id),['b','a','c']);assert.deepEqual(routine.questions.map(q=>q.id),['a','b','c'],'Moving never mutates the source');
  assert.deepEqual(builder.moveAuditQuestion(routine.questions,'c',-1),routine.questions,'Question moves stay in the selected theme');
