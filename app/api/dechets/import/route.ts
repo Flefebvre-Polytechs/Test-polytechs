@@ -4,6 +4,8 @@ import {database} from '@/db/raw';
 import {checkOrigin,requireRole,securityEvent} from '@/lib/access';
 import {loadWasteSource,type WasteSource} from '@/lib/waste-private-source';
 
+import {validDate} from '@/lib/waste';
+
 const noStore={'Cache-Control':'private, no-store'};
 const fail=(error:string,status=400)=>Response.json({error},{status,headers:noStore});
 const limit=8_000_000;
@@ -28,6 +30,7 @@ function validSource(source:unknown):source is WasteSource{
   ids.add(r.id);
   if(!['Prévu','Enlevé'].includes(r.status)||!['Oui','Non','À vérifier'].includes(r.danger)||!['t','kg','unité','à vérifier'].includes(r.unit))return false;
   for(const k of ['date','dateSource','type','family','code','collector','destination','treatment','bsd','owner','notes','documentUrl'] as const)if(typeof r[k]!=='string'||r[k].length>5000)return false;
+  if(r.plannedDate!==undefined&&(typeof r.plannedDate!=='string'||r.plannedDate!==''&&!validDate(r.plannedDate)))return false;
   // A negative historical estimate is kept as source evidence and flagged for review.
   if(!r.type||typeof r.excluded!=='boolean'||typeof r.client!=='boolean'||(r.quantity!==null&&(!Number.isFinite(r.quantity)||r.quantity<0))||(r.estimate!==null&&(!Number.isFinite(r.estimate)||Math.abs(r.estimate)>1_000_000)))return false;
   if(!Array.isArray(r.issues)||!r.issues.every(x=>typeof x==='string'&&x.length<500)||!r.raw||typeof r.raw!=='object'||Array.isArray(r.raw)||Object.keys(r.raw).length>100||!Object.values(r.raw).every(x=>typeof x==='string'&&x.length<5000))return false;

@@ -8,13 +8,13 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-waste-table-'));
 try{
  fs.writeFileSync(path.join(dir,'waste.mjs'),ts.transpileModule(fs.readFileSync('lib/waste.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
  fs.writeFileSync(path.join(dir,'waste-table.mjs'),ts.transpileModule(fs.readFileSync('lib/waste-table.ts','utf8').replaceAll("'./waste'","'./waste.mjs'"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
- const {wasteColumn,wasteTableColumns,wasteTableValue,applyWasteCell,filterWasteTable}=await import(pathToFileURL(path.join(dir,'waste-table.mjs')));
+ const {wasteColumn,wasteTableColumns,wasteTableValue,applyWasteCell,filterWasteTable,wastePlannedColumn}=await import(pathToFileURL(path.join(dir,'waste-table.mjs')));
  assert.deepEqual([wasteColumn(0),wasteColumn(25),wasteColumn(26),wasteColumn(61)],['A','Z','AA','BJ']);
- assert.deepEqual(wasteTableColumns(['Date','',"N° BSD"]).map(x=>x.label),['Date','Colonne B','N° BSD']);
+ assert.deepEqual(wasteTableColumns(['Date','',"N° BSD"]).map(x=>x.label),['Date d’enlèvement','Prévu le','Colonne B','N° BSD']);
  const fullColumns=wasteTableColumns(Array.from({length:62},(_,i)=>`Colonne ${wasteColumn(i)}`));
- assert.equal(fullColumns.length,59);assert.equal(fullColumns.at(-1).key,'BG');
+ assert.equal(fullColumns.length,60);assert.equal(fullColumns.at(-1).key,'BG');
  const raw={A:'Date source',AC:'BSD initial',AD:'Carton',AR:'Collecteur\nAdresse',BH:'Note source'};
- const record={sourceRow:6,revision:0,date:'2026-01-02',type:'Carton',bsd:'BSD récent',collector:'Collecteur',quantity:2,estimate:null,danger:'Non',client:false,excluded:false,code:'200101',treatment:'Recyclage',destination:'Site'};
+ const record={status:'Enlevé',sourceRow:6,revision:0,date:'2026-01-02',type:'Carton',bsd:'BSD récent',collector:'Collecteur',quantity:2,estimate:null,danger:'Non',client:false,excluded:false,code:'200101',treatment:'Recyclage',destination:'Site'};
  assert.equal(wasteTableValue(record,raw,'AR'),'Collecteur\nAdresse');assert.equal(wasteTableValue(record,raw,'BH'),'Note source');
  assert.equal(wasteTableValue({...record,revision:1},raw,'AC'),'BSD récent');assert.equal(wasteTableValue({...record,revision:1},raw,'BH'),'Note source');
  assert.equal(wasteTableValue({...record,sourceRow:0},raw,'AJ'),'2');
@@ -32,6 +32,16 @@ try{
  assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'AJ',direction:'asc'}).map(r=>r.id),['1','3','2']);
  assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'A',direction:'desc'}).map(r=>r.id),['3','2','1']);
  assert.deepEqual(filterWasteTable(rows,sources,cols,'',{}, {key:'AD',direction:'asc'}).map(r=>r.id),['1','2','3']);
- assert.match(wasteTableColumns(Array(36).fill('Quantité (T)'))[34].label,/unité de la fiche/);
- console.log('Registre complet : 59 colonnes affichées, source et corrections vérifiées.');
+ assert.match(wasteTableColumns(Array(36).fill('Quantité (T)')).find(column=>column.key==='AI').label,/unité de la fiche/);
+ const planned={...record,id:'4',status:'Prévu',date:'2026-03-02'};
+ assert.equal(wasteTableValue(planned,{A:'Prévu le 02/03/2026'},'A'),'');
+ assert.equal(wasteTableValue(planned,{A:'Prévu le 02/03/2026'},wastePlannedColumn),'2026-03-02');
+ assert.equal(wasteTableValue({...record,date:'2026-02-31'},raw,'A'),'');
+ assert.equal(wasteTableValue({...record,cellOverrides:{A:'Texte historique'}},raw,'A'),'2026-01-02');
+ assert.equal(applyWasteCell(planned,wastePlannedColumn,'03/03/2026').date,'2026-03-03');
+ assert.equal(applyWasteCell(record,wastePlannedColumn,'03/03/2026').plannedDate,'2026-03-03');
+ assert.throws(()=>applyWasteCell(planned,'A','03/03/2026'),/Prévu le/);
+ assert.deepEqual(filterWasteTable([...rows,planned],sources,fullColumns,'',{[wastePlannedColumn]:'02/03/2026'},null).map(row=>row.id),['4']);
+ assert.deepEqual(filterWasteTable([...rows,planned],sources,fullColumns,'',{},null).map(row=>row.id),['4','3','2','1']);
+ console.log('Registre complet : dates prévues et réelles, filtres, tri et source vérifiés.');
 }finally{fs.rmSync(dir,{recursive:true,force:true})}

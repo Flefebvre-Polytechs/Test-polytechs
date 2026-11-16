@@ -108,6 +108,16 @@ for(const id of [current.id,'legacy-old',copiedId]){
  assert.ok(audit.some(row=>row.deletedAt&&row.deletedBy==='tester'));
 }
 globalThis.wasteTestRole='admin';globalThis.wasteManageAllowed=false;
+const plannedResponse=await api.POST(request({...blankWaste(),type:'Bac à enlever',date:'2026-05-01'}));
+const plannedId=(await plannedResponse.json()).id;
+assert.equal((await api.POST(request({...blankWaste(),id:plannedId,type:'Bac à enlever',revision:1,status:'Enlevé',date:'2026-05-03'}))).status,200);
+const finished=(await (await api.GET(new Request('https://example.test/api/dechets?id='+plannedId))).json()).record;
+assert.equal(finished.date,'2026-05-03');
+assert.equal(finished.plannedDate,'2026-05-01');
+assert.equal((await api.PATCH(patch({id:plannedId,revision:finished.revision,column:'plannedDate',value:'02/05/2026'}))).status,200);
+const rescheduled=(await (await api.GET(new Request('https://example.test/api/dechets?id='+plannedId))).json()).record;
+assert.equal(rescheduled.plannedDate,'2026-05-02');
+assert.equal(rescheduled.date,'2026-05-03');
 const sourcePath='private/waste-source.json';if(fs.existsSync(sourcePath)){const original=JSON.parse(fs.readFileSync(sourcePath,'utf8'));assert.ok(original.records.length>=1733);assert.equal(new Set(original.records.map(r=>r.id)).size,original.records.length);assert.equal(original.records.find(r=>r.sourceRow===66).unit,'à vérifier');assert.equal(original.records.find(r=>r.sourceRow===6).quantity,204);assert.equal(original.records.find(r=>r.sourceRow===6).unit,'unité');assert.ok(original.records.every(r=>r.raw.AD));}
 console.log('Déchets : unités, dates, estimations, confidentialité, droits, historique et modifications concurrentes vérifiés.');
 }finally{sqlite.close();fs.rmSync(dir,{recursive:true,force:true})}

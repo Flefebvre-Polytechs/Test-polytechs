@@ -14,7 +14,8 @@ fs.writeFileSync(path.join(privateDir,'waste-source.json'),JSON.stringify(previo
 fs.writeFileSync(path.join(root,'source.mjs'),`import {readFileSync} from 'node:fs';import {join} from 'node:path';export const loadWasteSource=()=>JSON.parse(readFileSync(join(process.env.POLYTECHS_DATA_DIR,'private','waste-source.json'),'utf8'));`);
 fs.writeFileSync(path.join(root,'raw.mjs'),`export const database=()=>({prepare:()=>({first:async()=>({n:4})})});`);
 fs.writeFileSync(path.join(root,'access.mjs'),`export const checkOrigin=req=>req.headers.get('origin')==='https://example.test';export const requireRole=async()=>globalThis.wasteImporterAdmin?{user:{id:'admin'}}:{error:Response.json({error:'Non autorisé'},{status:403})};export const securityEvent=async()=>{};`);
-let route=fs.readFileSync('app/api/dechets/import/route.ts','utf8');for(const [from,to] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/waste-private-source','./source.mjs']])route=route.replaceAll("'"+from+"'","'"+to+"'");
+fs.writeFileSync(path.join(root,'waste.mjs'),ts.transpileModule(fs.readFileSync('lib/waste.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
+let route=fs.readFileSync('app/api/dechets/import/route.ts','utf8');for(const [from,to] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/waste-private-source','./source.mjs'],['@/lib/waste','./waste.mjs']])route=route.replaceAll("'"+from+"'","'"+to+"'");
 fs.writeFileSync(path.join(root,'route.mjs'),ts.transpileModule(route,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
 try{
  const api=await import(path.join(root,'route.mjs'));
