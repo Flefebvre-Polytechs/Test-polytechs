@@ -22,3 +22,6 @@
 .audit-delete-confirm { background:#a12732; color:white; border-radius:8px; padding:9px 14px; border:1px solid #a12732; }
 .audit-delete-confirm:disabled { opacity:.5; cursor:not-allowed; }
 @media(max-width:620px) { .audit-editor-menu { top:8px; right:48px; } }
+
+.audit-inline-ticket .audit-routine-actions { margin-top:16px; justify-content:flex-end; }
+.audit-point > .audit-ticket-link { display:inline-flex; align-items:center; gap:7px; margin-top:8px; }

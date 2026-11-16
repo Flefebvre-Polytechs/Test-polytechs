@@ -3,7 +3,7 @@ import {visibleNotifications} from '@/lib/notification-access';
 import {gmaoTicketContributor,gmaoTicketReader} from '@/lib/gmao-server';
 import {database} from '@/db/raw';
 import {checkOrigin,requireRole} from '@/lib/access';
-import {auditAnswerError,auditCompletionError,auditQuestionType,ticketError,routineError,communicationError,occurrenceDates,validDate,todayParis,type Routine} from '@/lib/hub';
+import {auditAnswerError,auditCompletionError,auditQuestionType,ticketError,routineError,communicationError,occurrenceDates,validDate,todayParis,newTicket,type Routine,type Run,type Ticket} from '@/lib/hub';
 import {teamContentVisible,accessibleTeams,someTeamAllowed,teamsAllowed} from '@/lib/team-access';
 const fail=(error:string,status=400)=>Response.json({error},{status});
 const ok=(v:unknown)=>Response.json(v,{headers:{'Cache-Control':'no-store'}});
@@ -16,7 +16,20 @@ if(scope==='meta'){const [teams,users]=await Promise.all([db.prepare('SELECT id,
 if(scope==='notifications'){const visible=await visibleNotifications(req,gate.user!);return ok({notifications:visible,unread:visible.filter(n=>!n.seen).length})}
 if(scope==='overview-stats'){const team=q.get('team')||'';if(!team||!await db.prepare('SELECT id FROM teams WHERE id=?').bind(team).first())return fail('Équipe inconnue.');const allowed=await accessibleTeams(gate.user!);if(!allowed.has(team))return fail('Accès à cette équipe non autorisé.',403);const scopeIds=[team];const rows=await db.prepare('SELECT id,data,created_at,updated_at FROM hub_tickets ORDER BY updated_at DESC').all();const counts:Record<string,{open:number;closed:number;total:number}>=Object.create(null),recent:any[]=[];for(const r of rows.results as any[]){const item=JSON.parse(r.data);if(!Array.isArray(item.teams)||!teamContentVisible(allowed,item.teams,gate.user!.role==='admin')||!item.teams.some((id:string)=>scopeIds.includes(id)))continue;const category=String(item.category||'Autre');const entry=counts[category]||{open:0,closed:0,total:0};entry.total++;entry[item.status==='Clôturé'?'closed':'open']++;counts[category]=entry;if(recent.length<150)recent.push({id:r.id,title:item.title,category,status:item.status,due:item.due,updated_at:r.updated_at})}return ok({counts,recent,shown:recent.length,updatedAt:new Date().toISOString()})}
 if(scope==='ticket'){const row=await db.prepare('SELECT * FROM hub_tickets WHERE id=?').bind(q.get('id')||'').first();if(!row)return fail('Ticket introuvable.',404);if(contextTeam&&!JSON.parse((row as any).data).teams?.includes(contextTeam))return fail('Ce ticket ne concerne pas cette équipe.',404);if(!await someTeamAllowed(gate.user!,JSON.parse((row as any).data).teams||[])&&!await gmaoTicketReader(gate.user!,String(row.id)))return fail('Accès au ticket non autorisé.',403);const [comments,files]=await Promise.all([db.prepare('SELECT * FROM hub_comments WHERE ticket_id=? ORDER BY created_at,id').bind(row.id).all(),db.prepare('SELECT * FROM hub_files WHERE ticket_id=? ORDER BY created_at,id').bind(row.id).all()]);return ok({ticket:parse(row),comments:comments.results,files:files.results,gmaoContributor:await gmaoTicketContributor(gate.user!,String(row.id)),gmaoDataContributor:await gmaoTicketContributor(gate.user!,String(row.id),'contribute')})}
-if(scope==='run'){const id=q.get('id')||'',date=q.get('date')||'';if(!validDate(date))return fail('Date invalide.');const routine=await db.prepare('SELECT * FROM hub_routines WHERE id=?').bind(id).first<any>();if(!routine)return fail('Routine introuvable.',404);if(contextTeam&&!JSON.parse(routine.data).teams?.includes(contextTeam))return fail('Cette routine ne concerne pas cette équipe.',404);if(!await someTeamAllowed(gate.user!,JSON.parse(routine.data).teams||[]))return fail('Accès à la routine non autorisé.',403);const run=await db.prepare('SELECT * FROM hub_runs WHERE id=?').bind(id+':'+date).first();if(!run&&JSON.parse(routine.data).archivedAt)return fail('Compte rendu introuvable.',404);return ok({routine:parse(routine),run:run?parse(run):null})}
+if(scope==='run'){const id=q.get('id')||'',date=q.get('date')||'';if(!validDate(date))return fail('Date invalide.');const routine=await db.prepare('SELECT * FROM hub_routines WHERE id=?').bind(id).first<any>();if(!routine)return fail('Routine introuvable.',404);if(contextTeam&&!JSON.parse(routine.data).teams?.includes(contextTeam))return fail('Cette routine ne concerne pas cette équipe.',404);if(!await someTeamAllowed(gate.user!,JSON.parse(routine.data).teams||[]))return fail('Accès à la routine non autorisé.',403);const run=await db.prepare('SELECT * FROM hub_runs WHERE id=?').bind(id+':'+date).first();if(!run&&JSON.parse(routine.data).archivedAt)return fail('Compte rendu introuvable.',404);const tickets=[];
+ if(run){
+  const allowed=await accessibleTeams(gate.user!);
+  const linked=await db.prepare(`SELECT id,data FROM hub_tickets
+   WHERE json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?
+   AND json_extract(data,'$.source.questionId') IS NOT NULL`).bind(id,date).all<{id:string;data:string}>();
+  for(const item of linked.results){
+   const data=JSON.parse(item.data) as Ticket;
+   if(teamContentVisible(allowed,data.teams,gate.user!.role==='admin')){
+    tickets.push({id:item.id,title:data.title,questionId:data.source!.questionId,status:data.archivedAt?'Archivé':data.status});
+   }
+  }
+ }
+ return ok({routine:parse(routine),run:run?parse(run):null,tickets})}
 if(scope==='audit-history'){
  const id=q.get('id')||'';
  if(!id||id.length>100)return fail('Audit invalide.');
@@ -103,6 +116,46 @@ if(b.action==='audit-session'){
  if(!inserted.meta.changes)return fail('Cet audit a changé. Actualisez la liste.',409);
  return ok({id,date});
 }
+if(b.action==='audit-ticket'){
+ const user=gate.user!;
+ if(typeof b.routineId!=='string'||!b.routineId||b.routineId.length>100||
+    !validDate(b.date)||typeof b.questionId!=='string'||!b.questionId||b.questionId.length>100||
+    !Number.isSafeInteger(b.runRevision)||b.runRevision<1)return fail('Point d’audit invalide.');
+ const row=await db.prepare('SELECT data,revision FROM hub_routines WHERE id=?').bind(b.routineId).first<{data:string;revision:number}>();
+ if(!row)return fail('Audit introuvable.',404);
+ const routine:Routine=JSON.parse(row.data);
+ if(!routine.teams.length||!await teamsAllowed(user,routine.teams,true))return fail('Création de tickets non autorisée pour cet audit.',403);
+ if(!occurrenceDates(routine,b.date,b.date).includes(b.date))return fail('Cette occurrence n’est plus active.',409);
+ const runId=b.routineId+':'+b.date;
+ const run=await db.prepare('SELECT data,revision FROM hub_runs WHERE id=?').bind(runId).first<{data:string;revision:number}>();
+ if(!run||run.revision!==b.runRevision)return fail('Le compte rendu a changé. Actualisez l’audit avant de réessayer.',409);
+ const saved:Run=JSON.parse(run.data);
+ const answer=saved.answers.find(answer=>answer.id===b.questionId);
+ if(!answer||answer.result!=='Non conforme')return fail('Ce point doit être enregistré comme non conforme.');
+ const ticket:Ticket={...newTicket(),title:b.title,category:b.category,description:b.description,due:b.due,teams:routine.teams,
+  source:{routineId:b.routineId,date:b.date,questionId:b.questionId}};
+ const issue=ticketError(ticket);if(issue)return fail(issue);
+ const matching=`json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?
+  AND json_extract(data,'$.source.questionId')=?`;
+ const linkArgs=[b.routineId,b.date,b.questionId];
+ const id=crypto.randomUUID();
+ // Write once for this occurrence and point, even if a request is retried.
+ const result=await db.prepare(`INSERT INTO hub_tickets (id,data,revision,created_at,updated_at,author)
+  SELECT ?,?,1,?,?,? WHERE NOT EXISTS(SELECT 1 FROM hub_tickets WHERE ${matching})
+  AND EXISTS(SELECT 1 FROM hub_runs WHERE id=? AND revision=?)
+  AND EXISTS(SELECT 1 FROM hub_routines WHERE id=? AND revision=?)`)
+  .bind(id,JSON.stringify(ticket),now,now,author,...linkArgs,runId,run.revision,b.routineId,row.revision).run();
+ if(result.meta.changes)return ok({id,title:ticket.title,questionId:b.questionId,status:ticket.status,created:true});
+ const existing=await db.prepare(`SELECT id,data FROM hub_tickets WHERE ${matching}`).bind(...linkArgs).first<{id:string;data:string}>();
+ if(existing){
+  const data:Ticket=JSON.parse(existing.data);
+  if(await someTeamAllowed(user,data.teams)){
+   return ok({id:existing.id,title:data.title,questionId:b.questionId,status:data.archivedAt?'Archivé':data.status,created:false});
+  }
+  return fail('Un ticket est déjà lié à ce point d’audit.',409);
+ }
+ return fail('Le compte rendu ou la grille a changé. Actualisez l’audit.',409);
+}
 if(b.action==='run'){
  if(typeof b.routineId!=='string'||!validDate(b.date)||!Number.isInteger(b.revision)||b.revision<0)return fail('Occurrence invalide.');
  const row=await db.prepare('SELECT data FROM hub_routines WHERE id=?').bind(b.routineId).first<any>();if(!row)return fail('Routine introuvable.',404);
@@ -124,7 +177,11 @@ if(b.action==='run'){
  if(!changed)return fail('Compte rendu modifié. Rechargez avant de réessayer.',409);
  return ok({id,revision:b.revision+1,data});
 }
-if(!Object.hasOwn(tables,b.action))return fail('Action inconnue.');const kind=b.action as keyof typeof tables,v=b.data;const error=kind==='ticket'?ticketError(v):kind==='routine'?routineError(v):communicationError(v);if(error)return fail(error);if(kind==='routine'){delete v.archivedAt;delete v.archivedBy}if(kind==='routine'&&!b.id&&v.mode&&v.mode!=='catalog')return fail('Utilisez la liste d’audits pour créer une session.');if(b.id&&(typeof b.id!=='string'||!Number.isInteger(b.revision)||b.revision<1))return fail('Révision invalide.');let linked:any=null;if(kind==='ticket'&&b.id){const r=await db.prepare('SELECT data FROM hub_tickets WHERE id=?').bind(b.id).first<any>();if(r){const t=JSON.parse(r.data);if(t.gmaoOrderId){linked=t;if(t.status==='Clôturé'&&JSON.stringify(t.actions)!==JSON.stringify(v.actions))return fail('Rouvrez l’intervention dans la GMAO avant de modifier ses sous-actions.',409);if(['title','category','description','teams','pilot','due','status'].some(k=>JSON.stringify(t[k])!==JSON.stringify(v[k])))return fail('Modifiez la demande, l’attribution et l’état depuis la GMAO.',409);}}}let dataEntry=false;if(kind==='ticket'&&b.id&&!await teamsAllowed(gate.user!,v.teams,true)&&(await teamsAllowed(gate.user!,v.teams,true,'contribute')||!!linked&&await gmaoTicketContributor(gate.user!,b.id,'contribute'))){const original=await db.prepare('SELECT data FROM hub_tickets WHERE id=?').bind(b.id).first<any>();if(original){const old=JSON.parse(original.data);const expected={...old,actions:old.actions.map((a:any)=>({...a,done:v.actions.find((x:any)=>x.id===a.id)?.done??a.done}))};if(JSON.stringify(expected)!==JSON.stringify(v))return fail('Un utilisateur peut renseigner la réalisation des actions, sans modifier le ticket ni ses affectations.',403);dataEntry=true}}const delegated=dataEntry||!!linked&&await gmaoTicketContributor(gate.user!,b.id);const teamIds=[...v.teams,...(kind==='communication'?[v.sourceTeam]:[])];const teams=(await db.prepare('SELECT id FROM teams').all()).results;if(teamIds.some(id=>!teams.some(t=>t.id===id)))return fail('Équipe inconnue.');if(!await teamsAllowed(gate.user!,teamIds,true)&&!delegated)return fail('Modification de ces équipes non autorisée.',403);const userIds=kind==='ticket'?[v.pilot,...v.responsibles,...v.actions.map((a:any)=>a.pilot)].filter(Boolean):kind==='routine'?[v.pilot].filter(Boolean):[];if(!await recipients([...new Set(userIds)]))return fail('Pilote ou responsable inconnu.');if(kind==='ticket'&&v.source){const source=await db.prepare('SELECT data FROM hub_routines WHERE id=?').bind(v.source.routineId).first<any>();const sourceRoutine=source?JSON.parse(source.data) as Routine:null;
+if(!Object.hasOwn(tables,b.action))return fail('Action inconnue.');const kind=b.action as keyof typeof tables,v=b.data;const error=kind==='ticket'?ticketError(v):kind==='routine'?routineError(v):communicationError(v);if(error)return fail(error);if(kind==='routine'){delete v.archivedAt;delete v.archivedBy}if(kind==='routine'&&!b.id&&v.mode&&v.mode!=='catalog')return fail('Utilisez la liste d’audits pour créer une session.');if(b.id&&(typeof b.id!=='string'||!Number.isInteger(b.revision)||b.revision<1))return fail('Révision invalide.');if(kind==='ticket'&&!b.id&&v.source?.questionId!==undefined)return fail('Créez le ticket depuis le point d’audit.');
+let linked:any=null;if(kind==='ticket'&&b.id){const r=await db.prepare('SELECT data FROM hub_tickets WHERE id=?').bind(b.id).first<any>();if(r){const t=JSON.parse(r.data);
+ if(t.source?.questionId)v.source=t.source;
+ else if(v.source?.questionId!==undefined)return fail('Créez le ticket depuis le point d’audit.');
+ if(t.gmaoOrderId){linked=t;if(t.status==='Clôturé'&&JSON.stringify(t.actions)!==JSON.stringify(v.actions))return fail('Rouvrez l’intervention dans la GMAO avant de modifier ses sous-actions.',409);if(['title','category','description','teams','pilot','due','status'].some(k=>JSON.stringify(t[k])!==JSON.stringify(v[k])))return fail('Modifiez la demande, l’attribution et l’état depuis la GMAO.',409);}}}let dataEntry=false;if(kind==='ticket'&&b.id&&!await teamsAllowed(gate.user!,v.teams,true)&&(await teamsAllowed(gate.user!,v.teams,true,'contribute')||!!linked&&await gmaoTicketContributor(gate.user!,b.id,'contribute'))){const original=await db.prepare('SELECT data FROM hub_tickets WHERE id=?').bind(b.id).first<any>();if(original){const old=JSON.parse(original.data);const expected={...old,actions:old.actions.map((a:any)=>({...a,done:v.actions.find((x:any)=>x.id===a.id)?.done??a.done}))};if(JSON.stringify(expected)!==JSON.stringify(v))return fail('Un utilisateur peut renseigner la réalisation des actions, sans modifier le ticket ni ses affectations.',403);dataEntry=true}}const delegated=dataEntry||!!linked&&await gmaoTicketContributor(gate.user!,b.id);const teamIds=[...v.teams,...(kind==='communication'?[v.sourceTeam]:[])];const teams=(await db.prepare('SELECT id FROM teams').all()).results;if(teamIds.some(id=>!teams.some(t=>t.id===id)))return fail('Équipe inconnue.');if(!await teamsAllowed(gate.user!,teamIds,true)&&!delegated)return fail('Modification de ces équipes non autorisée.',403);const userIds=kind==='ticket'?[v.pilot,...v.responsibles,...v.actions.map((a:any)=>a.pilot)].filter(Boolean):kind==='routine'?[v.pilot].filter(Boolean):[];if(!await recipients([...new Set(userIds)]))return fail('Pilote ou responsable inconnu.');if(kind==='ticket'&&v.source){const source=await db.prepare('SELECT data FROM hub_routines WHERE id=?').bind(v.source.routineId).first<any>();const sourceRoutine=source?JSON.parse(source.data) as Routine:null;
  const keepArchivedLink=sourceRoutine?.archivedAt&&b.id&&await db.prepare(`SELECT id FROM hub_tickets WHERE id=?
   AND json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?`).bind(b.id,v.source.routineId,v.source.date).first();
  if(!sourceRoutine||(!keepArchivedLink&&!occurrenceDates(sourceRoutine,v.source.date,v.source.date).length))return fail('Routine d’origine introuvable.');}

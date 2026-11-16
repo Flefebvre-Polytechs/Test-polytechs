@@ -1,16 +1,60 @@
 'use client';
-import {useState} from 'react';
-import {Camera,Download,FileCheck2,LoaderCircle,Plus,Save,Trash2} from 'lucide-react';
-import {auditConformityChoices,auditQuestionType,auditScore,auditSections,type Routine,type Run,type Row} from '@/lib/hub';
+import {useRef,useState,type FormEvent} from 'react';
+import {Camera,Download,FileCheck2,LoaderCircle,Plus,ExternalLink,Save,Trash2} from 'lucide-react';
+import {auditConformityChoices,auditQuestionType,auditScore,auditSections,categories,type Routine,type Run,type Row} from '@/lib/hub';
 import {serviceHref} from '@/lib/navigation';
+import {hubRequest} from '@/lib/hub-request';
+import {Dialog,DialogContent,DialogDescription,DialogTitle} from '@/components/ui/dialog';
 import './audit-run-editor.css';
 
-export type AuditEditorState={routine:Row<Routine>;date:string;revision:number;data:Run};
+type LinkedAuditTicket={id:string;title:string;status:string;questionId:string};
+type TicketDraft={questionId:string;label:string;title:string;description:string;category:string;due:string};
+export type AuditEditorState={routine:Row<Routine>;date:string;revision:number;data:Run;tickets?:LinkedAuditTicket[]};
 type Props={audit:AuditEditorState;canFill:boolean;canEdit:boolean;busy:boolean;dirty:boolean;team:string;onChange:(data:Run)=>void;onSave:()=>Promise<{data:Run;revision:number}|null>;onSaved:(data:Run,revision:number)=>void;onBusy:(busy:boolean)=>void;onError:(error:string)=>void};
 const dateLabel=(value:string)=>{const date=new Date(value);return Number.isNaN(date.getTime())?'Date non renseignée':new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',dateStyle:'medium',timeStyle:'short'}).format(date)};
 
 export function AuditRunEditor({audit,canFill,canEdit,busy,dirty,team,onChange,onSave,onSaved,onBusy,onError}:Props){
   const [downloading,setDownloading]=useState(false),score=auditScore(audit.data.answers),writable=canFill&&audit.routine.data.active;
+  const [ticketDraft,setTicketDraft]=useState<TicketDraft|null>(null);
+  const [tickets,setTickets]=useState<LinkedAuditTicket[]>(audit.tickets??[]);
+  const [ticketError,setTicketError]=useState(''),[ticketMessage,setTicketMessage]=useState<{questionId:string;text:string}|null>(null),[ticketSaving,setTicketSaving]=useState(false);
+  const ticketPoint=useRef<HTMLElement|null>(null);
+
+  function openTicket(answer:Run['answers'][number],point:HTMLElement|null){
+   ticketPoint.current=point;
+   setTicketError('');setTicketMessage(null);
+   setTicketDraft({
+    questionId:answer.id,label:answer.label,title:('Écart d’audit · '+answer.label).slice(0,200),
+    description:[
+     'Audit : '+(audit.data.routineTitle||audit.routine.data.title)+' · '+audit.date.split('-').reverse().join('/'),
+     audit.data.location?'Lieu : '+audit.data.location:'',
+     'Point non conforme : '+answer.label,
+     answer.comment?'Observation : '+answer.comment:'',
+    ].filter(Boolean).join('\n'),
+    category:'Autre',due:'',
+   });
+  }
+  async function saveTicket(event:FormEvent){
+   event.preventDefault();
+   if(!ticketDraft||ticketSaving||busy)return;
+   setTicketSaving(true);setTicketError('');
+   try{
+    let revision=audit.revision;
+    if(dirty||!revision){
+     const saved=await onSave();
+     if(!saved)throw Error('Le compte rendu n’a pas été enregistré. Fermez cette fenêtre pour voir le détail.');
+     revision=saved.revision;
+    }
+    onBusy(true);
+    const {questionId,title,description,category,due}=ticketDraft;
+    const result=await hubRequest('/api/hub',{action:'audit-ticket',routineId:audit.routine.id,date:audit.date,runRevision:revision,questionId,title,description,category,due});
+    setTickets(current=>[...current.filter(ticket=>ticket.questionId!==questionId),result]);
+    setTicketMessage({questionId,text:result.created?'Ticket créé. Vous pouvez poursuivre l’audit.':'Le ticket déjà lié est disponible.'});
+    setTicketDraft(null);
+   }catch(error){setTicketError((error as Error).message)}
+   finally{setTicketSaving(false);onBusy(false)}
+  }
+
   const fileUrl=(id:string)=>'/api/routine-files?routine='+encodeURIComponent(audit.routine.id)+'&date='+audit.date+'&id='+encodeURIComponent(id)+'&team='+encodeURIComponent(team);
   async function upload(questionId:string,file:File,caption:string){
     onError('');try{
@@ -37,12 +81,36 @@ export function AuditRunEditor({audit,canFill,canEdit,busy,dirty,team,onChange,o
     </fieldset>
     {!audit.revision&&writable&&<button type="button" className="primary" disabled={busy} onClick={onSave}><FileCheck2 size={17}/>Démarrer l’audit</button>}
     <p className="hub-prewrap">{audit.data.routineDescription??audit.routine.data.description}</p>
-    {auditSections(audit.data.answers).map(section=><section className="audit-theme" key={section.title}><header><h3>{section.title}</h3><span>{section.score.percent===null?'N/A':section.score.percent+' %'} · {section.score.conform}/{section.score.applicable}</span></header>{section.answers.map(answer=>{const type=auditQuestionType(answer);return <article className="audit-point" key={answer.id} data-result={answer.result}><fieldset disabled={busy||!writable}><label className="audit-point-label"><strong>{answer.label}{answer.required!==false?' *':' (facultatif)'}</strong>{type==='conformity'&&<select aria-label={'Résultat : '+answer.label} value={answer.result} onChange={e=>changeAnswer(answer.id,{result:e.target.value})}><option value="À faire" disabled={audit.routine.data.binaryConformity}>{audit.routine.data.binaryConformity?'Choisir un résultat':'À faire'}</option>{auditConformityChoices(audit.routine.data.binaryConformity).map(v=><option key={v}>{v}</option>)}</select>}</label>{answer.help&&<p className="audit-answer-help">{answer.help}</p>}{type==='text'&&<textarea aria-label={'Réponse : '+answer.label} placeholder="Votre réponse…" rows={3} maxLength={3000} value={answer.value||''} onChange={e=>changeAnswer(answer.id,{value:e.target.value})}/>} {['number','date'].includes(type)&&<input className="audit-answer-value" aria-label={'Réponse : '+answer.label} type={type==='number'?'number':'date'} step={type==='number'?'any':undefined} value={answer.value||''} onChange={e=>changeAnswer(answer.id,{value:e.target.value})}/>}<textarea aria-label={'Observation : '+answer.label} placeholder={type==='conformity'?'Décrivez votre observation…':'Observation complémentaire (facultatif)'} rows={2} maxLength={3000} value={answer.comment} onChange={e=>changeAnswer(answer.id,{comment:e.target.value})}/>{answer.result==='Non conforme'&&answer.evidence&&answer.evidence!=='none'&&<small className="audit-evidence-hint">Pour terminer : {answer.evidence==='both'?'une observation et une photo sont obligatoires':answer.evidence==='photo'?'une photo est obligatoire':'une observation est obligatoire'} pour ce point.</small>}</fieldset>{answer.author&&answer.updatedAt&&<small className="audit-observation-author">{answer.author} · {dateLabel(answer.updatedAt)}</small>}{photos(answer.id)}</article>})}</section>)}
+    {auditSections(audit.data.answers).map(section=><section className="audit-theme" key={section.title}><header><h3>{section.title}</h3><span>{section.score.percent===null?'N/A':section.score.percent+' %'} · {section.score.conform}/{section.score.applicable}</span></header>{section.answers.map(answer=>{const type=auditQuestionType(answer);return <article className="audit-point" tabIndex={-1} key={answer.id} data-result={answer.result}><fieldset disabled={busy||!writable}><label className="audit-point-label"><strong>{answer.label}{answer.required!==false?' *':' (facultatif)'}</strong>{type==='conformity'&&<select aria-label={'Résultat : '+answer.label} value={answer.result} onChange={e=>changeAnswer(answer.id,{result:e.target.value})}><option value="À faire" disabled={audit.routine.data.binaryConformity}>{audit.routine.data.binaryConformity?'Choisir un résultat':'À faire'}</option>{auditConformityChoices(audit.routine.data.binaryConformity).map(v=><option key={v}>{v}</option>)}</select>}</label>{answer.help&&<p className="audit-answer-help">{answer.help}</p>}{type==='text'&&<textarea aria-label={'Réponse : '+answer.label} placeholder="Votre réponse…" rows={3} maxLength={3000} value={answer.value||''} onChange={e=>changeAnswer(answer.id,{value:e.target.value})}/>} {['number','date'].includes(type)&&<input className="audit-answer-value" aria-label={'Réponse : '+answer.label} type={type==='number'?'number':'date'} step={type==='number'?'any':undefined} value={answer.value||''} onChange={e=>changeAnswer(answer.id,{value:e.target.value})}/>}<textarea aria-label={'Observation : '+answer.label} placeholder={type==='conformity'?'Décrivez votre observation…':'Observation complémentaire (facultatif)'} rows={2} maxLength={3000} value={answer.comment} onChange={e=>changeAnswer(answer.id,{comment:e.target.value})}/>{answer.result==='Non conforme'&&answer.evidence&&answer.evidence!=='none'&&<small className="audit-evidence-hint">Pour terminer : {answer.evidence==='both'?'une observation et une photo sont obligatoires':answer.evidence==='photo'?'une photo est obligatoire':'une observation est obligatoire'} pour ce point.</small>}</fieldset>{answer.author&&answer.updatedAt&&<small className="audit-observation-author">{answer.author} · {dateLabel(answer.updatedAt)}</small>}{photos(answer.id)}
+    {tickets.filter(ticket=>ticket.questionId===answer.id).map(ticket=><a key={ticket.id} className="outline audit-ticket-link" target="_blank" rel="noopener noreferrer" href={serviceHref('/tickets?id='+encodeURIComponent(ticket.id),team)}><ExternalLink size={16}/>Ticket lié · {ticket.status}<span className="sr-only"> (nouvel onglet)</span></a>)}
+    {answer.result==='Non conforme'&&canEdit&&writable&&!tickets.some(ticket=>ticket.questionId===answer.id)&&
+     <button className="outline audit-ticket-link" type="button" disabled={busy} onClick={event=>openTicket(answer,event.currentTarget.closest('.audit-point'))}><Plus size={16}/>Créer un ticket</button>}
+    {ticketMessage?.questionId===answer.id&&<p role="status" className="success">{ticketMessage.text}</p>}
+    </article>})}</section>)}
     <fieldset className="hub-fields" disabled={busy||!writable}><label>Synthèse et autres observations<textarea rows={4} maxLength={10000} value={audit.data.notes} onChange={e=>onChange({...audit.data,notes:e.target.value,completed:false})}/></label></fieldset>
     <section className="audit-general-photos"><h3>Photos générales</h3>{photos('')}</section>
     {!audit.routine.data.active&&<p>Routine suspendue : ce compte rendu est conservé en lecture seule.</p>}
     {writable&&<div className="audit-save-area"><label className="hub-check"><input disabled={busy} type="checkbox" checked={audit.data.completed} onChange={e=>onChange({...audit.data,completed:e.target.checked})}/> Audit terminé</label><small>{score.requiredPending?`${score.requiredPending} réponse(s) obligatoire(s) à compléter.`:'Réponses obligatoires renseignées. Les preuves requises seront vérifiées à l’enregistrement.'}</small><button className="primary" type="button" disabled={busy} onClick={onSave}><Save size={16}/>{busy?'Enregistrement…':'Enregistrer le compte rendu'}</button></div>}
-    {canEdit&&audit.revision>0&&!dirty&&audit.routine.data.active&&score.nonconform>0&&<a className="outline audit-ticket-link" href={serviceHref('/tickets?routine='+encodeURIComponent(audit.routine.id)+'&date='+audit.date,team)}><Plus size={16}/>Ouvrir un ticket pour les écarts</a>}
+    <Dialog open={!!ticketDraft} onOpenChange={open=>{if(!open&&!ticketSaving)setTicketDraft(null)}}>
+     <DialogContent className="hub-form-dialog audit-inline-ticket" showCloseButton={!ticketSaving}
+      onCloseAutoFocus={event=>{if(ticketPoint.current){event.preventDefault();ticketPoint.current.focus({preventScroll:true})}}}>
+      <DialogTitle>Créer un ticket pour cet écart</DialogTitle>
+      <DialogDescription>{ticketDraft?.label}. La saisie reprend sur ce point après création du ticket.</DialogDescription>
+      {ticketDraft&&<form onSubmit={saveTicket}>
+       <fieldset className="hub-fields" disabled={ticketSaving}>
+        <label>Titre<input required maxLength={200} value={ticketDraft.title} onChange={event=>setTicketDraft({...ticketDraft,title:event.target.value})}/></label>
+        <label>Description<textarea rows={6} maxLength={10000} value={ticketDraft.description} onChange={event=>setTicketDraft({...ticketDraft,description:event.target.value})}/></label>
+        <div className="hub-form-grid">
+         <label>Catégorie<select value={ticketDraft.category} onChange={event=>setTicketDraft({...ticketDraft,category:event.target.value})}>{categories.map(category=><option key={category}>{category}</option>)}</select></label>
+         <label>Échéance (facultative)<input type="date" value={ticketDraft.due} onChange={event=>setTicketDraft({...ticketDraft,due:event.target.value})}/></label>
+        </div>
+       </fieldset>
+       {ticketError&&<p role="alert" className="error">{ticketError}</p>}
+       <div className="audit-routine-actions"><button type="button" className="outline" disabled={ticketSaving} onClick={()=>setTicketDraft(null)}>Annuler</button>
+        <button type="submit" className="primary" disabled={ticketSaving||!ticketDraft.title.trim()}>{ticketSaving?'Création…':'Créer et reprendre l’audit'}</button></div>
+      </form>}
+     </DialogContent>
+    </Dialog>
   </div>;
 }
 

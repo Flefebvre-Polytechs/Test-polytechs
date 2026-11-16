@@ -124,5 +124,35 @@ try{
  assert.deepEqual(lib.scheduledAuditDates(archivedSchedule,auditToday,auditToday),[]);
  db.exec("DELETE FROM team_members WHERE user_id='editor'");
  assert.equal((await hub.GET(archiveRequest)).status,403);
+ db.exec("ALTER TABLE hub_tickets ADD COLUMN revision INTEGER; ALTER TABLE hub_tickets ADD COLUMN updated_at TEXT; ALTER TABLE hub_tickets ADD COLUMN author TEXT; INSERT INTO team_members VALUES('qsse','editor','contributor')");
+ const scheduledSave=await hub.POST(request({action:'run',routineId:scheduledId,date:auditToday,revision:0,data:{
+  answers:routine.questions.map(q=>({id:q.id,result:q.id==='q1'?'Non conforme':'Conforme',comment:'Constat'})),notes:'',completed:false,
+ }}));
+ // The already archived session cannot be changed or given a ticket.
+ assert.equal(scheduledSave.status,400);
+ const ticketSession=await (await session({intent:'now'})).json();
+ const auditTicket=(patch={})=>hub.POST(request({
+  action:'audit-ticket',routineId:ticketSession.id,date:auditToday,questionId:'q1',runRevision:1,
+  title:'Écart précis',category:'Environnement',description:'Constat',due:'',...patch,
+ }));
+ assert.equal((await auditTicket()).status,409,'Save the audit first');
+ const saveTicketAudit=await hub.POST(request({action:'run',routineId:ticketSession.id,date:auditToday,revision:0,data:{
+  answers:routine.questions.map(q=>({id:q.id,result:q.id==='q1'?'Non conforme':'Conforme',comment:'Constat'})),notes:'',completed:false,
+ }}));
+ assert.equal(saveTicketAudit.status,200);
+ assert.equal((await auditTicket({questionId:'q2'})).status,400);
+ db.exec("UPDATE team_members SET level='user' WHERE user_id='editor'");
+ assert.equal((await auditTicket()).status,403);
+ db.exec("UPDATE team_members SET level='contributor' WHERE user_id='editor'");
+ const tickets=await Promise.all([auditTicket(),auditTicket()]);
+ assert.deepEqual(tickets.map(result=>result.status),[200,200]);
+ const linked=await Promise.all(tickets.map(result=>result.json()));
+ assert.equal(linked[0].id,linked[1].id);
+ assert.equal(linked.filter(ticket=>ticket.created).length,1);
+ const ticketAuditUrl='https://example.test/api/hub?scope=run&id='+ticketSession.id+'&date='+auditToday;
+ const reopened=await (await hub.GET(new Request(ticketAuditUrl))).json();
+ assert.equal(reopened.run.data.completed,false);
+ assert.equal(reopened.tickets[0].questionId,'q1');
+ assert.equal(reopened.tickets[0].id,linked[0].id);
  console.log('Audit reports: real SQLite permissions, RH isolation, immediate revocation, server timestamps, N/A scoring, saved-only PDF, photos, concurrent revisions, history, legacy data and long pagination passed.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.auditDb;delete globalThis.auditBucket;delete globalThis.auditUser;delete globalThis.auditOrigin}
