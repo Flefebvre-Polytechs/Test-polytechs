@@ -26,18 +26,43 @@ export const ticketAnalysisMethods = {
   ['comment','Comment ?'],['combien','Combien ?'],['pourquoi','Pourquoi analyser cet écart ?'],
  ]},
 } as const;
-export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>};
+export type FiveWhyPath={id:string;name:string;values:Record<string,string>};
+export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>;paths?:FiveWhyPath[]};
+export const maxFiveWhyPaths=10;
+
+export function ticketFiveWhyPaths(analysis:TicketAnalysis):FiveWhyPath[]{
+ return analysis.paths??[{id:'initial',name:'',values:analysis.values}];
+}
 
 export function ticketAnalysisError(analysis:unknown){
  if(analysis===undefined)return '';
- if(!analysis||typeof analysis!=='object'||Array.isArray(analysis))return 'Analyse du ticket invalide.';
- if(Object.keys(analysis).some(key=>key!=='method'&&key!=='values'))return 'Analyse du ticket invalide.';
- const {method,values}=analysis as TicketAnalysis;
- if(typeof method!=='string'||!Object.hasOwn(ticketAnalysisMethods,method)||!values||typeof values!=='object'||Array.isArray(values))
+ if(!isAnalysisRecord(analysis)||Object.keys(analysis).some(key=>key!=='method'&&key!=='values'&&key!=='paths'))
+  return 'Analyse du ticket invalide.';
+ const {method,values,paths}=analysis as TicketAnalysis;
+ if(typeof method!=='string'||!Object.hasOwn(ticketAnalysisMethods,method))
   return 'Choisissez une méthode d’analyse valide.';
  const keys=ticketAnalysisMethods[method].fields.map(([id])=>String(id));
- return Object.entries(values).some(([key,value])=>!keys.includes(key)||typeof value!=='string'||value.length>3000)
-  ?'Vérifiez les réponses de l’analyse (3 000 caractères maximum par champ).':'';
+ const validValues=(answers:unknown)=>isAnalysisRecord(answers)&&Object.entries(answers)
+  .every(([key,value])=>keys.includes(key)&&typeof value==='string'&&value.length<=3000);
+ const responseError='Vérifiez les réponses de l’analyse (3 000 caractères maximum par champ).';
+ if(!validValues(values))return responseError;
+ if(paths===undefined)return '';
+ if(method!=='5p'||Object.keys(values).length||!Array.isArray(paths)||paths.length<1||paths.length>maxFiveWhyPaths)
+  return 'La méthode 5 Pourquoi doit contenir entre 1 et '+maxFiveWhyPaths+' pistes.';
+ const seen=new Set<string>();
+ for(const path of paths){
+  if(!isAnalysisRecord(path)||Object.keys(path).some(key=>key!=='id'&&key!=='name'&&key!=='values')||
+   typeof path.id!=='string'||!path.id.trim()||path.id.length>100||seen.has(path.id)||
+   typeof path.name!=='string'||path.name.length>100)
+   return 'Les pistes du 5 Pourquoi sont invalides ou en double.';
+  if(!validValues(path.values))return responseError;
+  seen.add(path.id);
+ }
+ return '';
+}
+
+function isAnalysisRecord(value:unknown):value is Record<string,unknown>{
+ return !!value&&typeof value==='object'&&!Array.isArray(value);
 }
 export type AuditQuestion={id:string;label:string;section?:string;type?:'conformity'|'text'|'number'|'date';required?:boolean;help?:string;evidence?:'none'|'comment'|'photo'|'both'};
 export type Routine={archivedAt?:string;archivedBy?:string;binaryConformity?:boolean;mode?:'catalog'|'on-demand'|'scheduled-copy';title:string;description:string;teams:string[];pilot:string;start:string;time:string;repeat:'none'|'daily'|'weekly'|'monthly';interval:number;end:string;questions:AuditQuestion[];active:boolean};

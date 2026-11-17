@@ -58,3 +58,16 @@
 .ticket-analysis-fields{border:0;padding:10px 0 0;margin:0;display:grid;gap:12px;min-width:0}
 .ticket-analysis-fields label{display:block;color:#28465f;font-weight:600;margin-bottom:4px}
 .ticket-analysis-fields textarea{display:block;width:100%;resize:vertical;min-width:0}
+.ticket-five-whys-nav{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:12px}
+.ticket-five-whys-path,.ticket-five-whys-add{min-height:34px;max-width:100%}
+.ticket-five-whys-path{
+  display:inline-flex;align-items:center;min-width:0;padding:6px 10px;border:1px solid #d4e2ef;
+  border-radius:7px;background:#fff;color:#264661;font-size:12px;font-weight:600;text-align:left;overflow-wrap:anywhere
+}
+.ticket-five-whys-path:hover,.ticket-five-whys-path[aria-pressed=true]{background:#eaf4fc;border-color:#8bb7d6;color:#075a92}
+.ticket-five-whys-add{display:inline-flex;align-items:center;gap:5px}
+.ticket-five-whys-fields{margin-top:10px;padding-top:12px;border-top:1px solid #dce6f0}
+.ticket-five-whys-fields input{width:100%;min-width:0}
+.ticket-five-whys-fields label small{color:#50657a;font-weight:500}
+.ticket-five-whys-remove{display:inline-flex;align-items:center;gap:6px;justify-self:start;min-height:32px;color:#9a3535;font-size:12px}
+.ticket-five-whys-remove:hover{text-decoration:underline}

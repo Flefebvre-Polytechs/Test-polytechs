@@ -146,12 +146,25 @@ try{
  db.exec("UPDATE team_members SET level='contributor' WHERE user_id='editor'");
  db.exec("CREATE TABLE hub_notifications(id TEXT PRIMARY KEY,user_id TEXT,title TEXT,href TEXT,seen INTEGER,created_at TEXT); CREATE TABLE ticket_labels(id TEXT,kind TEXT,category TEXT,name TEXT); INSERT INTO ticket_labels VALUES('dechets','topic','Environnement','Déchets')");
  const ticketData={...lib.newTicket(),title:'Écart précis',description:'Constat',category:'Environnement',teams:['qsse'],
-  pilot:'editor',status:'En cours',due:auditToday,topicTags:['dechets'],analysis:{method:'5p',values:{p1:'Bac non identifié'}},
+  pilot:'editor',status:'En cours',due:auditToday,topicTags:['dechets'],analysis:{method:'5p',values:{},paths:[
+   {id:'tri',name:'Consigne de tri',values:{p1:'Bac non identifié',cause:'Absence de standard de marquage'}},
+   {id:'appro',name:'Approvisionnement',values:{p1:'Étiquettes manquantes',p2:'Pas de stock dédié',cause:'Aucun seuil de réapprovisionnement'}},
+  ]},
   actions:[{id:'action-test',title:'Corriger l’écart',pilot:'editor',done:false,due:auditToday}]};
  assert.equal((await auditTicket({data:{...ticketData,teams:['rh']}})).status,403);
  assert.equal((await auditTicket({data:{...ticketData,topicTags:['inconnue']}})).status,400);
  assert.equal((await auditTicket({data:{...ticketData,pilot:'inconnu'}})).status,400);
  assert.equal((await auditTicket({data:{...ticketData,analysis:{method:'5p',values:{d1:'Mauvais champ'}}}})).status,400);
+ const paths=ticketData.analysis.paths;
+ for(const analysis of [
+  {...ticketData.analysis,paths:[paths[0],paths[0]]},
+  {...ticketData.analysis,paths:[{...paths[0],values:{p1:'x'.repeat(3001)}}]},
+  {...ticketData.analysis,paths:[]},
+  {...ticketData.analysis,paths:Array.from({length:11},(_,i)=>({...paths[0],id:String(i)}))},
+  {...ticketData.analysis,values:{p1:'Ancienne réponse'}},
+  {method:'8d',values:{},paths},
+ ])assert.equal((await auditTicket({data:{...ticketData,analysis}})).status,400);
+
  const tickets=await Promise.all([auditTicket({data:ticketData}),auditTicket({data:ticketData})]);
  assert.deepEqual(tickets.map(result=>result.status),[200,200]);
  const linked=await Promise.all(tickets.map(result=>result.json()));
@@ -176,5 +189,22 @@ try{
  assert.deepEqual(JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(regularId).data).analysis,regularData.analysis);
  assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:1,data:{...regularData,analysis:undefined}}))).status,200);
  assert.equal(JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(regularId).data).analysis,undefined);
+ const legacyAnalysis={method:'5p',values:{p1:'Cause existante',p2:'Pourquoi existant',cause:'Cause racine et preuve historiques'}};
+ assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:2,data:{...regularData,analysis:legacyAnalysis}}))).status,200);
+ db.exec('CREATE TABLE hub_comments(id TEXT,ticket_id TEXT,created_at TEXT); CREATE TABLE hub_files(id TEXT,ticket_id TEXT,created_at TEXT)');
+ const loadAnalysis=async()=>{
+  const response=await hub.GET(new Request('https://example.test/api/hub?scope=ticket&id='+regularId));
+  assert.equal(response.status,200);
+  return (await response.json()).ticket.data.analysis;
+ };
+ const initialPaths=lib.ticketFiveWhyPaths(await loadAnalysis());
+ assert.deepEqual(initialPaths,[{id:'initial',name:'',values:legacyAnalysis.values}]);
+ const branched={method:'5p',values:{},paths:[...initialPaths,paths[1]]};
+ assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:3,data:{...regularData,analysis:branched}}))).status,200);
+ assert.deepEqual(await loadAnalysis(),branched);
+ const remaining={...branched,paths:[paths[1]]};
+ assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:4,data:{...regularData,analysis:remaining}}))).status,200);
+ assert.deepEqual(await loadAnalysis(),remaining);
+
  console.log('Audit reports: real SQLite permissions, RH isolation, immediate revocation, server timestamps, N/A scoring, saved-only PDF, photos, concurrent revisions, history, legacy data and long pagination passed.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.auditDb;delete globalThis.auditBucket;delete globalThis.auditUser;delete globalThis.auditOrigin}
