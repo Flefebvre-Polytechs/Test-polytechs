@@ -165,7 +165,23 @@ try{
   {method:'8d',values:{},paths},
  ])assert.equal((await auditTicket({data:{...ticketData,analysis}})).status,400);
 
- const tickets=await Promise.all([auditTicket({data:ticketData}),auditTicket({data:ticketData})]);
+ const causes=[
+  {id:'bac',parentId:null,answer:'Bac non identifié'},
+  {id:'standard',parentId:'bac',answer:'Absence de standard',actionId:'action-test'},
+  {id:'appro',parentId:'bac',answer:'Étiquettes indisponibles'},
+  {id:'stock',parentId:'appro',answer:'Pas de stock dédié',conclusion:'Aucun seuil de réapprovisionnement'},
+ ];
+ const treeAnalysis={method:'5p',values:{},causes};
+ const treeTicket={...ticketData,analysis:treeAnalysis};
+ const overDepth=Array.from({length:6},(_,i)=>({id:String(i),parentId:i?String(i-1):null,answer:'Cause'}));
+ for(const invalidCauses of [
+  [causes[1]],
+  [causes[0],causes[0]],
+  [{...causes[0],parentId:causes[1].id},{...causes[1],parentId:causes[0].id}],
+  [causes[0],{...causes[1],actionId:'action-autre-ticket'}],
+  overDepth,
+ ])assert.equal((await auditTicket({data:{...ticketData,analysis:{...treeAnalysis,causes:invalidCauses}}})).status,400);
+ const tickets=await Promise.all([auditTicket({data:treeTicket}),auditTicket({data:treeTicket})]);
  assert.deepEqual(tickets.map(result=>result.status),[200,200]);
  const linked=await Promise.all(tickets.map(result=>result.json()));
  assert.equal(linked[0].id,linked[1].id);
@@ -175,7 +191,7 @@ try{
  assert.equal(storedTicket.pilot,'editor');
  assert.deepEqual(storedTicket.topicTags,['dechets']);
  assert.equal(storedTicket.status,'En cours');
- assert.deepEqual(storedTicket.analysis,ticketData.analysis);
+ assert.deepEqual(storedTicket.analysis,treeAnalysis);
  assert.equal(db.prepare('SELECT count(*) AS n FROM hub_notifications').get().n,1);
  const ticketAuditUrl='https://example.test/api/hub?scope=run&id='+ticketSession.id+'&date='+auditToday;
  const reopened=await (await hub.GET(new Request(ticketAuditUrl))).json();
@@ -205,6 +221,21 @@ try{
  const remaining={...branched,paths:[paths[1]]};
  assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:4,data:{...regularData,analysis:remaining}}))).status,200);
  assert.deepEqual(await loadAnalysis(),remaining);
+ assert.deepEqual(lib.ticketFiveWhyCauses(legacyAnalysis),[
+  {id:'legacy-1-1',parentId:null,answer:'Cause existante'},
+  {id:'legacy-1-2',parentId:'legacy-1-1',answer:'Pourquoi existant',conclusion:'Cause racine et preuve historiques'},
+ ]);
+ assert.deepEqual(lib.ticketFiveWhyCauses(branched),[
+  ...lib.ticketFiveWhyCauses(legacyAnalysis),
+  {id:'legacy-2-1',parentId:null,answer:'Étiquettes manquantes',label:'Approvisionnement'},
+  {id:'legacy-2-2',parentId:'legacy-2-1',answer:'Pas de stock dédié',conclusion:'Aucun seuil de réapprovisionnement'},
+ ]);
+ assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:5,data:{...regularData,analysis:treeAnalysis}}))).status,400);
+ assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:5,data:{
+  ...regularData,analysis:treeAnalysis,actions:ticketData.actions,
+ }}))).status,200);
+ assert.deepEqual(await loadAnalysis(),treeAnalysis);
+
 
  console.log('Audit reports: real SQLite permissions, RH isolation, immediate revocation, server timestamps, N/A scoring, saved-only PDF, photos, concurrent revisions, history, legacy data and long pagination passed.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.auditDb;delete globalThis.auditBucket;delete globalThis.auditUser;delete globalThis.auditOrigin}

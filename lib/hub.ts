@@ -27,18 +27,35 @@ export const ticketAnalysisMethods = {
  ]},
 } as const;
 export type FiveWhyPath={id:string;name:string;values:Record<string,string>};
-export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>;paths?:FiveWhyPath[]};
-export const maxFiveWhyPaths=10;
+export type FiveWhyCause={id:string;parentId:string|null;answer:string;label?:string;conclusion?:string;actionId?:string};
+export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>;paths?:FiveWhyPath[];causes?:FiveWhyCause[]};
+const maxFiveWhyPaths=10;
+export const maxFiveWhyDepth=5;
+export const maxFiveWhyCauses=maxFiveWhyPaths*maxFiveWhyDepth;
 
 export function ticketFiveWhyPaths(analysis:TicketAnalysis):FiveWhyPath[]{
  return analysis.paths??[{id:'initial',name:'',values:analysis.values}];
 }
 
-export function ticketAnalysisError(analysis:unknown){
+export function ticketFiveWhyCauses(analysis:TicketAnalysis):FiveWhyCause[]{
+ if(analysis.causes)return analysis.causes;
+ return ticketFiveWhyPaths(analysis).flatMap((path,index)=>{
+  const answers=Array.from({length:maxFiveWhyDepth},(_,i)=>path.values['p'+(i+1)]??'');
+  const last=Math.max(answers.findLastIndex(answer=>answer!==''),path.name||path.values.cause?0:-1);
+  const base='legacy-'+(index+1)+'-';
+  return answers.slice(0,last+1).map((answer,i)=>({
+   id:base+(i+1),parentId:i?base+i:null,answer,
+   ...(i===0&&path.name?{label:path.name}:{}),
+   ...(i===last&&path.values.cause?{conclusion:path.values.cause}:{}),
+  }));
+ });
+}
+
+export function ticketAnalysisError(analysis:unknown,actionIds?:ReadonlySet<string>){
  if(analysis===undefined)return '';
- if(!isAnalysisRecord(analysis)||Object.keys(analysis).some(key=>key!=='method'&&key!=='values'&&key!=='paths'))
+ if(!isAnalysisRecord(analysis)||Object.keys(analysis).some(key=>key!=='method'&&key!=='values'&&key!=='paths'&&key!=='causes'))
   return 'Analyse du ticket invalide.';
- const {method,values,paths}=analysis as TicketAnalysis;
+ const {method,values,paths,causes}=analysis as TicketAnalysis;
  if(typeof method!=='string'||!Object.hasOwn(ticketAnalysisMethods,method))
   return 'Choisissez une méthode d’analyse valide.';
  const keys=ticketAnalysisMethods[method].fields.map(([id])=>String(id));
@@ -46,6 +63,23 @@ export function ticketAnalysisError(analysis:unknown){
   .every(([key,value])=>keys.includes(key)&&typeof value==='string'&&value.length<=3000);
  const responseError='Vérifiez les réponses de l’analyse (3 000 caractères maximum par champ).';
  if(!validValues(values))return responseError;
+ if(causes!==undefined){
+  if(method!=='5p'||Object.keys(values).length||paths!==undefined||!Array.isArray(causes)||causes.length>maxFiveWhyCauses)
+   return 'L’arbre du 5 Pourquoi est invalide.';
+  const depths=new Map<string,number>();
+  for(const cause of causes){
+   if(!isAnalysisRecord(cause)||Object.keys(cause).some(key=>!['id','parentId','answer','label','conclusion','actionId'].includes(key))||
+    !str(cause.id,100,true)||depths.has(cause.id)||!str(cause.answer,3000)||
+    (cause.label!==undefined&&!str(cause.label,100))||(cause.conclusion!==undefined&&!str(cause.conclusion,3000)))
+    return 'Vérifiez les causes et les réponses du 5 Pourquoi.';
+   const depth=cause.parentId===null?1:(depths.get(cause.parentId)??-1)+1;
+   if(depth<1||depth>maxFiveWhyDepth)return 'Chaque cause doit être rattachée à un pourquoi précédent, sur 5 niveaux maximum.';
+   if(cause.actionId!==undefined&&(!str(cause.actionId,100,true)||actionIds&&!actionIds.has(cause.actionId)))
+    return 'L’action associée à une cause doit appartenir au ticket.';
+   depths.set(cause.id,depth);
+  }
+  return '';
+ }
  if(paths===undefined)return '';
  if(method!=='5p'||Object.keys(values).length||!Array.isArray(paths)||paths.length<1||paths.length>maxFiveWhyPaths)
   return 'La méthode 5 Pourquoi doit contenir entre 1 et '+maxFiveWhyPaths+' pistes.';
@@ -88,7 +122,7 @@ export function auditSections(answers:Run['answers']){const sections=new Map<str
 export const validDate=(s:unknown):s is string=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
 const str=(s:unknown,max:number,required=false)=>typeof s==='string'&&s.length<=max&&(!required||!!s.trim());
 const ids=(v:unknown)=>Array.isArray(v)&&v.length<=100&&v.every(x=>str(x,100,true))&&new Set(v).size===v.length;
-export function ticketError(v:Ticket){if(!v||!str(v.title,200,true)||!categories.includes(v.category)||!str(v.description,10000)||!ids(v.teams)||!ids(v.responsibles)||!str(v.pilot,100)||!str(v.due,10)||(v.due&&!validDate(v.due))||!ticketStatuses.includes(v.status))return 'Vérifiez le titre, la catégorie, les équipes, le pilote et l’échéance.';if([v.topicTags,v.locationTags].some(tags=>tags!==undefined&&(!ids(tags)||tags.length>20)))return 'Sélectionnez au maximum 20 étiquettes par groupe, sans doublon.';if(!Array.isArray(v.actions)||v.actions.length>100||v.actions.some(a=>!a||!str(a.id,100,true)||!str(a.title,500,true)||typeof a.done!=='boolean'||!str(a.pilot,100)||!str(a.due,10)||(a.due&&!validDate(a.due)))||new Set(v.actions.map(a=>a.id)).size!==v.actions.length)return 'Chaque action doit avoir un libellé et une date valide si renseignée.';if(v.status==='Clôturé'&&(!v.pilot||v.actions.some(a=>!a.done)))return 'Désignez un pilote et terminez toutes les actions avant de clôturer.';if(v.source&&(!str(v.source.routineId,100,true)||!validDate(v.source.date)||(v.source.questionId!==undefined&&!str(v.source.questionId,100,true))))return 'Origine du ticket invalide.';return ticketAnalysisError(v.analysis)}
+export function ticketError(v:Ticket){if(!v||!str(v.title,200,true)||!categories.includes(v.category)||!str(v.description,10000)||!ids(v.teams)||!ids(v.responsibles)||!str(v.pilot,100)||!str(v.due,10)||(v.due&&!validDate(v.due))||!ticketStatuses.includes(v.status))return 'Vérifiez le titre, la catégorie, les équipes, le pilote et l’échéance.';if([v.topicTags,v.locationTags].some(tags=>tags!==undefined&&(!ids(tags)||tags.length>20)))return 'Sélectionnez au maximum 20 étiquettes par groupe, sans doublon.';if(!Array.isArray(v.actions)||v.actions.length>100||v.actions.some(a=>!a||!str(a.id,100,true)||!str(a.title,500,true)||typeof a.done!=='boolean'||!str(a.pilot,100)||!str(a.due,10)||(a.due&&!validDate(a.due)))||new Set(v.actions.map(a=>a.id)).size!==v.actions.length)return 'Chaque action doit avoir un libellé et une date valide si renseignée.';if(v.status==='Clôturé'&&(!v.pilot||v.actions.some(a=>!a.done)))return 'Désignez un pilote et terminez toutes les actions avant de clôturer.';if(v.source&&(!str(v.source.routineId,100,true)||!validDate(v.source.date)||(v.source.questionId!==undefined&&!str(v.source.questionId,100,true))))return 'Origine du ticket invalide.';return ticketAnalysisError(v.analysis,new Set(v.actions.map(action=>action.id)))}
 export function routineError(v:Routine){if(!v||!str(v.title,200,true)||!str(v.description,10000)||!ids(v.teams)||!str(v.pilot,100)||!validDate(v.start)||!str(v.end,10)||(v.end&&(!validDate(v.end)||v.end<v.start))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(v.time)||!['none','daily','weekly','monthly'].includes(v.repeat)||!Number.isInteger(v.interval)||v.interval<1||v.interval>52||typeof v.active!=='boolean'||(v.binaryConformity!==undefined&&typeof v.binaryConformity!=='boolean')||(v.mode!==undefined&&!['catalog','on-demand','scheduled-copy'].includes(v.mode)))return 'Vérifiez le titre, le calendrier et la récurrence.';if(!Array.isArray(v.questions)||v.questions.length<1||v.questions.length>100||v.questions.some(q=>!q||!str(q.id,100,true)||!str(q.label,500,true)||(q.section!==undefined&&!str(q.section,150))||(q.type!==undefined&&!['conformity','text','number','date'].includes(q.type))||(q.required!==undefined&&typeof q.required!=='boolean')||(q.help!==undefined&&!str(q.help,1000))||(q.evidence!==undefined&&!['none','comment','photo','both'].includes(q.evidence)))||new Set(v.questions.map(q=>q.id)).size!==v.questions.length)return 'Ajoutez au moins un point de contrôle, sans doublon ; limitez les thèmes à 150 caractères.';return ''}
 export function communicationError(v:Communication){return !v||!str(v.title,200,true)||!str(v.body,15000,true)||!str(v.sourceTeam,100,true)||!ids(v.teams)||!v.teams.length?'Renseignez le titre, le message, le service émetteur et au moins une équipe destinataire.':''}
 export function occurrenceDates(r:Routine,from:string,to:string){if(!r.active||r.archivedAt||r.mode==='catalog'||!validDate(from)||!validDate(to)||!validDate(r.start)||from>to)return [];const days:string[]=[];const start=new Date(r.start+'T00:00:00Z');const limit=r.end&&r.end<to?r.end:to;if(r.repeat==='none')return r.start>=from&&r.start<=limit?[r.start]:[];if(r.repeat==='monthly'){const f=new Date(from+'T00:00:00Z');const diff=(f.getUTCFullYear()-start.getUTCFullYear())*12+f.getUTCMonth()-start.getUTCMonth();let n=Math.max(0,Math.floor(diff/r.interval));for(let guard=0;guard<500;guard++,n++){const month=start.getUTCMonth()+n*r.interval;const target=new Date(Date.UTC(start.getUTCFullYear(),month,1));const last=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0)).getUTCDate();target.setUTCDate(Math.min(start.getUTCDate(),last));const s=target.toISOString().slice(0,10);if(s>limit)break;if(s>=from)days.push(s)}}else{const step=r.interval*(r.repeat==='weekly'?7:1)*86400000;let n=Math.max(0,Math.ceil((Date.parse(from)-start.getTime())/step));for(let guard=0;guard<500;guard++,n++){const s=new Date(start.getTime()+n*step).toISOString().slice(0,10);if(s>limit)break;days.push(s)}}return days}

@@ -63,6 +63,15 @@ export function TicketSheet({
    setShowAnalysisRequest(0);
   }
  }
+ function removeAction(id:string){
+  if(!edit)return;
+  const {analysis,actions}=edit.data;
+  const causes=analysis?.causes;
+  const nextActions=actions.filter(action=>action.id!==id);
+  if(analysis&&causes?.some(cause=>cause.actionId===id)){
+   patch({actions:nextActions,analysis:{...analysis,causes:causes.map(cause=>cause.actionId===id?{...cause,actionId:undefined}:cause)}});
+  }else patch({actions:nextActions});
+ }
  function closeSheet(){
   setShowAnalysisRequest(0);
   close();
@@ -106,8 +115,9 @@ export function TicketSheet({
             {edit.id&&!edit.data.gmaoOrderId&&!edit.data.qualityActionId&&!edit.data.archivedAt&&edit.data.status!=='Clôturé'&&canEdit&&meta.editableTeams?.includes('maintenance')&&<a href={'/maintenance?ticket='+encodeURIComponent(edit.id)}>Transformer en demande d’intervention →</a>}
             {edit.data.source&&<a href={'/routines?routine='+edit.data.source.routineId+'&date='+edit.data.source.date}>Voir l’audit à l’origine du ticket →</a>}
           </div>
-          {edit.data.analysis&&<TicketAnalysisFields analysis={edit.data.analysis} disabled={busy||uploading}
-           readOnly={coreReadOnly} showRequest={showAnalysisRequest} onChange={analysis=>patch({analysis})}/>}
+          {edit.data.analysis&&<TicketAnalysisFields analysis={edit.data.analysis} problem={edit.data.title} actions={edit.data.actions}
+           disabled={busy||uploading} readOnly={coreReadOnly} showRequest={showAnalysisRequest}
+           onChange={(analysis,action)=>patch(action?{analysis,actions:[...edit.data.actions,action]}:{analysis})}/>}
           <fieldset className="ticket-actions-section ticket-sheet-actions" disabled={formLocked}>
             <div className="hub-section-heading"><h3><CircleCheck size={17}/> Actions <span className="ticket-count">{edit.data.actions.filter(a=>a.done).length}/{edit.data.actions.length}</span></h3>{canEdit&&<button className="ticket-add-action" disabled={edit.data.actions.length>=100} onClick={()=>patch({actions:[...edit.data.actions,{id:crypto.randomUUID(),title:'',done:false,pilot:'',due:''}]})}><Plus size={14}/> Ajouter une action</button>}</div>
             {edit.data.actions.length>0&&<div className="ticket-action-column-labels" aria-hidden="true"><span>Action à réaliser</span><span>Pilote</span><span>Délai</span></div>}
@@ -118,7 +128,7 @@ export function TicketSheet({
               <input disabled={!canEdit} className="ticket-action-title" aria-label={'Action '+(i+1)} placeholder="Action à réaliser" maxLength={500} value={a.title} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,title:e.target.value}:x)})}/>
               <TicketPilotPicker className="ticket-action-owner" label={'Pilote de l’action '+(i+1)} options={meta.users.map(u=>({id:u.id,name:u.display_name}))} value={a.pilot} onChange={pilot=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,pilot}:x)})} disabled={formLocked||!canEdit}/>
               <input disabled={!canEdit} className="ticket-action-date" aria-label={'Délai de l’action '+(i+1)} type="date" value={a.due} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,due:e.target.value}:x)})}/>
-              {canEdit&&<button className="ticket-action-remove" aria-label={'Retirer l’action '+(i+1)} title="Retirer l’action" onClick={()=>patch({actions:edit.data.actions.filter(x=>x.id!==a.id)})}><X size={14}/></button>}
+              {canEdit&&<button className="ticket-action-remove" aria-label={'Retirer l’action '+(i+1)} title="Retirer l’action" onClick={()=>removeAction(a.id)}><X size={14}/></button>}
             </div>)}</div>
           </fieldset>
           {!edit.data.gmaoOrderId&&edit.data.status!=='Clôturé'&&!edit.data.archivedAt&&(!edit.data.pilot||edit.data.actions.some(a=>!a.done))&&<p className="ticket-closure-hint"><ShieldCheck size={15}/> Pour clôturer : {!edit.data.pilot?'désigner un pilote':''}{!edit.data.pilot&&edit.data.actions.some(a=>!a.done)?' et ':''}{edit.data.actions.some(a=>!a.done)?'terminer les actions restantes':''}.</p>}
