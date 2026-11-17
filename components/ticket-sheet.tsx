@@ -81,6 +81,19 @@ export function TicketSheet({
  const coreLocked=coreReadOnly||busy||uploading;
  // A creator name in legacy records is not enough to identify a homonym.
  const authorId=(label?:string)=>{const matches=meta.users.filter(user=>user.display_name===label);return matches.length===1?matches[0].id:undefined};
+ const actionPlan=edit&&<fieldset className="ticket-actions-section ticket-sheet-actions" disabled={formLocked}>
+            <div className="hub-section-heading"><h3><CircleCheck size={17}/> Actions <span className="ticket-count">{edit.data.actions.filter(a=>a.done).length}/{edit.data.actions.length}</span></h3>{canEdit&&<button className="ticket-add-action" disabled={edit.data.actions.length>=100} onClick={()=>patch({actions:[...edit.data.actions,{id:crypto.randomUUID(),title:'',done:false,pilot:'',due:''}]})}><Plus size={14}/> Ajouter une action</button>}</div>
+            {edit.data.actions.length>0&&<div className="ticket-action-column-labels" aria-hidden="true"><span>Action à réaliser</span><span>Pilote</span><span>Délai</span></div>}
+            {!edit.data.actions.length&&<p className="ticket-action-empty">Ajoutez les étapes à réaliser pour résoudre ce ticket.</p>}
+            <div className="ticket-action-table">{edit.data.actions.map((a,i)=><div className={'ticket-action-row '+(a.done?'ticket-action-done':'')} key={a.id}>
+              <span className="ticket-action-number" aria-hidden="true">{i+1}</span>
+              <label className="ticket-action-toggle"><input className="sr-only" type="checkbox" aria-label={'Action '+(i+1)+' réalisée'} checked={a.done} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,done:e.target.checked}:x)})}/><span aria-hidden="true"><Check size={15}/></span></label>
+              <input disabled={!canEdit} className="ticket-action-title" aria-label={'Action '+(i+1)} placeholder="Action à réaliser" maxLength={500} value={a.title} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,title:e.target.value}:x)})}/>
+              <TicketPilotPicker className="ticket-action-owner" label={'Pilote de l’action '+(i+1)} options={meta.users.map(u=>({id:u.id,name:u.display_name}))} value={a.pilot} onChange={pilot=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,pilot}:x)})} disabled={formLocked||!canEdit}/>
+              <input disabled={!canEdit} className="ticket-action-date" aria-label={'Délai de l’action '+(i+1)} type="date" value={a.due} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,due:e.target.value}:x)})}/>
+              {canEdit&&<button className="ticket-action-remove" aria-label={'Retirer l’action '+(i+1)} title="Retirer l’action" onClick={()=>removeAction(a.id)}><X size={14}/></button>}
+            </div>)}</div>
+          </fieldset>;
  return <Dialog open={!!edit} onOpenChange={v=>{if(!v)closeSheet()}}>
   <DialogContent className="hub-ticket-dialog ticket-reference-sheet" showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus}>
     <DialogTitle className="sr-only">{edit?.data.title||'Nouveau ticket'}</DialogTitle>
@@ -115,22 +128,10 @@ export function TicketSheet({
             {edit.id&&!edit.data.gmaoOrderId&&!edit.data.qualityActionId&&!edit.data.archivedAt&&edit.data.status!=='Clôturé'&&canEdit&&meta.editableTeams?.includes('maintenance')&&<a href={'/maintenance?ticket='+encodeURIComponent(edit.id)}>Transformer en demande d’intervention →</a>}
             {edit.data.source&&<a href={'/routines?routine='+edit.data.source.routineId+'&date='+edit.data.source.date}>Voir l’audit à l’origine du ticket →</a>}
           </div>
-          {edit.data.analysis&&<TicketAnalysisFields analysis={edit.data.analysis} problem={edit.data.title} actions={edit.data.actions}
+          {edit.data.analysis&&<TicketAnalysisFields analysis={edit.data.analysis} problem={edit.data.title} description={edit.data.description} actions={edit.data.actions} actionPlan={actionPlan}
            disabled={busy||uploading} readOnly={coreReadOnly} showRequest={showAnalysisRequest}
            onChange={(analysis,action)=>patch(action?{analysis,actions:[...edit.data.actions,action]}:{analysis})}/>}
-          <fieldset className="ticket-actions-section ticket-sheet-actions" disabled={formLocked}>
-            <div className="hub-section-heading"><h3><CircleCheck size={17}/> Actions <span className="ticket-count">{edit.data.actions.filter(a=>a.done).length}/{edit.data.actions.length}</span></h3>{canEdit&&<button className="ticket-add-action" disabled={edit.data.actions.length>=100} onClick={()=>patch({actions:[...edit.data.actions,{id:crypto.randomUUID(),title:'',done:false,pilot:'',due:''}]})}><Plus size={14}/> Ajouter une action</button>}</div>
-            {edit.data.actions.length>0&&<div className="ticket-action-column-labels" aria-hidden="true"><span>Action à réaliser</span><span>Pilote</span><span>Délai</span></div>}
-            {!edit.data.actions.length&&<p className="ticket-action-empty">Ajoutez les étapes à réaliser pour résoudre ce ticket.</p>}
-            <div className="ticket-action-table">{edit.data.actions.map((a,i)=><div className={'ticket-action-row '+(a.done?'ticket-action-done':'')} key={a.id}>
-              <span className="ticket-action-number" aria-hidden="true">{i+1}</span>
-              <label className="ticket-action-toggle"><input className="sr-only" type="checkbox" aria-label={'Action '+(i+1)+' réalisée'} checked={a.done} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,done:e.target.checked}:x)})}/><span aria-hidden="true"><Check size={15}/></span></label>
-              <input disabled={!canEdit} className="ticket-action-title" aria-label={'Action '+(i+1)} placeholder="Action à réaliser" maxLength={500} value={a.title} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,title:e.target.value}:x)})}/>
-              <TicketPilotPicker className="ticket-action-owner" label={'Pilote de l’action '+(i+1)} options={meta.users.map(u=>({id:u.id,name:u.display_name}))} value={a.pilot} onChange={pilot=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,pilot}:x)})} disabled={formLocked||!canEdit}/>
-              <input disabled={!canEdit} className="ticket-action-date" aria-label={'Délai de l’action '+(i+1)} type="date" value={a.due} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,due:e.target.value}:x)})}/>
-              {canEdit&&<button className="ticket-action-remove" aria-label={'Retirer l’action '+(i+1)} title="Retirer l’action" onClick={()=>removeAction(a.id)}><X size={14}/></button>}
-            </div>)}</div>
-          </fieldset>
+          {edit.data.analysis?.method!=='8d'&&actionPlan}
           {!edit.data.gmaoOrderId&&edit.data.status!=='Clôturé'&&!edit.data.archivedAt&&(!edit.data.pilot||edit.data.actions.some(a=>!a.done))&&<p className="ticket-closure-hint"><ShieldCheck size={15}/> Pour clôturer : {!edit.data.pilot?'désigner un pilote':''}{!edit.data.pilot&&edit.data.actions.some(a=>!a.done)?' et ':''}{edit.data.actions.some(a=>!a.done)?'terminer les actions restantes':''}.</p>}
           <section className="hub-attachments ticket-sheet-attachments"><h3><Paperclip size={16}/> Pièces jointes <span className="ticket-count">{files.length}</span></h3>{!edit.id?<p>Enregistrez le ticket pour joindre des documents.</p>:<>{canContribute&&!edit.data.archivedAt&&<label className="hub-file-input">{uploading?'Ajout en cours…':'Joindre une photo ou un document'}<input type="file" disabled={busy||uploading||dirty} accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.pdf,.docx,.xlsx" onChange={e=>{const f=e.target.files?.[0];e.target.value='';upload?.(f)}}/></label>}<small>15 Mo par fichier · 20 fichiers maximum. {dirty?'Enregistrez vos modifications avant l’ajout.':''}</small><div className="hub-file-list">{files.map(f=><a key={f.id} href={'/api/ticket-files?id='+f.id}>{['image/jpeg','image/png','image/gif','image/webp'].includes(f.mime)&&<img src={'/api/ticket-files?id='+f.id+'&preview=1'} alt={f.name}/>}<span>{f.name}<small>{(f.size/1024).toLocaleString('fr-FR',{maximumFractionDigits:0})} Ko · {f.author}</small></span></a>)}</div></>}</section>
         </div>

@@ -9,7 +9,7 @@ export const ticketAnalysisMethods = {
   ['p3','Pourquoi ? (3)'],['p4','Pourquoi ? (4)'],['p5','Pourquoi ? (5)'],
   ['cause','Cause racine retenue et preuve'],
  ]},
- '8d':{label:'8D · Résolution de problème',fields:[
+ '8d':{label:'8D · Rapport Imp5.820f',fields:[
   ['d1','D1 · Constituer l’équipe'],['d2','D2 · Décrire le problème'],
   ['d3','D3 · Mettre en place les mesures immédiates'],
   ['d4','D4 · Identifier les causes racines et de non-détection'],
@@ -26,6 +26,113 @@ export const ticketAnalysisMethods = {
   ['comment','Comment ?'],['combien','Combien ?'],['pourquoi','Pourquoi analyser cet écart ?'],
  ]},
 } as const;
+export const eightDCheckResults = ['Conforme', 'Non conforme'] as const;
+const yesNo = ['Oui', 'Non'] as const;
+const reportStatuses = ['À faire', 'En cours', 'À vérifier', 'Clôturé'] as const;
+
+export type EightDField = {
+ id: string;
+ label: string;
+ kind?: 'textarea' | 'date' | 'quantity';
+ options?: readonly string[];
+};
+
+export const eightDChecks = [
+ ['samples','Analyse des échantillons'],
+ ['laboratory','Analyse des données du laboratoire'],
+ ['production','Analyse des données de production'],
+] as const;
+
+export const eightDRootCauses = [
+ ['packaging','Conditionnement'],
+ ['transport','Transport'],
+ ['cleaning','Nettoyage de ligne'],
+ ['setup','Préparation de ligne'],
+ ['equipment','Panne ou défaut matériel'],
+ ['rawMaterial','Qualité de la matière première'],
+ ['instructions','Non-respect des consignes'],
+ ['contamination','Contamination croisée'],
+ ['granulation','Défaut de coupe'],
+ ['labelling','Étiquetage ou identification'],
+ ['declaration','Déclaration non conforme'],
+ ['dosing','Défaut de dosage'],
+ ['moisture','Ensachage trop chaud ou humidité'],
+ ['stops','Arrêts récurrents ou difficulté de production'],
+ ['other','Autre cause'],
+] as const;
+
+export const eightDValidations = [
+ ['report','Validation du rapport 8D'],
+ ['plan','Validation du plan d’actions'],
+ ['effectiveness','Vérification de l’efficacité'],
+ ['closure','Clôture de la réclamation'],
+] as const;
+
+const eightDEffectivenessFields: readonly EightDField[] = [
+ {id:'effectivenessCriterion',label:'Critère d’efficacité',kind:'textarea'},
+ {id:'effectivenessDue',label:'Échéance de vérification',kind:'date'},
+ {id:'implementationDate',label:'Date de mise en œuvre',kind:'date'},
+ {id:'effectivenessResult',label:'Résultat du contrôle d’efficacité',kind:'textarea'},
+];
+
+export const eightDVerificationFields = [
+ eightDEffectivenessFields,
+ eightDEffectivenessFields.map(field=>({...field,id:field.id+'2'})),
+];
+
+export const eightDSteps: readonly {number:number;title:string;fields:readonly EightDField[]}[] = [
+ {number:1,title:'Référence du rapport',fields:[
+  {id:'claimReference',label:'Référence de la réclamation'},
+  {id:'customer',label:'Client'},
+  {id:'claimType',label:'Type de réclamation'},
+  {id:'reportStatus',label:'État d’avancement du rapport',options:reportStatuses},
+  {id:'reportDate',label:'Date du rapport',kind:'date'},
+  {id:'receivedDate',label:'Date de réception',kind:'date'},
+  {id:'customerReference',label:'Référence client'},
+  {id:'deliveryNote',label:'Bon de livraison (BL)'},
+  {id:'partName',label:'Désignation du produit'},
+  {id:'supplierPart',label:'Référence produit fournisseur'},
+  {id:'batchNumber',label:'Numéro de lot'},
+  {id:'equipment',label:'Équipement de production'},
+  {id:'claimAccepted',label:'Réclamation acceptée',options:yesNo},
+  {id:'team',label:'Groupe de travail',kind:'textarea'},
+ ]},
+ {number:2,title:'Description du problème',fields:[
+  {id:'problem',label:'Description du problème',kind:'textarea'},
+ ]},
+ {number:3,title:'Actions immédiates',fields:[
+  {id:'containment',label:'Mesures immédiates engagées',kind:'textarea'},
+  {id:'sampleRequest',label:'Échantillons demandés pour les lots concernés',options:yesNo},
+  {id:'sampleQuantity',label:'Quantité demandée (kg)',kind:'quantity'},
+ ]},
+ {number:4,title:'Analyse des causes',fields:[
+  {id:'method',label:'Méthode ou éléments d’analyse complémentaires',kind:'textarea'},
+ ]},
+ {number:5,title:'Causes racines',fields:[
+  {id:'rootDetails',label:'Cause(s) retenue(s) et précisions',kind:'textarea'},
+ ]},
+ {number:6,title:'Actions correctives et préventives',fields:[]},
+ {number:7,title:'Vérification de l’efficacité',fields:[]},
+ {number:8,title:'Validation et clôture',fields:[
+  {id:'reportAuthor',label:'Auteur du rapport'},
+  {id:'reportAuthorRole',label:'Fonction de l’auteur'},
+ ]},
+];
+
+export const eightDFields = new Map<string,EightDField>([
+ ...eightDSteps.flatMap(step=>step.fields),
+ ...eightDVerificationFields.flat(),
+ ...eightDChecks.flatMap(([id,label]):EightDField[]=>[
+  {id:id+'Result',label:'Conformité · '+label,options:eightDCheckResults},
+  {id:id+'Comment',label:'Commentaires · '+label},
+ ]),
+ ...eightDRootCauses.map(([id,label])=>({id:'root-'+id,label,options:['Oui']})),
+ ...eightDValidations.flatMap(([id,label]):EightDField[]=>[
+  {id:'validated-'+id,label:'Date · '+label,kind:'date'},
+  {id:'validator-'+id,label:'Nom et fonction · '+label},
+ ]),
+].map(field=>[field.id,field]));
+
 export type FiveWhyPath={id:string;name:string;values:Record<string,string>};
 export type FiveWhyCause={id:string;parentId:string|null;answer:string;label?:string;conclusion?:string;actionId?:string};
 export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>;paths?:FiveWhyPath[];causes?:FiveWhyCause[]};
@@ -60,11 +167,11 @@ export function ticketAnalysisError(analysis:unknown,actionIds?:ReadonlySet<stri
   return 'Choisissez une méthode d’analyse valide.';
  const keys=ticketAnalysisMethods[method].fields.map(([id])=>String(id));
  const validValues=(answers:unknown)=>isAnalysisRecord(answers)&&Object.entries(answers)
-  .every(([key,value])=>keys.includes(key)&&typeof value==='string'&&value.length<=3000);
+  .every(([key,value])=>typeof value==='string'&&value.length<=3000&&(keys.includes(key)||method==='8d'&&validEightDValue(key,value)));
  const responseError='Vérifiez les réponses de l’analyse (3 000 caractères maximum par champ).';
  if(!validValues(values))return responseError;
  if(causes!==undefined){
-  if(method!=='5p'||Object.keys(values).length||paths!==undefined||!Array.isArray(causes)||causes.length>maxFiveWhyCauses)
+  if((method!=='5p'&&method!=='8d')||(method==='5p'&&Object.keys(values).length)||paths!==undefined||!Array.isArray(causes)||causes.length>maxFiveWhyCauses)
    return 'L’arbre du 5 Pourquoi est invalide.';
   const depths=new Map<string,number>();
   for(const cause of causes){
@@ -93,6 +200,16 @@ export function ticketAnalysisError(analysis:unknown,actionIds?:ReadonlySet<stri
   seen.add(path.id);
  }
  return '';
+}
+
+function validEightDValue(key:string,value:string){
+ const field=eightDFields.get(key);
+ if(!field)return false;
+ if(!value)return true;
+ if(field.options)return field.options.includes(value);
+ if(field.kind==='date')return validDate(value);
+ if(field.kind==='quantity')return /^\d{1,9}(\.\d{1,6})?$/.test(value);
+ return true;
 }
 
 function isAnalysisRecord(value:unknown):value is Record<string,unknown>{

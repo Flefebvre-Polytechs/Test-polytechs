@@ -62,6 +62,27 @@ const taggedId=(await labelSave.json()).id;let stored=JSON.parse(db.prepare('SEL
 assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:1,data:{...stored,category:'Sécurité'}})).status,400);
 assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:1,data:{...stored,topicTags:[],locationTags:[]}})).status,200);
 stored=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(taggedId).data);assert.deepEqual(stored.topicTags,[]);assert.deepEqual(stored.locationTags,[]);
+// The ticket endpoint must preserve both report layouts and reject invalid controls.
+const report={...newTicket(),title:'Réclamation client',category:'Qualité',teams:['qsse'],
+ actions:[{id:'correct',title:'Contrôler le dosage',pilot:'',due:'2026-12-01',done:false}],
+ analysis:{method:'8d',values:{d4:'Réponse de la trame précédente',customer:'Client test',batchNumber:'LOT-21',
+  sampleRequest:'Oui',sampleQuantity:'12.5',samplesResult:'Non conforme',productionResult:'Conforme',
+  'root-dosing':'Oui',effectivenessDue2:'2026-12-15','validated-report':'2026-11-21','validator-report':'Nom · Qualité'},
+  causes:[{id:'root',parentId:null,answer:'Dosage irrégulier',actionId:'correct'}]}};
+const reportSave=await post(hub,{action:'ticket',data:report});assert.equal(reportSave.status,200);
+const reportId=(await reportSave.json()).id;
+const storedReport=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(reportId).data);
+assert.deepEqual(storedReport.analysis,report.analysis);
+for(const values of [{samplesResult:'Inconnu'},{sampleQuantity:'-1'},{effectivenessDue2:'2026-02-30'},{'root-unknown':'Oui'}]){
+ const invalid={...report,analysis:{...report.analysis,values:{...report.analysis.values,...values}}};
+ assert.equal((await post(hub,{action:'ticket',id:reportId,revision:1,data:invalid})).status,400);
+}
+const invalidLink={...report,analysis:{...report.analysis,causes:[{...report.analysis.causes[0],actionId:'ailleurs'}]}};
+assert.equal((await post(hub,{action:'ticket',id:reportId,revision:1,data:invalidLink})).status,400);
+const legacy={...report,analysis:{method:'8d',values:{d1:'Équipe précédente',d8:'Clôture précédente'}}};
+assert.equal((await post(hub,{action:'ticket',id:reportId,revision:1,data:legacy})).status,200);
+assert.deepEqual(JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(reportId).data).analysis,legacy.analysis);
+console.log('Rapport 8D : enregistrement, ancien format, contrôles et rattachement des actions vérifiés.');
 console.log('Ticket label persistence: save, removal and cross-theme rejection passed through the ticket API.');
 console.log('Plan : cotation, moyens, droits, efficacité QSSE, historique et tickets sans doublons vérifiés. Archivage : clôture requise, accès, conservation et restauration vérifiés.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}

@@ -1,9 +1,10 @@
 'use client';
 
-import {useEffect,useId,useRef} from 'react';
+import {useEffect,useId,useRef,type ReactNode} from 'react';
 import {ListChecks,MoreHorizontal,Trash2} from 'lucide-react';
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import {FiveWhyTree} from '@/components/ticket-five-why-tree';
+import {TicketEightD,TicketEightDLegacy} from '@/components/ticket-eight-d';
 import {ticketAnalysisMethods,ticketFiveWhyCauses,type Task,type TicketAnalysis} from '@/lib/hub';
 
 export function TicketAnalysisMenu({analysis,disabled,onChange,onRemove,onShow}:{
@@ -30,8 +31,8 @@ export function TicketAnalysisMenu({analysis,disabled,onChange,onRemove,onShow}:
  </DropdownMenu>;
 }
 
-export function TicketAnalysisFields({analysis,problem,actions,readOnly,disabled,showRequest,onChange}:{
- analysis:TicketAnalysis;problem:string;actions:Task[];readOnly:boolean;disabled:boolean;showRequest:number;
+export function TicketAnalysisFields({analysis,problem,description,actions,actionPlan,readOnly,disabled,showRequest,onChange}:{
+ analysis:TicketAnalysis;problem:string;description:string;actions:Task[];actionPlan?:ReactNode;readOnly:boolean;disabled:boolean;showRequest:number;
  onChange:(analysis:TicketAnalysis,action?:Task)=>void;
 }){
  const heading=useRef<HTMLHeadingElement>(null);
@@ -52,9 +53,13 @@ export function TicketAnalysisFields({analysis,problem,actions,readOnly,disabled
  return <section className="ticket-analysis-section" aria-labelledby={id+'-heading'}>
   <header className="ticket-analysis-heading">
    <h3 id={id+'-heading'} ref={heading} tabIndex={-1}><ListChecks size={17} aria-hidden="true"/> Analyse · {method.label}</h3>
-   <small>{causes?causes.length+(causes.length===1?' cause':' causes'):`${filled}/${method.fields.length} renseignés`}</small>
+   {analysis.method==='8d'?<small>Rapport de réclamation</small>:<small>{causes?causes.length+(causes.length===1?' cause':' causes'):`${filled}/${method.fields.length} renseignés`}</small>}
   </header>
-  {causes?<FiveWhyTree causes={causes} problem={problem} actions={actions} readOnly={readOnly} disabled={disabled}
+  {analysis.method==='8d'?<TicketEightD analysis={analysis} problem={problem} description={description} actions={actions}
+   actionPlan={actionPlan} readOnly={readOnly} disabled={disabled} onChange={onChange}
+   legacyResponses={<TicketEightDLegacy responses={analysis.values} fields={method.fields}
+    disabled={readOnly||disabled} onChange={values=>onChange({...analysis,values})}/>}/>
+   :causes?<FiveWhyTree causes={causes} problem={problem} actions={actions} readOnly={readOnly} disabled={disabled}
    onChange={(next,action)=>onChange({method:'5p',values:{},causes:next},action)}/>
    :<fieldset className="ticket-analysis-fields" disabled={disabled}>
     <legend className="sr-only">{method.label}</legend>
