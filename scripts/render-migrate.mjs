@@ -2,6 +2,7 @@ import {mkdir,readFile,readdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync,randomBytes,randomUUID} from 'node:crypto';
+import {installQualitySource} from './render-quality-source.mjs';
 
 const dir=process.env.POLYTECHS_DATA_DIR;
 if(!dir)throw Error('POLYTECHS_DATA_DIR must point to a persistent disk.');
@@ -27,3 +28,9 @@ if(count===0){
   console.log('Initial administrator created; change the password on first login.');
 }
 db.close();
+
+try {
+  await installQualitySource(dir, process.env);
+} catch (error) {
+  console.error('QSSE quality source could not be installed:', error instanceof Error ? error.message : 'Unknown error.');
+}
