@@ -47,26 +47,46 @@ export async function installQualitySource(dir, env) {
     if (error.code !== 'ENOENT') throw error;
     return null;
   });
-  if (previousBytes && digest(previousBytes) === hash) {
-    console.log('QSSE quality source already installed:', records.size, 'actions.');
+  const installed = previousBytes ? JSON.parse(previousBytes) : null;
+  if (installed && (digest(previousBytes) === hash || installed.transferHash === hash)) {
+    console.log('QSSE quality source already installed:', installed.records.length, 'actions.');
     return;
   }
 
-  const previous = previousBytes ? JSON.parse(previousBytes).records : [];
-  for (const action of previous) {
-    const replacement = records.get(action.id);
-    if (!replacement || identity(replacement) !== identity(action)) {
-      throw Error('Quality source would remove or reassign an existing action.');
+  const previous = installed?.records ?? [];
+  const previousByIdentity = new Map(previous.map(action => [identity(action), action]));
+  const existingNumbers = new Set(previous.map(action => action.raw?.A));
+  const reservedIds = new Set(previous.map(action => action.id));
+  const incomingIdentities = new Set();
+  const incomingNumbers = new Set();
+  const merged = [];
+
+  for (const action of records.values()) {
+    const key = identity(action);
+    const number = action.raw.A;
+    const existing = previousByIdentity.get(key);
+    if (incomingNumbers.has(number) || (existingNumbers.has(number) && !existing)) {
+      throw Error('An existing quality source number has a different reference.');
     }
+    incomingNumbers.add(number);
+    incomingIdentities.add(key);
+    const id = existing?.id ?? (reservedIds.has(action.id) ? 'quality-workbook-' + number : action.id);
+    if (!existing && reservedIds.has(id)) throw Error('Quality source action identifier collision.');
+    reservedIds.add(id);
+    merged.push({...action,id});
   }
+
+  const retained = previous.filter(action => !incomingIdentities.has(identity(action)));
+  merged.push(...retained);
+  const contents = JSON.stringify({...next,transferHash:hash,records:merged});
 
   const temp = path + '.' + randomUUID() + '.tmp';
   try {
     if (previousBytes) await writeFile(path + '.previous', previousBytes, {mode:0o600});
-    await writeFile(temp, bytes, {mode:0o600, flag:'wx'});
+    await writeFile(temp, contents, {mode:0o600, flag:'wx'});
     await rename(temp, path);
   } finally {
     await rm(temp, {force:true});
   }
-  console.log('QSSE quality source installed:', records.size, 'actions;', records.size - previous.length, 'additional source rows.');
+  console.log('QSSE quality source installed:', merged.length, 'actions;', merged.length - previous.length, 'additional source rows;', retained.length, 'prior rows retained.');
 }
