@@ -48,3 +48,12 @@
 .ticket-reference-sheet .ticket-sheet-footer{position:static!important;inset:auto!important;z-index:auto;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;border-top:1px solid #e3eaf2;margin:0;min-height:64px;flex:none;backdrop-filter:none;background:#fff}
 .ticket-sheet-footer>.ticket-save-state{margin-right:auto;color:#728397}.ticket-reference-sheet .ticket-sheet-close{width:32px;height:32px;display:grid;place-items:center;top:15px;right:12px;cursor:pointer;pointer-events:auto;z-index:3;border-radius:6px}.ticket-reference-sheet .ticket-sheet-close:hover{background:#edf3f8}.ticket-reference-sheet .ticket-sheet-close svg{pointer-events:none}
 @media(max-width:760px){[data-slot=dialog-content].hub-ticket-dialog.ticket-reference-sheet{height:96dvh;max-height:96dvh}.ticket-sheet-scroll>.hub-ticket-columns{min-height:0}.ticket-reference-sheet .ticket-sheet-footer>.ticket-save-state{flex-basis:100%;order:-1;margin:0}.ticket-reference-sheet .ticket-sheet-footer button{flex:1;min-width:100px;white-space:normal}.ticket-sheet-scroll>.hub-modal-messages{padding:0 16px}}
+
+.ticket-reference-sheet .ticket-analysis-menu{min-width:32px;min-height:32px;padding:5px;justify-content:center}
+.ticket-analysis-section{border:1px solid #dce6f0;border-radius:10px;margin:14px 0;padding:10px 14px;background:#f8fbff}
+.ticket-analysis-section>summary{cursor:pointer;color:#264661;font-weight:650;padding:3px 0}
+.ticket-analysis-section>summary span{display:inline-flex;align-items:center;gap:7px;margin-right:10px}
+.ticket-analysis-section>summary small{color:#50657a;font-weight:500}
+.ticket-analysis-fields{border:0;padding:10px 0 0;margin:0;display:grid;gap:12px;min-width:0}
+.ticket-analysis-fields label{display:block;color:#28465f;font-weight:600;margin-bottom:4px}
+.ticket-analysis-fields textarea{display:block;width:100%;resize:vertical;min-width:0}

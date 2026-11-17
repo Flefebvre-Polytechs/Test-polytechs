@@ -146,11 +146,12 @@ try{
  db.exec("UPDATE team_members SET level='contributor' WHERE user_id='editor'");
  db.exec("CREATE TABLE hub_notifications(id TEXT PRIMARY KEY,user_id TEXT,title TEXT,href TEXT,seen INTEGER,created_at TEXT); CREATE TABLE ticket_labels(id TEXT,kind TEXT,category TEXT,name TEXT); INSERT INTO ticket_labels VALUES('dechets','topic','Environnement','Déchets')");
  const ticketData={...lib.newTicket(),title:'Écart précis',description:'Constat',category:'Environnement',teams:['qsse'],
-  pilot:'editor',status:'En cours',due:auditToday,topicTags:['dechets'],
+  pilot:'editor',status:'En cours',due:auditToday,topicTags:['dechets'],analysis:{method:'5p',values:{p1:'Bac non identifié'}},
   actions:[{id:'action-test',title:'Corriger l’écart',pilot:'editor',done:false,due:auditToday}]};
  assert.equal((await auditTicket({data:{...ticketData,teams:['rh']}})).status,403);
  assert.equal((await auditTicket({data:{...ticketData,topicTags:['inconnue']}})).status,400);
  assert.equal((await auditTicket({data:{...ticketData,pilot:'inconnu'}})).status,400);
+ assert.equal((await auditTicket({data:{...ticketData,analysis:{method:'5p',values:{d1:'Mauvais champ'}}}})).status,400);
  const tickets=await Promise.all([auditTicket({data:ticketData}),auditTicket({data:ticketData})]);
  assert.deepEqual(tickets.map(result=>result.status),[200,200]);
  const linked=await Promise.all(tickets.map(result=>result.json()));
@@ -161,11 +162,19 @@ try{
  assert.equal(storedTicket.pilot,'editor');
  assert.deepEqual(storedTicket.topicTags,['dechets']);
  assert.equal(storedTicket.status,'En cours');
+ assert.deepEqual(storedTicket.analysis,ticketData.analysis);
  assert.equal(db.prepare('SELECT count(*) AS n FROM hub_notifications').get().n,1);
  const ticketAuditUrl='https://example.test/api/hub?scope=run&id='+ticketSession.id+'&date='+auditToday;
  const reopened=await (await hub.GET(new Request(ticketAuditUrl))).json();
  assert.equal(reopened.run.data.completed,false);
  assert.equal(reopened.tickets[0].questionId,'q1');
  assert.equal(reopened.tickets[0].id,linked[0].id);
+ const regularData={...lib.newTicket(),title:'Ticket avec analyse',teams:['qsse'],analysis:{method:'8d',values:{d1:'Équipe QSSE',d2:'Constat'}}};
+ const regularResponse=await hub.POST(request({action:'ticket',data:regularData}));
+ assert.equal(regularResponse.status,200);
+ const regularId=(await regularResponse.json()).id;
+ assert.deepEqual(JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(regularId).data).analysis,regularData.analysis);
+ assert.equal((await hub.POST(request({action:'ticket',id:regularId,revision:1,data:{...regularData,analysis:undefined}}))).status,200);
+ assert.equal(JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(regularId).data).analysis,undefined);
  console.log('Audit reports: real SQLite permissions, RH isolation, immediate revocation, server timestamps, N/A scoring, saved-only PDF, photos, concurrent revisions, history, legacy data and long pagination passed.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.auditDb;delete globalThis.auditBucket;delete globalThis.auditUser;delete globalThis.auditOrigin}

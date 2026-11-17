@@ -2,7 +2,43 @@ export const categories=['Sécurité','Environnement','Production','Qualité','R
 export const ticketStatuses=['Ouvert','En cours','À vérifier','Clôturé'];
 export type Task={id:string;title:string;done:boolean;pilot:string;due:string};
 export type TicketLabel={id:string;kind:'topic'|'location';category:string;name:string};
-export type Ticket={topicTags?:string[];locationTags?:string[];gmaoOrderId?:string;archivedAt?:string;archivedBy?:string;qualityActionId?:string;title:string;category:string;description:string;teams:string[];pilot:string;due:string;status:string;actions:Task[];responsibles:string[];source?:{routineId:string;date:string;questionId?:string}};
+export type Ticket={analysis?:TicketAnalysis;topicTags?:string[];locationTags?:string[];gmaoOrderId?:string;archivedAt?:string;archivedBy?:string;qualityActionId?:string;title:string;category:string;description:string;teams:string[];pilot:string;due:string;status:string;actions:Task[];responsibles:string[];source?:{routineId:string;date:string;questionId?:string}};
+export const ticketAnalysisMethods = {
+ '5p':{label:'5P · 5 Pourquoi',fields:[
+  ['p1','Pourquoi le problème est-il apparu ?'],['p2','Pourquoi cette première cause existe-t-elle ?'],
+  ['p3','Pourquoi ? (3)'],['p4','Pourquoi ? (4)'],['p5','Pourquoi ? (5)'],
+  ['cause','Cause racine retenue et preuve'],
+ ]},
+ '8d':{label:'8D · Résolution de problème',fields:[
+  ['d1','D1 · Constituer l’équipe'],['d2','D2 · Décrire le problème'],
+  ['d3','D3 · Mettre en place les mesures immédiates'],
+  ['d4','D4 · Identifier les causes racines et de non-détection'],
+  ['d5','D5 · Choisir et valider les actions correctives'],
+  ['d6','D6 · Mettre en œuvre les actions et vérifier leur efficacité'],
+  ['d7','D7 · Prévenir la récidive'],['d8','D8 · Clôturer et reconnaître le travail de l’équipe'],
+ ]},
+ ishikawa:{label:'Ishikawa · 5M',fields:[
+  ['methodes','Méthodes'],['materiel','Matériel'],['matieres','Matières'],
+  ['main_oeuvre','Main-d’œuvre'],['milieu','Milieu'],['cause','Causes retenues et preuves'],
+ ]},
+ qqoqccp:{label:'QQOQCCP · Cadrage du problème',fields:[
+  ['qui','Qui ?'],['quoi','Quoi ?'],['ou','Où ?'],['quand','Quand ?'],
+  ['comment','Comment ?'],['combien','Combien ?'],['pourquoi','Pourquoi analyser cet écart ?'],
+ ]},
+} as const;
+export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>};
+
+export function ticketAnalysisError(analysis:unknown){
+ if(analysis===undefined)return '';
+ if(!analysis||typeof analysis!=='object'||Array.isArray(analysis))return 'Analyse du ticket invalide.';
+ if(Object.keys(analysis).some(key=>key!=='method'&&key!=='values'))return 'Analyse du ticket invalide.';
+ const {method,values}=analysis as TicketAnalysis;
+ if(typeof method!=='string'||!Object.hasOwn(ticketAnalysisMethods,method)||!values||typeof values!=='object'||Array.isArray(values))
+  return 'Choisissez une méthode d’analyse valide.';
+ const keys=ticketAnalysisMethods[method].fields.map(([id])=>String(id));
+ return Object.entries(values).some(([key,value])=>!keys.includes(key)||typeof value!=='string'||value.length>3000)
+  ?'Vérifiez les réponses de l’analyse (3 000 caractères maximum par champ).':'';
+}
 export type AuditQuestion={id:string;label:string;section?:string;type?:'conformity'|'text'|'number'|'date';required?:boolean;help?:string;evidence?:'none'|'comment'|'photo'|'both'};
 export type Routine={archivedAt?:string;archivedBy?:string;binaryConformity?:boolean;mode?:'catalog'|'on-demand'|'scheduled-copy';title:string;description:string;teams:string[];pilot:string;start:string;time:string;repeat:'none'|'daily'|'weekly'|'monthly';interval:number;end:string;questions:AuditQuestion[];active:boolean};
 export type Communication={title:string;body:string;sourceTeam:string;teams:string[]};
@@ -27,7 +63,7 @@ export function auditSections(answers:Run['answers']){const sections=new Map<str
 export const validDate=(s:unknown):s is string=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
 const str=(s:unknown,max:number,required=false)=>typeof s==='string'&&s.length<=max&&(!required||!!s.trim());
 const ids=(v:unknown)=>Array.isArray(v)&&v.length<=100&&v.every(x=>str(x,100,true))&&new Set(v).size===v.length;
-export function ticketError(v:Ticket){if(!v||!str(v.title,200,true)||!categories.includes(v.category)||!str(v.description,10000)||!ids(v.teams)||!ids(v.responsibles)||!str(v.pilot,100)||!str(v.due,10)||(v.due&&!validDate(v.due))||!ticketStatuses.includes(v.status))return 'Vérifiez le titre, la catégorie, les équipes, le pilote et l’échéance.';if([v.topicTags,v.locationTags].some(tags=>tags!==undefined&&(!ids(tags)||tags.length>20)))return 'Sélectionnez au maximum 20 étiquettes par groupe, sans doublon.';if(!Array.isArray(v.actions)||v.actions.length>100||v.actions.some(a=>!a||!str(a.id,100,true)||!str(a.title,500,true)||typeof a.done!=='boolean'||!str(a.pilot,100)||!str(a.due,10)||(a.due&&!validDate(a.due)))||new Set(v.actions.map(a=>a.id)).size!==v.actions.length)return 'Chaque action doit avoir un libellé et une date valide si renseignée.';if(v.status==='Clôturé'&&(!v.pilot||v.actions.some(a=>!a.done)))return 'Désignez un pilote et terminez toutes les actions avant de clôturer.';if(v.source&&(!str(v.source.routineId,100,true)||!validDate(v.source.date)||(v.source.questionId!==undefined&&!str(v.source.questionId,100,true))))return 'Origine du ticket invalide.';return ''}
+export function ticketError(v:Ticket){if(!v||!str(v.title,200,true)||!categories.includes(v.category)||!str(v.description,10000)||!ids(v.teams)||!ids(v.responsibles)||!str(v.pilot,100)||!str(v.due,10)||(v.due&&!validDate(v.due))||!ticketStatuses.includes(v.status))return 'Vérifiez le titre, la catégorie, les équipes, le pilote et l’échéance.';if([v.topicTags,v.locationTags].some(tags=>tags!==undefined&&(!ids(tags)||tags.length>20)))return 'Sélectionnez au maximum 20 étiquettes par groupe, sans doublon.';if(!Array.isArray(v.actions)||v.actions.length>100||v.actions.some(a=>!a||!str(a.id,100,true)||!str(a.title,500,true)||typeof a.done!=='boolean'||!str(a.pilot,100)||!str(a.due,10)||(a.due&&!validDate(a.due)))||new Set(v.actions.map(a=>a.id)).size!==v.actions.length)return 'Chaque action doit avoir un libellé et une date valide si renseignée.';if(v.status==='Clôturé'&&(!v.pilot||v.actions.some(a=>!a.done)))return 'Désignez un pilote et terminez toutes les actions avant de clôturer.';if(v.source&&(!str(v.source.routineId,100,true)||!validDate(v.source.date)||(v.source.questionId!==undefined&&!str(v.source.questionId,100,true))))return 'Origine du ticket invalide.';return ticketAnalysisError(v.analysis)}
 export function routineError(v:Routine){if(!v||!str(v.title,200,true)||!str(v.description,10000)||!ids(v.teams)||!str(v.pilot,100)||!validDate(v.start)||!str(v.end,10)||(v.end&&(!validDate(v.end)||v.end<v.start))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(v.time)||!['none','daily','weekly','monthly'].includes(v.repeat)||!Number.isInteger(v.interval)||v.interval<1||v.interval>52||typeof v.active!=='boolean'||(v.binaryConformity!==undefined&&typeof v.binaryConformity!=='boolean')||(v.mode!==undefined&&!['catalog','on-demand','scheduled-copy'].includes(v.mode)))return 'Vérifiez le titre, le calendrier et la récurrence.';if(!Array.isArray(v.questions)||v.questions.length<1||v.questions.length>100||v.questions.some(q=>!q||!str(q.id,100,true)||!str(q.label,500,true)||(q.section!==undefined&&!str(q.section,150))||(q.type!==undefined&&!['conformity','text','number','date'].includes(q.type))||(q.required!==undefined&&typeof q.required!=='boolean')||(q.help!==undefined&&!str(q.help,1000))||(q.evidence!==undefined&&!['none','comment','photo','both'].includes(q.evidence)))||new Set(v.questions.map(q=>q.id)).size!==v.questions.length)return 'Ajoutez au moins un point de contrôle, sans doublon ; limitez les thèmes à 150 caractères.';return ''}
 export function communicationError(v:Communication){return !v||!str(v.title,200,true)||!str(v.body,15000,true)||!str(v.sourceTeam,100,true)||!ids(v.teams)||!v.teams.length?'Renseignez le titre, le message, le service émetteur et au moins une équipe destinataire.':''}
 export function occurrenceDates(r:Routine,from:string,to:string){if(!r.active||r.archivedAt||r.mode==='catalog'||!validDate(from)||!validDate(to)||!validDate(r.start)||from>to)return [];const days:string[]=[];const start=new Date(r.start+'T00:00:00Z');const limit=r.end&&r.end<to?r.end:to;if(r.repeat==='none')return r.start>=from&&r.start<=limit?[r.start]:[];if(r.repeat==='monthly'){const f=new Date(from+'T00:00:00Z');const diff=(f.getUTCFullYear()-start.getUTCFullYear())*12+f.getUTCMonth()-start.getUTCMonth();let n=Math.max(0,Math.floor(diff/r.interval));for(let guard=0;guard<500;guard++,n++){const month=start.getUTCMonth()+n*r.interval;const target=new Date(Date.UTC(start.getUTCFullYear(),month,1));const last=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0)).getUTCDate();target.setUTCDate(Math.min(start.getUTCDate(),last));const s=target.toISOString().slice(0,10);if(s>limit)break;if(s>=from)days.push(s)}}else{const step=r.interval*(r.repeat==='weekly'?7:1)*86400000;let n=Math.max(0,Math.ceil((Date.parse(from)-start.getTime())/step));for(let guard=0;guard<500;guard++,n++){const s=new Date(start.getTime()+n*step).toISOString().slice(0,10);if(s>limit)break;days.push(s)}}return days}

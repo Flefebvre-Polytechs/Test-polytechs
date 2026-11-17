@@ -1,11 +1,13 @@
 'use client';
 
-import type {ReactNode} from 'react';
+import {useState,type ReactNode} from 'react';
 import {Archive,ArchiveRestore,AlignLeft,CalendarDays,Check,CircleCheck,MessageSquare,Paperclip,Plus,Send,ShieldCheck,Users,X} from 'lucide-react';
 import type {Account} from '@/components/account-gate';
 import type {Meta} from '@/components/hub-layout';
 import {Dialog,DialogContent,DialogDescription,DialogTitle} from '@/components/ui/dialog';
 import {PersonAvatar} from '@/components/person-avatar';
+import {TicketAnalysisMenu,TicketAnalysisFields} from '@/components/ticket-analysis';
+import {useConfirmation} from '@/components/use-confirmation';
 import {TicketLabelFields} from '@/components/ticket-label-fields';
 import {TicketPilotPicker,TicketSearchPicker} from '@/components/ticket-search-picker';
 import {TicketVisualSelect} from '@/components/ticket-visuals';
@@ -52,12 +54,21 @@ export function TicketSheet({
  comments=[],files=[],comment='',notifyComment=true,recipientIds=[],
  archiveTicket,upload,setComment,setNotifyComment,sendComment,notify,onCloseAutoFocus,children,
 }:TicketSheetProps){
+ const [showAnalysisRequest,setShowAnalysisRequest]=useState(0);
+ const {askConfirm,confirmation:analysisConfirmation}=useConfirmation();
+ async function removeAnalysis(){
+  if(!edit?.data.analysis||busy||uploading)return;
+  if(await askConfirm('Les réponses de cette analyse seront retirées à l’enregistrement du ticket.',{title:'Retirer la méthode d’analyse ?',confirmLabel:'Retirer l’analyse'})){
+   patch({analysis:undefined});
+   setShowAnalysisRequest(0);
+  }
+ }
  const formLocked=!canContribute||!!edit?.data.archivedAt||!!edit?.data.gmaoOrderId&&edit.data.status==='Clôturé'||busy||uploading;
  const coreReadOnly=!canEdit||!!edit?.data.archivedAt||!!edit?.data.gmaoOrderId;
  const coreLocked=coreReadOnly||busy||uploading;
  // A creator name in legacy records is not enough to identify a homonym.
  const authorId=(label?:string)=>{const matches=meta.users.filter(user=>user.display_name===label);return matches.length===1?matches[0].id:undefined};
- return <Dialog open={!!edit} onOpenChange={v=>{if(!v)close()}}>
+ return <Dialog open={!!edit} onOpenChange={v=>{if(!v){setShowAnalysisRequest(0);close()}}}>
   <DialogContent className="hub-ticket-dialog ticket-reference-sheet" showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus}>
     <DialogTitle className="sr-only">{edit?.data.title||'Nouveau ticket'}</DialogTitle>
     <DialogDescription className="sr-only">Signalement, attribution, plan d’actions et activité du ticket.</DialogDescription>
@@ -70,7 +81,8 @@ export function TicketSheet({
           <TicketVisualSelect label="Catégorie du ticket" value={edit.data.category} onChange={category=>patch(category===edit.data.category?{category}:{category,topicTags:[]})} options={categories.map(c=>({id:c,name:c}))} disabled={coreLocked}/>
           <label className="ticket-meta-status" data-status={edit.data.status}><CircleCheck size={16}/><span className="sr-only">Statut du ticket</span><select aria-label="Statut du ticket" value={edit.data.status} onChange={e=>patch({status:e.target.value})}>{ticketStatuses.map(s=><option key={s} disabled={s==='Clôturé'&&(!edit.data.pilot||edit.data.actions.some(a=>!a.done))}>{s}</option>)}</select></label>
         </fieldset>
-        <div className="ticket-sheet-tools"><span className="ticket-sheet-id">{edit.id?'#'+edit.id.slice(0,8):'Nouveau ticket'}</span>{canEdit&&edit.id&&<button className="ticket-toolbar-button" title={edit.data.archivedAt?'Restaurer ce ticket':edit.data.status!=='Clôturé'?'Clôturez le ticket avant de l’archiver.':dirty||comment?'Enregistrez vos modifications et publiez ou effacez le commentaire avant d’archiver.':'Archiver le ticket et conserver son historique'} disabled={dirty||busy||uploading||!!comment||!edit.data.archivedAt&&edit.data.status!=='Clôturé'} onClick={archiveTicket}>{edit.data.archivedAt?<><ArchiveRestore size={15}/> Restaurer</>:<><Archive size={15}/> Archiver</>}</button>}</div><button type="button" className="ticket-sheet-close" aria-label="Fermer le ticket" disabled={busy||uploading} onClick={close}><X size={17}/></button>
+        <div className="ticket-sheet-tools"><span className="ticket-sheet-id">{edit.id?'#'+edit.id.slice(0,8):'Nouveau ticket'}</span>{canEdit&&edit.id&&<button className="ticket-toolbar-button" title={edit.data.archivedAt?'Restaurer ce ticket':edit.data.status!=='Clôturé'?'Clôturez le ticket avant de l’archiver.':dirty||comment?'Enregistrez vos modifications et publiez ou effacez le commentaire avant d’archiver.':'Archiver le ticket et conserver son historique'} disabled={dirty||busy||uploading||!!comment||!edit.data.archivedAt&&edit.data.status!=='Clôturé'} onClick={archiveTicket}>{edit.data.archivedAt?<><ArchiveRestore size={15}/> Restaurer</>:<><Archive size={15}/> Archiver</>}</button>}{!coreReadOnly&&<TicketAnalysisMenu analysis={edit.data.analysis} disabled={coreLocked}
+         onChange={analysis=>{patch({analysis});setShowAnalysisRequest(request=>request+1)}} onRemove={()=>void removeAnalysis()} onShow={()=>setShowAnalysisRequest(request=>request+1)}/>}</div><button type="button" className="ticket-sheet-close" aria-label="Fermer le ticket" disabled={busy||uploading} onClick={close}><X size={17}/></button>
       </header>
       <div className="ticket-sheet-scroll" tabIndex={0} aria-label="Contenu du ticket"><div className="hub-modal-messages">{modalError&&<p className="error" role="alert">{modalError}</p>}{modalNotice&&<p className="success" role="status">{modalNotice}</p>}</div>
       {edit.data.archivedAt&&<p className="ticket-archive-banner"><Archive size={17}/> Archivé le {new Date(edit.data.archivedAt).toLocaleString('fr-FR')} par {edit.data.archivedBy}. Restaurez le ticket pour reprendre les échanges ou le modifier.</p>}
@@ -90,6 +102,8 @@ export function TicketSheet({
             {edit.id&&!edit.data.gmaoOrderId&&!edit.data.qualityActionId&&!edit.data.archivedAt&&edit.data.status!=='Clôturé'&&canEdit&&meta.editableTeams?.includes('maintenance')&&<a href={'/maintenance?ticket='+encodeURIComponent(edit.id)}>Transformer en demande d’intervention →</a>}
             {edit.data.source&&<a href={'/routines?routine='+edit.data.source.routineId+'&date='+edit.data.source.date}>Voir l’audit à l’origine du ticket →</a>}
           </div>
+          {edit.data.analysis&&<TicketAnalysisFields analysis={edit.data.analysis} disabled={busy||uploading}
+           readOnly={coreReadOnly} showRequest={showAnalysisRequest} onChange={analysis=>patch({analysis})}/>}
           <fieldset className="ticket-actions-section ticket-sheet-actions" disabled={formLocked}>
             <div className="hub-section-heading"><h3><CircleCheck size={17}/> Actions <span className="ticket-count">{edit.data.actions.filter(a=>a.done).length}/{edit.data.actions.length}</span></h3>{canEdit&&<button className="ticket-add-action" disabled={edit.data.actions.length>=100} onClick={()=>patch({actions:[...edit.data.actions,{id:crypto.randomUUID(),title:'',done:false,pilot:'',due:''}]})}><Plus size={14}/> Ajouter une action</button>}</div>
             {edit.data.actions.length>0&&<div className="ticket-action-column-labels" aria-hidden="true"><span>Action à réaliser</span><span>Pilote</span><span>Délai</span></div>}
@@ -119,6 +133,7 @@ export function TicketSheet({
       <footer className="ticket-sheet-footer"><button type="button" className="outline" disabled={busy||uploading} onClick={close}>Fermer</button><span className={dirty?'ticket-save-state is-dirty':'ticket-save-state'}>{dirty?'Modifications non enregistrées':!edit.id?'Nouveau ticket · à enregistrer':'Enregistré · version '+edit.revision}</span>{canContribute&&!edit.data.archivedAt&&<><button className="outline" disabled={!edit.id||dirty||busy||uploading||!recipientIds.length} onClick={notify}>Notifier les responsables</button><button className="primary" disabled={busy||uploading||!!edit.id&&!dirty} onClick={save}>{busy?'Enregistrement…':saveLabel}</button></>}</footer>
       </div>
     </>}
+    {analysisConfirmation}
     {children}
   </DialogContent>
  </Dialog>;
