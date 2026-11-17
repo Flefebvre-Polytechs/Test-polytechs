@@ -55,7 +55,7 @@ console.log('Import privé : 628 actions, identifiants et répartitions vérifi�
 // Ticket tags must survive the real ticket save path and reject cross-theme IDs.
 db.exec(fs.readFileSync('drizzle/0029_ticket_labels.sql','utf8'));
 globalThis.qaUser={id:'admin',displayName:'QSSE',role:'admin'};globalThis.qaAllowed=true;
-const {newTicket}=await import(path.join(dir,'hub.mjs'));
+const {newTicket,eightDProgress}=await import(path.join(dir,'hub.mjs'));
 const tagged={...newTicket(),title:'Fuite atelier',category:'Environnement',teams:['qsse'],topicTags:['env-water','env-spill'],locationTags:['place-maris-51']};
 let labelSave=await post(hub,{action:'ticket',data:tagged});assert.equal(labelSave.status,200);
 const taggedId=(await labelSave.json()).id;let stored=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(taggedId).data);assert.deepEqual(stored.topicTags,tagged.topicTags);assert.deepEqual(stored.locationTags,tagged.locationTags);
@@ -66,14 +66,21 @@ stored=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(tagg
 const report={...newTicket(),title:'Réclamation client',category:'Qualité',teams:['qsse'],
  actions:[{id:'correct',title:'Contrôler le dosage',pilot:'',due:'2026-12-01',done:false}],
  analysis:{method:'8d',values:{d4:'Réponse de la trame précédente',customer:'Client test',batchNumber:'LOT-21',
-  sampleRequest:'Oui',sampleQuantity:'12.5',samplesResult:'Non conforme',productionResult:'Conforme',
+  'completed-d1':'Oui',sampleRequest:'Oui',sampleQuantity:'12.5',samplesResult:'Non conforme',productionResult:'Conforme',
   'root-dosing':'Oui',effectivenessDue2:'2026-12-15','validated-report':'2026-11-21','validator-report':'Nom · Qualité'},
   causes:[{id:'root',parentId:null,answer:'Dosage irrégulier',actionId:'correct'}]}};
 const reportSave=await post(hub,{action:'ticket',data:report});assert.equal(reportSave.status,200);
 const reportId=(await reportSave.json()).id;
 const storedReport=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(reportId).data);
 assert.deepEqual(storedReport.analysis,report.analysis);
-for(const values of [{samplesResult:'Inconnu'},{sampleQuantity:'-1'},{effectivenessDue2:'2026-02-30'},{'root-unknown':'Oui'}]){
+const statuses=(analysis,actions)=>eightDProgress(analysis,actions).map(step=>step.status);
+assert.deepEqual(statuses(storedReport.analysis,storedReport.actions),['complete','todo','active','active','active','active','active','active']);
+const reopened={...report.analysis,values:{...report.analysis.values,'completed-d1':''}};
+assert.equal(statuses(reopened,report.actions)[0],'active');
+assert.equal(statuses(reopened,report.actions)[5],'active');
+assert.equal(statuses(reopened,report.actions.map(action=>({...action,done:true})))[5],'complete');
+assert.deepEqual(statuses({method:'8d',values:{d8:'Ancienne fiche'}},[]),Array(8).fill('todo'));
+for(const values of [{samplesResult:'Inconnu'},{sampleQuantity:'-1'},{effectivenessDue2:'2026-02-30'},{'root-unknown':'Oui'},{'completed-d1':'Non'},{'completed-d6':'Oui'}]){
  const invalid={...report,analysis:{...report.analysis,values:{...report.analysis.values,...values}}};
  assert.equal((await post(hub,{action:'ticket',id:reportId,revision:1,data:invalid})).status,400);
 }
@@ -82,7 +89,7 @@ assert.equal((await post(hub,{action:'ticket',id:reportId,revision:1,data:invali
 const legacy={...report,analysis:{method:'8d',values:{d1:'Équipe précédente',d8:'Clôture précédente'}}};
 assert.equal((await post(hub,{action:'ticket',id:reportId,revision:1,data:legacy})).status,200);
 assert.deepEqual(JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(reportId).data).analysis,legacy.analysis);
-console.log('Rapport 8D : enregistrement, ancien format, contrôles et rattachement des actions vérifiés.');
+console.log('Rapport 8D : enregistrement, ancien format, contrôles, suivi des étapes et rattachement des actions vérifiés.');
 console.log('Ticket label persistence: save, removal and cross-theme rejection passed through the ticket API.');
 console.log('Plan : cotation, moyens, droits, efficacité QSSE, historique et tickets sans doublons vérifiés. Archivage : clôture requise, accès, conservation et restauration vérifiés.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}

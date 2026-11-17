@@ -119,8 +119,35 @@ export const eightDSteps: readonly {number:number;title:string;fields:readonly E
  ]},
 ];
 
+export const eightDCompletionKey=(step:number)=>'completed-d'+step;
+const eightDProgressFields: Record<number,readonly string[]> = {
+ 4:eightDChecks.flatMap(([id])=>[id+'Result',id+'Comment']),
+ 5:eightDRootCauses.map(([id])=>'root-'+id),
+ 7:eightDVerificationFields.flat().map(field=>field.id),
+ 8:eightDValidations.flatMap(([id])=>['validated-'+id,'validator-'+id]),
+};
+
+export function eightDProgress(analysis:TicketAnalysis,actions:readonly Task[]){
+ return eightDSteps.map(step=>{
+  const completionKey=eightDCompletionKey(step.number);
+  if(step.number===6){
+   const done=actions.length>0&&actions.every(action=>action.done&&action.title.trim());
+   return {...step,completionKey,status:done?'complete' as const:actions.length?'active' as const:'todo' as const};
+  }
+  const filled=(key:string)=>!!analysis.values[key]?.trim();
+  const started=step.fields.some(field=>filled(field.id))||
+    (eightDProgressFields[step.number]??[]).some(filled)||
+    step.number===4&&!!analysis.causes?.length;
+  const status=analysis.values[completionKey]==='Oui'?'complete' as const:started?'active' as const:'todo' as const;
+  return {...step,completionKey,status};
+ });
+}
+
 export const eightDFields = new Map<string,EightDField>([
  ...eightDSteps.flatMap(step=>step.fields),
+ ...eightDSteps.filter(step=>step.number!==6).map(step=>({
+  id:eightDCompletionKey(step.number),label:'Étape D'+step.number+' terminée',options:['Oui'],
+ })),
  ...eightDVerificationFields.flat(),
  ...eightDChecks.flatMap(([id,label]):EightDField[]=>[
   {id:id+'Result',label:'Conformité · '+label,options:eightDCheckResults},

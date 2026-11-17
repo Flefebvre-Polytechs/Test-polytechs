@@ -1,9 +1,11 @@
 'use client';
 
 import {useId,type ReactNode} from 'react';
-import {ChevronDown} from 'lucide-react';
+import {Check,ChevronDown,RotateCcw} from 'lucide-react';
 import {FiveWhyTree} from '@/components/ticket-five-why-tree';
-import {eightDChecks,eightDFields,eightDRootCauses,eightDSteps,eightDValidations,eightDVerificationFields,type EightDField,type Task,type TicketAnalysis} from '@/lib/hub';
+import {eightDChecks,eightDFields,eightDRootCauses,eightDProgress,eightDValidations,eightDVerificationFields,type EightDField,type Task,type TicketAnalysis} from '@/lib/hub';
+
+const statusLabels = {todo:'À faire',active:'En cours',complete:'Terminée'} as const;
 
 type ReportProps = {
  analysis: TicketAnalysis;
@@ -19,8 +21,9 @@ type ReportProps = {
 
 export function TicketEightD({analysis,problem,description,actions,actionPlan,readOnly,disabled,onChange,legacyResponses}:ReportProps){
  const {values}=analysis;
- const filledActions=actions.filter(action=>action.title.trim());
- const completedActions=filledActions.filter(action=>action.done).length;
+ const steps=eightDProgress(analysis,actions);
+ const completedSteps=steps.filter(step=>step.status==='complete').length;
+ const completedActions=actions.filter(action=>action.done&&action.title.trim()).length;
  const patch=(key:string,value:string)=>onChange({...analysis,values:{...values,[key]:value}});
  const field=({id,label,kind,options}:EightDField)=>(
   <label className={kind==='textarea'?'ticket-8d-wide':undefined} key={id}>
@@ -38,12 +41,23 @@ export function TicketEightD({analysis,problem,description,actions,actionPlan,re
  const extraField=(key:string)=>field(eightDFields.get(key)!);
 
  return <div className="ticket-8d-report">
-  {eightDSteps.map(step=><details key={step.number} open={step.number===1} className="ticket-8d-step">
+  <div className="ticket-8d-progress">
+   <strong role="status">{completedSteps} / {steps.length} étapes terminées</strong>
+   <div className="ticket-8d-progress-track" aria-hidden="true">
+    {steps.map(step=><span key={step.number} data-status={step.status}/>)}
+   </div>
+  </div>
+  {steps.map(step=><details key={step.number} open={step.number===1} className="ticket-8d-step" data-status={step.status}>
    <summary>
     <span className="ticket-8d-number">D{step.number}</span>
-    <span>{step.title}</span>
-    {step.number===6&&filledActions.length>0&&<small>{completedActions}/{filledActions.length} réalisées</small>}
-    <ChevronDown size={16} aria-hidden="true"/>
+    <span className="ticket-8d-title">
+     {step.title}
+     {step.number===6&&actions.length>0&&<small>{completedActions}/{actions.length} actions réalisées</small>}
+    </span>
+    <span className="ticket-8d-status">
+     {step.status==='complete'&&<Check size={12} aria-hidden="true"/>}{statusLabels[step.status]}
+    </span>
+    <ChevronDown className="ticket-8d-chevron" size={16} aria-hidden="true"/>
    </summary>
    {step.number===6?<div className="ticket-8d-body">{actionPlan}</div>
     :<fieldset className="ticket-8d-body" disabled={disabled}>
@@ -82,6 +96,13 @@ export function TicketEightD({analysis,problem,description,actions,actionPlan,re
        <h4>{label}</h4>
        <div className="ticket-8d-grid">{extraField('validated-'+id)}{extraField('validator-'+id)}</div>
       </div>)}
+     </div>}
+     {!readOnly&&<div className="ticket-8d-step-footer">
+      <button type="button" className="ticket-8d-complete"
+       aria-label={(step.status==='complete'?'Rouvrir':'Terminer')+' l’étape D'+step.number}
+       onClick={()=>patch(step.completionKey,step.status==='complete'?'':'Oui')}>
+       {step.status==='complete'?<><RotateCcw size={14}/> Rouvrir l’étape</>:<><Check size={15}/> Marquer comme terminée</>}
+      </button>
      </div>}
     </fieldset>}
   </details>)}
