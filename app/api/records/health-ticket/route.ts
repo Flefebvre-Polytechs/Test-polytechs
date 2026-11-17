@@ -13,7 +13,7 @@ export async function POST(request:Request){
   if(!checkOrigin(request))return respond({error:'Requête non autorisée.'},403);
   const gate=await requireRole(request,'editor');if(gate.error)return gate.error;
   const body=await request.json().catch(()=>null) as {recordId?:unknown;revision?:number;mode?:string;title?:unknown;ticketId?:unknown}|null;
-  if(!body||!idValid(body.recordId)||!Number.isSafeInteger(body.revision)||!['create','link'].includes(body.mode||''))
+  if(!body||!idValid(body.recordId)||!Number.isSafeInteger(body.revision)||!['create','link','replace','unlink'].includes(body.mode||''))
    return respond({error:'Demande de rattachement invalide.'},400);
   const db=database();
   const record=await db.prepare('SELECT * FROM records WHERE id=? AND kind=?').bind(body.recordId,healthEventKind).first<{id:string;kind:string;details:string;revision:number}>();
@@ -21,10 +21,12 @@ export async function POST(request:Request){
   if(!record||!writable(record))return respond({error:'Fiche non accessible.'},403);
   if(record.revision!==body.revision)return respond({error:'La fiche a changé. Fermez-la puis rouvrez-la.'},409);
   const details=JSON.parse(record.details);
-  if(details.linkedTicketId&&await db.prepare('SELECT 1 FROM hub_tickets WHERE id=?').bind(details.linkedTicketId).first())
+  if(['create','link'].includes(body.mode||'')&&details.linkedTicketId&&await db.prepare('SELECT 1 FROM hub_tickets WHERE id=?').bind(details.linkedTicketId).first())
    return respond({error:'Un ticket est déjà rattaché à cet événement.'},409);
+  if(['replace','unlink'].includes(body.mode||'')&&!details.linkedTicketId)
+   return respond({error:'Aucun ticket n’est rattaché à cet événement.'},409);
   const now=new Date().toISOString();
-  let ticketId:string;
+  let ticketId='';
   let ticket:Ticket|undefined;
   if(body.mode==='create'){
    if(typeof body.title!=='string'||!body.title.trim()||body.title.length>200)
@@ -33,19 +35,21 @@ export async function POST(request:Request){
     return respond({error:'Droit de création de ticket QSSE nécessaire.'},403);
    ticketId=crypto.randomUUID();
    ticket={...newTicket(),title:body.title.trim(),teams:['qsse']};
-  }else{
+  }else if(body.mode!=='unlink'){
    if(!idValid(body.ticketId))return respond({error:'Renseignez un lien ou un identifiant de ticket valide.'},400);
    ticketId=body.ticketId;
+   if(ticketId===details.linkedTicketId)return respond({error:'Ce ticket est déjà rattaché.'},409);
    const existing=await db.prepare('SELECT data FROM hub_tickets WHERE id=?').bind(ticketId).first<{data:string}>();
    if(!existing||!await teamsAllowed(gate.user!,JSON.parse(existing.data).teams,true))
     return respond({error:'Ticket introuvable ou droit de modification insuffisant.'},403);
   }
   // Write the record revision and ticket together. Conditional inserts prevent duplicates on retry.
+  const nextDetails={...details};
+  if(ticketId)nextDetails.linkedTicketId=ticketId;
+  else delete nextDetails.linkedTicketId;
   const update=db.prepare(`UPDATE records SET details=?,revision=revision+1,updated=? WHERE id=? AND revision=?
-   AND (json_extract(details,'$.linkedTicketId') IS NULL OR NOT EXISTS
-    (SELECT 1 FROM hub_tickets WHERE id=json_extract(records.details,'$.linkedTicketId')))
    AND (?=1 OR EXISTS (SELECT 1 FROM hub_tickets WHERE id=?))`)
-   .bind(JSON.stringify({...details,linkedTicketId:ticketId}),now,record.id,record.revision,ticket?1:0,ticketId);
+   .bind(JSON.stringify(nextDetails),now,record.id,record.revision,ticket||!ticketId?1:0,ticketId);
   const snapshot=db.prepare('INSERT INTO record_history (id,record_id,revision,snapshot,saved_at) SELECT ?,?,?,?,? WHERE changes()=1')
    .bind(crypto.randomUUID(),record.id,record.revision,JSON.stringify(record),now);
   const statements=[update,snapshot];

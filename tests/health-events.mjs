@@ -86,5 +86,23 @@ try{
  assert.equal((await post(ticketLink,{recordId:second.id,revision:1,mode:'link',ticketId})).status,200);
  assert.equal(JSON.parse(sqlite.prepare('SELECT details FROM records WHERE id=?').get(second.id).details).linkedTicketId,ticketId);
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM hub_tickets').get().count,1);
+ const thirdDate={...row,date:'2026-05-01'};
+ assert.equal((await (await post(importer,{mode:'import',rows:[thirdDate]})).json()).imported,1);
+ const third=sqlite.prepare("SELECT id FROM records WHERE json_extract(details,'$.date')='2026-05-01'").get();
+ const otherTicket=await (await post(ticketLink,{...draft,recordId:third.id})).json();
+ const change={recordId:second.id,revision:2,mode:'replace',ticketId:otherTicket.ticketId};
+ accessTickets=false;
+ assert.equal((await post(ticketLink,change)).status,403);
+ accessTickets=true;
+ assert.equal((await post(ticketLink,change)).status,200);
+ assert.equal((await post(ticketLink,change)).status,409);
+ assert.equal(JSON.parse(sqlite.prepare('SELECT details FROM records WHERE id=?').get(second.id).details).linkedTicketId,otherTicket.ticketId);
+ const unlink={recordId:second.id,revision:3,mode:'unlink'};
+ accessHealth=false;
+ assert.equal((await post(ticketLink,unlink)).status,403);
+ accessHealth=true;
+ assert.deepEqual(await (await post(ticketLink,unlink)).json(),{ticketId:'',revision:4});
+ assert.equal(JSON.parse(sqlite.prepare('SELECT details FROM records WHERE id=?').get(second.id).details).linkedTicketId,undefined);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM hub_tickets').get().count,2);
  console.log('Événements SSE : aperçu, droits, reprise sans doublon, création et rattachement du ticket, données nominatives cantonnées au registre.');
 }finally{sqlite.close()}

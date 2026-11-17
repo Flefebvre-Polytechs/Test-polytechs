@@ -1,0 +1,56 @@
+.health-register{display:grid;gap:16px}
+.health-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.health-kpi{
+ display:grid;gap:8px;min-width:0;min-height:76px;padding:10px 13px;text-align:left;color:#183750;
+ border:1px solid #dbe5ee;border-left:3px solid #6487a3;border-radius:10px;background:#fff
+}
+.health-kpi>span{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650}
+.health-kpi svg{flex:none}
+.health-kpi strong{font-size:23px;line-height:1.1}
+.health-kpi-review{border-left-color:#bd7823}
+.health-kpi-actions{border-left-color:#287db8}
+.health-kpi-closed{border-left-color:#248368}
+.health-kpi[aria-pressed=true],.health-kpi:hover{background:#edf6fd;border-color:#86afcc}
+.health-panel{padding:16px}
+.health-panel .section-head{display:flex;flex-wrap:wrap;gap:10px}
+.health-filters{display:grid;grid-template-columns:minmax(180px,2fr) minmax(90px,.7fr) minmax(155px,1.3fr) minmax(120px,1fr);gap:9px;margin:12px 0}
+.health-filters label{display:grid;gap:4px;min-width:0;color:#31536b;font-size:12px;font-weight:650}
+.health-filters :is(input,select){min-width:0;width:100%;min-height:36px;border-radius:7px;font-size:14px;font-weight:400}
+.health-search{position:relative}
+.health-search svg{position:absolute;inset-inline-start:9px;top:10px;pointer-events:none}
+.health-search input{padding-inline-start:32px}
+.health-reset{margin:0 0 8px;color:#0b5d98;font-size:13px;text-decoration:underline}
+.health-event-list{list-style:none;padding:0;margin:0}
+.health-event-row{
+ display:grid;grid-template-columns:minmax(0,2.5fr) minmax(82px,.75fr) minmax(0,1fr) auto auto;align-items:center;
+ gap:10px;padding:10px 0;border-top:1px solid #e4ebf2;color:#203d54
+}
+.health-event-main{min-width:0;text-align:left;padding:3px 0;overflow-wrap:anywhere}
+.health-event-main:hover strong{text-decoration:underline}
+.health-event-main :is(strong,span),.health-event-row>div :is(strong,span){display:block}
+.health-event-main strong{color:#14547f;font-size:14px}
+.health-event-main span,.health-event-row>div span{color:#50697c;font-size:12px}
+.health-event-row>div strong{font-size:13px;overflow-wrap:anywhere}
+.health-status{display:inline-flex;justify-self:start;align-items:center;padding:4px 7px;border-radius:6px;font-size:12px;font-weight:650;white-space:nowrap}
+.health-status-review{background:#fff2db;color:#79500f}
+.health-status-actions{background:#e9f3fd;color:#135b8f}
+.health-status-closed{background:#e5f4ec;color:#235f49}
+.health-row-follow{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.health-empty{padding:20px;text-align:center;color:#50697c}
+.health-import-preview{max-height:200px;overflow:auto;padding-inline-start:20px}
+.health-ticket-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+@media(max-width:950px){.health-filters{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:650px){
+ .health-overview{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .health-panel{padding:12px}
+ .health-event-row{grid-template-columns:minmax(0,1fr) auto;gap:6px}
+ .health-event-main{grid-column:1/-1}
+ .health-event-owner{grid-column:1;grid-row:3}
+ .health-event-date{grid-column:1;grid-row:2}
+ .health-status{grid-column:2;grid-row:2;justify-self:end}
+ .health-row-follow{grid-column:2;grid-row:3;justify-self:end}
+}
+
+.health-advanced{margin:0 0 10px;color:#31536b;font-size:13px}
+.health-advanced summary{cursor:pointer;width:fit-content}
+.health-advanced .health-filters{grid-template-columns:repeat(2,minmax(0,1fr));max-width:450px;margin-bottom:0}
