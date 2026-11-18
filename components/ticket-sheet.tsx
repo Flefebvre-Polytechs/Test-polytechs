@@ -76,6 +76,7 @@ export function TicketSheet({
   setShowAnalysisRequest(0);
   close();
  }
+ const vgpLink=edit?.data.description.match(/^Passage et rapport : (\/vgp\?id=[a-z0-9-]+&passage=[a-z0-9-]+)$/im)?.[1];
  const formLocked=!canContribute||!!edit?.data.archivedAt||!!edit?.data.gmaoOrderId&&edit.data.status==='Clôturé'||busy||uploading;
  const coreReadOnly=!canEdit||!!edit?.data.archivedAt||!!edit?.data.gmaoOrderId;
  const coreLocked=coreReadOnly||busy||uploading;
@@ -123,6 +124,7 @@ export function TicketSheet({
           </fieldset>
           <details className="ticket-responsibles"><summary><Users size={14}/> Responsables à notifier <span>{edit.data.responsibles.length}</span></summary><TicketSearchPicker compact kind="person" label="Autres responsables à notifier" options={meta.users.map(u=>({id:u.id,name:u.display_name}))} value={edit.data.responsibles} onChange={responsibles=>patch({responsibles})} disabled={coreLocked}/></details>
           <div className="ticket-sheet-links">
+            {vgpLink&&<a href={vgpLink}>Ouvrir le passage VGP et son rapport →</a>}
             {edit.data.qualityActionId&&<a href={'/plan-actions?id='+encodeURIComponent(edit.data.qualityActionId)}>Voir la cotation et l’efficacité dans le plan d’actions →</a>}
             {edit.data.gmaoOrderId&&<p><a href={'/maintenance?order='+encodeURIComponent(edit.data.gmaoOrderId)}>Ouvrir l’intervention GMAO →</a><small>Le traitement et l’état se pilotent depuis Maintenance.</small></p>}
             {edit.id&&!edit.data.gmaoOrderId&&!edit.data.qualityActionId&&!edit.data.archivedAt&&edit.data.status!=='Clôturé'&&canEdit&&meta.editableTeams?.includes('maintenance')&&<a href={'/maintenance?ticket='+encodeURIComponent(edit.id)}>Transformer en demande d’intervention →</a>}

@@ -46,10 +46,10 @@ function Vgp({account}:{account:Account}){
    const data=await hubRequest('/api/vgp?id='+encodeURIComponent(id));
    if(request!==sequence.current)return;
    setEdit(data.record);setBaseline(JSON.stringify(data.record));setFiles(data.files);setHistory(data.history);setPassages(data.passages);setFocusedPassage(passageId);setEntry(null);setDetailError('');
-   window.history.replaceState(null,'','/vgp?id='+encodeURIComponent(id));
+   window.history.replaceState(null,'','/vgp?id='+encodeURIComponent(id)+(passageId?'&passage='+encodeURIComponent(passageId):''));
   }catch(e){setError((e as Error).message)}finally{if(request===sequence.current)setLoadingDetail(false)}
  }
- useEffect(()=>{void load();const id=new URLSearchParams(location.search).get('id');if(id)void open(id)},[]);
+ useEffect(()=>{void load();const query=new URLSearchParams(location.search);const id=query.get('id');if(id)void open(id,query.get('passage')||'')},[]);
  useEffect(()=>{
   if(!dirty&&!entry)return;
   const prevent=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=''};
@@ -197,6 +197,11 @@ function Vgp({account}:{account:Account}){
       return <details className="vgp-passage" key={passage.id} open={focusedPassage===passage.id}><summary><strong>{displayDate(passage.performed_date)}</strong> · {passage.result}{passage.report_expected&&!reports.length?' · Rapport attendu':''}</summary>
        <p>Échéance {displayDate(passage.due)} · Prévu le {displayDate(passage.planned_date)} · Saisi par {passage.created_by}</p>
        {passage.note&&<p>{passage.note}</p>}
+       {canEdit&&(busy||dirty||entry?<span>Enregistrez la fiche pour ouvrir un ticket.</span>:
+        <a className="outline" href={'/tickets?new=1&vgp='+encodeURIComponent(edit.id)+'&passage='+encodeURIComponent(passage.id)}>
+         <Ticket size={15}/> Ouvrir un ticket d’écart
+        </a>)}
+
        {canEdit&&passage.result==='En attente du rapport'&&<label className="vgp-upload">Renseigner le résultat
         <select value="" disabled={busy||dirty||!!entry} onChange={e=>{if(e.target.value)void save('passage-result',{passageId:passage.id,result:e.target.value})}}>
          <option value="">Choisir le résultat</option>{vgpResults.filter(result=>result!=='En attente du rapport').map(result=><option key={result}>{result}</option>)}
