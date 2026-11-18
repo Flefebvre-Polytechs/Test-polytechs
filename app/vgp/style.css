@@ -57,3 +57,17 @@
  .vgp-table td[data-label]::before{content:attr(data-label);display:block;color:#547086;font-size:11px;margin-bottom:2px}
  .vgp-table td:last-child{justify-self:end}
 }
+
+.vgp-priority-list button{grid-template-columns:auto minmax(0,1fr) auto auto;padding:10px 0}
+.vgp-data{margin-top:14px}
+.vgp-data>div,.vgp-passage-actions{display:flex;gap:8px;flex-wrap:wrap}
+.vgp-passage{background:#f5f9fc;border:1px solid #dce6ee;border-radius:8px;padding:10px;margin-top:8px}
+.vgp-passage-form{margin:12px 0;padding:13px;background:#f5f9fc;border-radius:8px}
+.vgp-form label.vgp-check{display:flex;align-items:center;gap:8px}
+.vgp-form .vgp-check input{width:auto}
+@media(max-width:500px){
+ .vgp-priority-list button{grid-template-columns:auto minmax(0,1fr) auto}
+ .vgp-priority-list button>span:nth-of-type(2){grid-column:2;grid-row:2}
+ .vgp-priority-list button>svg{grid-column:3;grid-row:1}
+ .vgp-tabs{gap:9px;flex-wrap:wrap}
+}

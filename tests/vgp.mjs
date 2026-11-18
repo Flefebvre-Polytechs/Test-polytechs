@@ -22,6 +22,7 @@ function compile(name,file){
 }
 try{
  db.exec('PRAGMA foreign_keys=ON;');db.exec(fs.readFileSync('drizzle/0045_vgp.sql','utf8'));
+ db.exec(fs.readFileSync('drizzle/0046_vgp_passages.sql','utf8'));
  db.exec('CREATE TABLE users(id TEXT PRIMARY KEY); INSERT INTO users VALUES (\'admin\'); CREATE TABLE hub_tickets(id TEXT PRIMARY KEY,data TEXT,revision INTEGER,created_at TEXT,updated_at TEXT,author TEXT);');
  fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.vgpDb;export const bucket=()=>globalThis.vgpBucket;');
  fs.writeFileSync(path.join(dir,'access.mjs'),`export const checkOrigin=req=>req.headers.get('origin')==='https://example.test';export const requireRole=async(req,role='reader')=>!globalThis.vgpUser?{error:Response.json({error:'login'},{status:401})}:role==='editor'&&globalThis.vgpUser.role==='reader'?{error:Response.json({error:'reader'},{status:403})}:{user:globalThis.vgpUser};`);
@@ -44,6 +45,21 @@ try{
  assert.equal((await upload(new File(['bad'],'rapport.pdf'))).status,400);
  const added=await upload(new File(['%PDF-test'],'rapport.pdf'));assert.equal(added.status,200);const fileId=(await added.json()).id;
  assert.equal((await files.GET(new Request('https://example.test/api/vgp/files?id='+fileId))).status,200);
+ const passage={performedDate:'2026-02-28',result:'En attente du rapport',reportExpected:true,note:'Visite test',nextDue:'2026-03-28'};
+ assert.equal((await post({operation:'passage',id,revision:2,data:passage})).status,200);
+ assert.equal((await post({operation:'passage',id,revision:2,data:passage})).status,409);
+ let registry=await (await api.GET(get())).json();
+ assert.equal(registry.records[0].due,passage.nextDue);
+ assert.equal(registry.records[0].plannedDate,'');
+ assert.equal(registry.pendingReports.length,1);
+ const entry=db.prepare('SELECT * FROM vgp_passages').get();
+ assert.equal(entry.due,record.due);assert.equal(entry.planned_date,record.plannedDate);
+ const reportForm=new FormData();reportForm.set('recordId',id);reportForm.set('passageId',entry.id);
+ reportForm.set('file',new File(['%PDF-test'],'passage.pdf'));
+ assert.equal((await files.POST(new Request('https://example.test/api/vgp/files',{method:'POST',headers:{origin:'https://example.test'},body:reportForm}))).status,200);
+ registry=await (await api.GET(get())).json();assert.equal(registry.pendingReports.length,0);
+ assert.equal((await post({operation:'passage-result',id,revision:3,data:{passageId:entry.id,result:'Conforme'}})).status,200);
+ assert.equal(db.prepare('SELECT result FROM vgp_passages').get().result,'Conforme');
  globalThis.vgpAllowed=false;
  assert.equal((await api.GET(get())).status,403);assert.equal((await files.GET(new Request('https://example.test/api/vgp/files?id='+fileId))).status,403);
  globalThis.vgpAllowed=true;globalThis.vgpUser.role='reader';assert.equal((await post({operation:'save',revision:0,data:record})).status,403);

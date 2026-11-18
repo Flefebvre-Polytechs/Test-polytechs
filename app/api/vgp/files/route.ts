@@ -20,16 +20,18 @@ export async function POST(req:Request){
   if(!checkOrigin(req))return fail('Origine non autorisée.',403);
   const gate=await vgpAccess(req,true);if(gate.error)return gate.error;
   if(Number(req.headers.get('content-length')||0)>maxSize+65536)return fail('PDF limité à 15 Mo.',413);
-  const form=await req.formData(),id=form.get('recordId'),file=form.get('file');
+  const form=await req.formData(),id=form.get('recordId'),file=form.get('file'),passageId=form.get('passageId');
   if(typeof id!=='string'||!await vgpRecord(id))return fail('Enregistrez la fiche avant le dépôt.');
   if(!(file instanceof File)||!file.size||file.size>maxSize||file.name.length>200||!/\.pdf$/i.test(file.name))return fail('Choisissez un PDF de 15 Mo maximum.');
+  if(passageId!==null&&(typeof passageId!=='string'||!await database().prepare('SELECT id FROM vgp_passages WHERE id=? AND record_id=?').bind(passageId,id).first()))
+   return fail('Ce passage ne correspond pas au contrôle.');
   const bytes=new Uint8Array(await file.arrayBuffer());
   if(new TextDecoder().decode(bytes.slice(0,5))!=='%PDF-')return fail('Le contenu du fichier doit être un PDF.');
   const fileId=crypto.randomUUID(),key='vgp/'+id+'/'+fileId;
   await bucket().put(key,bytes);
   try{
-   const result=await database().prepare('INSERT INTO vgp_files(id,record_id,name,size,author,created_at) SELECT ?,?,?,?,?,? WHERE (SELECT count(*) FROM vgp_files WHERE record_id=?)<50')
-    .bind(fileId,id,file.name.replace(/[\r\n\x00]/g,''),file.size,gate.user!.displayName,new Date().toISOString(),id).run();
+   const result=await database().prepare('INSERT INTO vgp_files(id,record_id,name,size,author,created_at,passage_id) SELECT ?,?,?,?,?,?,? WHERE (SELECT count(*) FROM vgp_files WHERE record_id=?)<50')
+    .bind(fileId,id,file.name.replace(/[\r\n\x00]/g,''),file.size,gate.user!.displayName,new Date().toISOString(),passageId,id).run();
    if(!result.meta.changes){await bucket().delete(key);return fail('Cette fiche contient déjà 50 documents.')}
   }catch(error){await bucket().delete(key);throw error}
   return Response.json({id:fileId});

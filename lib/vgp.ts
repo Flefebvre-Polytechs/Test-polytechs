@@ -37,3 +37,9 @@ export function vgpError(record:VgpRecord){
  if(record.kind==='observation'&&record.status==='Levée'&&!record.note.trim())return 'Précisez la justification de la levée dans le suivi.';
  return '';
 }
+
+export const vgpResults=['Conforme','Avec observations','Non conforme','En attente du rapport'] as const;
+export type VgpPassage={
+ id:string; record_id:string; due:string; planned_date:string; performed_date:string;
+ result:string; report_expected:number; note:string; created_at:string; created_by:string;
+};
