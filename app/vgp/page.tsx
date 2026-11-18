@@ -8,6 +8,7 @@ import {ListPagination,useListPage} from '@/components/list-pagination';
 import {useConfirmation} from '@/components/use-confirmation';
 import {blankVgp,nextVgpDate,vgpTiming,vgpStatuses,vgpResults,type VgpRecord,type VgpPassage} from '@/lib/vgp';
 import {todayParis} from '@/lib/hub';
+import {VgpFamilies,type VgpListRecord} from './families';
 import './style.css';
 
 type ReportDue=Pick<VgpPassage,'id'|'record_id'|'performed_date'>;
@@ -25,10 +26,11 @@ const displayDate=(date:string)=>date?new Date(date+'T12:00:00Z').toLocaleDateSt
 export default function Page(){return <AccountGate>{account=><Vgp account={account}/>}</AccountGate>}
 function Vgp({account}:{account:Account}){
  const {meta}=useHubMeta(),{askConfirm,confirmation}=useConfirmation();
- const [records,setRecords]=useState<VgpRecord[]|null>(null),[error,setError]=useState('');
+ const [records,setRecords]=useState<VgpListRecord[]|null>(null),[error,setError]=useState('');
  const [kind,setKind]=useState<'control'|'observation'>('control'),[query,setQuery]=useState(''),[domain,setDomain]=useState(''),[filter,setFilter]=useState('');
  const [edit,setEdit]=useState<VgpRecord|null>(null),[baseline,setBaseline]=useState(''),[files,setFiles]=useState<FileRow[]>([]),[history,setHistory]=useState<HistoryRow[]>([]);
  const [busy,setBusy]=useState(false),[detailError,setDetailError]=useState(''),[loadingDetail,setLoadingDetail]=useState(false);
+ const [families,setFamilies]=useState(false);
  const [priorities,setPriorities]=useState(true),[priorityFilter,setPriorityFilter]=useState('');
  const [pendingReports,setPendingReports]=useState<ReportDue[]>([]);
  const [passages,setPassages]=useState<VgpPassage[]>([]),[entry,setEntry]=useState<{
@@ -56,7 +58,7 @@ function Vgp({account}:{account:Account}){
   window.addEventListener('beforeunload',prevent);return()=>window.removeEventListener('beforeunload',prevent);
  },[dirty,entry]);
  async function close(){if(busy)return;if((dirty||entry)&&!await askConfirm('Abandonner les modifications non enregistrées ?'))return;sequence.current++;setEntry(null);setEdit(null);window.history.replaceState(null,'','/vgp')}
- function create(){const record=blankVgp(priorities?'control':kind);setEdit(record);setBaseline(JSON.stringify(record));setFiles([]);setHistory([]);setPassages([]);setEntry(null);setDetailError('')}
+ function create(){const record=blankVgp(priorities?'control':kind);if(record.kind==='observation')record.equipment={family:'',number:'',reference:''};setEdit(record);setBaseline(JSON.stringify(record));setFiles([]);setHistory([]);setPassages([]);setEntry(null);setDetailError('')}
  function patch(field:keyof VgpRecord,value:string|number|null){setEdit(record=>record&&({...record,[field]:value}))}
  async function save(operation='save',resultUpdate?:{passageId:string;result:string}){
   if(!edit)return;setBusy(true);setDetailError('');
@@ -108,16 +110,18 @@ function Vgp({account}:{account:Account}){
  }
  return <HubFrame active="VGP" teamId="qsse" className="vgp-workspace">
   <header className="vgp-heading"><div><span className="vgp-eyebrow">PRÉVENTION · SUIVI DES CONTRÔLES</span><h1><ShieldCheck/> VGP et contrôles périodiques</h1><p>Organiser les vérifications, conserver les rapports et suivre les écarts.</p></div>
-   {canEdit&&<button className="primary" disabled={loadingDetail} onClick={create}><Plus size={17}/>{priorities||kind==='control'?'Ajouter un contrôle':'Ajouter une observation'}</button>}
+   {canEdit&&!families&&<button className="primary" disabled={loadingDetail} onClick={create}><Plus size={17}/>{priorities||kind==='control'?'Ajouter un contrôle':'Ajouter une observation'}</button>}
   </header>
   <nav className="vgp-tabs" aria-label="Registre VGP">
-   <button aria-pressed={priorities} onClick={()=>setPriorities(true)}>Priorités</button>
+   <button aria-pressed={priorities&&!families} onClick={()=>{setPriorities(true);setFamilies(false)}}>Priorités</button>
+   <button aria-pressed={families} onClick={()=>setFamilies(true)}>Familles et matériel</button>
    {([['control','Contrôles'],['observation','Observations']] as const).map(([value,label])=><button key={value}
-    aria-pressed={!priorities&&kind===value} onClick={()=>{setPriorities(false);setKind(value);setDomain('');setFilter('');setQuery('')}}>
+    aria-pressed={!families&&!priorities&&kind===value} onClick={()=>{setFamilies(false);setPriorities(false);setKind(value);setDomain('');setFilter('');setQuery('')}}>
     {label}<span>{records?.filter(record=>record.kind===value).length??'—'}</span>
    </button>)}
   </nav>
-  {priorities&&records&&<div className="vgp-overview">
+  {families&&records&&<VgpFamilies records={records} busy={loadingDetail} onOpen={id=>void open(id)}/>}
+  {!families&&priorities&&records&&<div className="vgp-overview">
    <div className="vgp-stats" aria-label="Indicateurs de priorité">{priorityItems.map(({label,tone,Icon,items})=>
     <button key={label} data-tone={tone} aria-pressed={priorityFilter===label} onClick={()=>setPriorityFilter(priorityFilter===label?'':label)}>
      <span><Icon size={17} aria-hidden="true"/>{label}</span><strong>{items.length}</strong>
@@ -139,8 +143,8 @@ function Vgp({account}:{account:Account}){
     </button>
    </div></section>
   </div>}
-  {priorities&&!records&&!error&&<p role="status">Chargement du registre…</p>}
-  {!priorities&&<>
+  {(priorities||families)&&!records&&!error&&<p role="status">Chargement du registre…</p>}
+  {!families&&!priorities&&<>
   {records&&<div className="vgp-overview">
    <div className="vgp-stats" aria-label={kind==='control'?'Indicateurs des contrôles':'Indicateurs des observations'}>
     {indicators.map(({label,Icon,tone,count})=><button key={label} data-tone={tone} aria-pressed={filter===label}
@@ -215,6 +219,10 @@ function Vgp({account}:{account:Account}){
     </section>}
     <fieldset disabled={!canEdit||busy||!!entry} className="vgp-form">
      {field('title','Désignation')}{field('domain','Domaine')}
+     {edit.kind==='observation'&&edit.equipment&&([
+      ['family','Famille de matériel'],['number','N° équipement'],['reference','Référence APAVE'],
+     ] as const).map(([key,label])=><label key={key}>{label}<input maxLength={250} value={edit.equipment?.[key]||''}
+      onChange={event=>{const value=event.target.value;setEdit(previous=>previous?.equipment?{...previous,equipment:{...previous.equipment,[key]:value}}:previous)}}/></label>)}
      {edit.kind==='observation'&&<label className="vgp-wide">Contrôle associé<select value={edit.controlId||''} onChange={e=>patch('controlId',e.target.value)}><option value="">À rattacher</option>{(records||[]).filter(record=>record.kind==='control').map(record=><option key={record.id} value={record.id}>{record.domain} · {record.title}</option>)}</select></label>}{field('location','Site / localisation')}{field('reference','Référence équipement / rapport')}
      {field('provider','Entreprise de vérification')}
      <label>Pilote du suivi<select value={edit.pilotId} onChange={e=>patch('pilotId',e.target.value)}><option value="">À attribuer</option>{meta.users.map(user=><option key={user.id} value={user.id}>{user.display_name}</option>)}</select></label>

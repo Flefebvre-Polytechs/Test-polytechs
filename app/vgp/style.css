@@ -71,3 +71,14 @@
  .vgp-priority-list button>svg{grid-column:3;grid-row:1}
  .vgp-tabs{gap:9px;flex-wrap:wrap}
 }
+
+.vgp-family-view h2{margin:14px 0;color:var(--vgp-navy);font-size:19px;font-weight:700}
+.vgp-family-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:10px}
+.vgp-family-card,.vgp-equipment-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;text-align:left;color:var(--vgp-navy)}
+.vgp-family-card svg{color:var(--vgp-teal)}
+.vgp-family-card:hover,.vgp-equipment-row:hover{background:#f0f8f8}
+.vgp-family-card small,.vgp-equipment-row small{display:block;color:#547086;font-size:11px;margin-top:4px}
+.vgp-equipment{margin-bottom:10px}
+.vgp-equipment h3{font-weight:700;color:var(--vgp-navy)}
+.vgp-equipment p{margin:4px 0 9px;overflow-wrap:anywhere}
+.vgp-equipment-row{grid-template-columns:minmax(0,1fr) auto auto;width:100%;border-top:1px solid #edf2f6;padding:10px 0;font-size:12px;overflow-wrap:anywhere}

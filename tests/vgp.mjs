@@ -64,6 +64,12 @@ try{
  assert.equal((await api.GET(get())).status,403);assert.equal((await files.GET(new Request('https://example.test/api/vgp/files?id='+fileId))).status,403);
  globalThis.vgpAllowed=true;globalThis.vgpUser.role='reader';assert.equal((await post({operation:'save',revision:0,data:record})).status,403);
  globalThis.vgpUser=null;assert.equal((await api.GET(get())).status,401);
+ const material={...lib.blankVgp('observation'),title:'Porte à commande automatique',location:'Site 1',raw:{
+  'C · Famille équipement':'Porte semi-auto/automatique véhicules','E · Ref Apave Equipement':'0000289854','F · N° Equipement':'150 312',
+ }};
+ assert.deepEqual(lib.vgpEquipmentIdentity(material),{family:'Portes motorisées',number:'150 312',reference:'0000289854'});
+ assert.equal(lib.vgpEquipmentIdentity({...material,equipment:{family:'Accès atelier',number:'P-12',reference:''}}).number,'P-12');
+ assert.equal(lib.vgpEquipmentIdentity({...material,raw:{'F · N° Equipement':'?'}}).number,'');
  const source={records:[{...record,id:'vgp-source-123456789012345678901234',raw:{A:'source'},revision:1}]};
  const bytes=Buffer.from(JSON.stringify(source));const env={POLYTECHS_VGP_SOURCE:createHash('sha256').update(bytes).digest('hex')+':1',POLYTECHS_VGP_SOURCE_1:gzipSync(bytes).toString('base64')};
  installVgpSource(dir,env);installVgpSource(dir,env);assert.equal(db.prepare('SELECT count(*) n FROM vgp_records').get().n,2);

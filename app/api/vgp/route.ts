@@ -1,7 +1,7 @@
 import {database} from '@/db/raw';
 import {checkOrigin} from '@/lib/access';
 import {vgpAccess,vgpRecord} from '@/lib/vgp-server';
-import {blankVgp,vgpError,vgpResults,type VgpRecord} from '@/lib/vgp';
+import {blankVgp,vgpError,vgpResults,vgpEquipmentIdentity,type VgpRecord} from '@/lib/vgp';
 import {newTicket,todayParis,validDate} from '@/lib/hub';
 const fail=(error:string,status=400)=>Response.json({error},{status});
 const ok=(value:unknown)=>Response.json(value,{headers:{'Cache-Control':'private, no-store'}});
@@ -17,13 +17,13 @@ export async function GET(req:Request){
     db.prepare('SELECT snapshot,saved_at,saved_by FROM vgp_history WHERE record_id=? ORDER BY saved_at DESC LIMIT 50').bind(id).all(),
     db.prepare('SELECT * FROM vgp_passages WHERE record_id=? ORDER BY performed_date DESC,created_at DESC').bind(id).all(),
    ]);
-   return ok({record,files:files.results,history:history.results,passages:passages.results});
+   return ok({record:{...record,equipment:record.kind==='observation'?vgpEquipmentIdentity(record):undefined},files:files.results,history:history.results,passages:passages.results});
   }
   const rows=(await db.prepare('SELECT id,data,revision FROM vgp_records').all()).results as {id:string;data:string;revision:number}[];
   const pendingReports=(await db.prepare(`SELECT p.id,p.record_id,p.performed_date FROM vgp_passages p
    WHERE p.report_expected=1 AND NOT EXISTS(SELECT 1 FROM vgp_files f WHERE f.passage_id=p.id)
    ORDER BY p.performed_date ASC`).all()).results;
-  return ok({pendingReports,records:rows.map(row=>{const {raw,...data}=JSON.parse(row.data);return {...data,id:row.id,revision:row.revision}})});
+  return ok({pendingReports,records:rows.map(row=>{const record=JSON.parse(row.data) as VgpRecord;const {raw,...data}=record;return {...data,equipment:record.kind==='observation'?vgpEquipmentIdentity(record):undefined,id:row.id,revision:row.revision}})});
  }catch(error){console.error(error);return fail('Registre VGP indisponible.',503)}
 }
 export async function POST(req:Request){
@@ -69,6 +69,10 @@ export async function POST(req:Request){
    if(!body.data||typeof body.data!=='object')return fail('Saisie invalide.');
    const fields=['controlId','title','domain','location','reference','provider','pilotId','lastDate','due','plannedDate','months','regulatory','status','description','note'] as const;
    for(const field of fields)(next as any)[field]=body.data[field];
+   if(next.kind==='observation'&&body.data.equipment!==undefined){
+    const identity=body.data.equipment as VgpRecord['equipment'];
+    next.equipment=identity&&{family:identity.family,number:identity.number,reference:identity.reference};
+   }
    const error=vgpError(next);if(error)return fail(error);
    if(next.controlId){
     const control=await vgpRecord(next.controlId);
