@@ -23,6 +23,10 @@ try{
  execFileSync(process.execPath,['scripts/render-import.mjs',snapshot],{env,stdio:'pipe'});
  db=new DatabaseSync(path.join(dir,'polytechs.sqlite'));assert.deepEqual(db.prepare('SELECT id,username,role,password_hash FROM users').all(),before);
  assert.equal(db.prepare('SELECT count(*) n FROM team_invitations').get().n,0);assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
+ db.exec("INSERT INTO vgp_records VALUES ('saved-vgp','{}',1,'now','existing')");
+ assert.throws(()=>execFileSync(process.execPath,['scripts/render-import.mjs',snapshot],{env,stdio:'pipe'}),/Target contains vgp_records/);
+ assert.equal(db.prepare('SELECT id FROM vgp_records').get().id,'saved-vgp');
+ db.exec("DELETE FROM vgp_records WHERE id='saved-vgp'");
  const users=tables.find(table=>table.name==='users');
  users.columns.push('email');
  users.rows[0].email='karine.connan@polytechs.fr';

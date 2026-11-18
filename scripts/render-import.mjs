@@ -27,6 +27,7 @@ const newerOptionalTables=[
  'ticket_import_reversals',
  'hr_people','hr_authorizations','hr_authorization_files','hr_authorization_events',
  'env_consumption_records','env_consumption_history',
+ 'vgp_records','vgp_history','vgp_files',
  ...(legacyBudget ? budgetTables : [])
 ];
 // Migration 0029 creates seven built-in labels. They are configuration defaults,
