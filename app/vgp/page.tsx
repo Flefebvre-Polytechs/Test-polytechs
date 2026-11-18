@@ -1,6 +1,6 @@
 'use client';
-import {useEffect,useMemo,useRef,useState} from 'react';
-import {ShieldCheck,Plus,Search,CalendarClock,FileText,Ticket,ArrowRight,AlertTriangle} from 'lucide-react';
+import {useEffect,useRef,useState} from 'react';
+import {ShieldCheck,Plus,Search,CalendarClock,FileText,Ticket,ArrowRight,AlertTriangle,Clock3,CheckCircle2,ListChecks} from 'lucide-react';
 import {AccountGate,type Account} from '@/components/account-gate';
 import {HubFrame,hubRequest,useHubMeta} from '@/components/hub-layout';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
@@ -11,6 +11,14 @@ import {todayParis} from '@/lib/hub';
 import './style.css';
 
 type FileRow={id:string;name:string;author:string;created_at:string};
+const controlIndicators=[
+ ['En retard',AlertTriangle,'red'],['Sous 30 jours',Clock3,'amber'],
+ ['À planifier',CalendarClock,'slate'],['À jour',CheckCircle2,'green'],
+] as const;
+const observationIndicators=[
+ ['À qualifier',AlertTriangle,'slate'],['À traiter',ListChecks,'red'],
+ ['En cours',Clock3,'amber'],['Levée',CheckCircle2,'green'],
+] as const;
 type HistoryRow={snapshot:string;saved_at:string;saved_by:string};
 const displayDate=(date:string)=>date?new Date(date+'T12:00:00Z').toLocaleDateString('fr-FR'):'—';
 export default function Page(){return <AccountGate>{account=><Vgp account={account}/>}</AccountGate>}
@@ -61,9 +69,17 @@ function Vgp({account}:{account:Account}){
  }
  const scoped=(records||[]).filter(record=>record.kind===kind);
  const domains=[...new Set(scoped.map(record=>record.domain).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
- const filtered=useMemo(()=>scoped.filter(record=>(!domain||record.domain===domain)&&(!filter||vgpTiming(record,today)===filter)&&
-  (record.title+' '+record.location+' '+record.reference+' '+record.description+' '+record.provider).toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')))
-  .sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.title.localeCompare(b.title,'fr')),[records,kind,domain,filter,query,today]);
+ const searchScope=scoped.filter(record=>(!domain||record.domain===domain)&&
+  (record.title+' '+record.location+' '+record.reference+' '+record.description+' '+record.provider).toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')));
+ const indicators=(kind==='control'?controlIndicators:observationIndicators).map(([label,Icon,tone])=>({
+  label,Icon,tone,count:searchScope.filter(record=>(kind==='control'?vgpTiming(record,today):record.status)===label).length,
+ }));
+ const filtered=searchScope.filter(record=>!filter||vgpTiming(record,today)===filter||kind==='observation'&&record.status===filter)
+  .sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.title.localeCompare(b.title,'fr'));
+ const upcoming=searchScope.filter(record=>record.due>=today&&record.status!=='Levée')
+  .sort((a,b)=>a.due.localeCompare(b.due)||a.title.localeCompare(b.title,'fr')).slice(0,4);
+ const stateOptions=kind==='control'?controlIndicators.map(([label])=>label):
+  [...observationIndicators.map(([label])=>label),...controlIndicators.map(([label])=>label)];
  const list=useListPage(filtered,[kind,domain,filter,query].join('|'),50);
  function field(key:keyof VgpRecord,label:string,type='text'){
   if(!edit)return null;
@@ -75,16 +91,34 @@ function Vgp({account}:{account:Account}){
    {canEdit&&<button className="primary" disabled={loadingDetail} onClick={create}><Plus size={17}/>{kind==='control'?'Ajouter un contrôle':'Ajouter une observation'}</button>}
   </header>
   <nav className="vgp-tabs" aria-label="Registre VGP">{([['control','Contrôles'],['observation','Observations']] as const).map(([value,label])=><button key={value} aria-pressed={kind===value} onClick={()=>{setKind(value);setDomain('');setFilter('');setQuery('')}}>{label}<span>{records?.filter(record=>record.kind===value).length??'—'}</span></button>)}</nav>
-  <div className="vgp-stats">{[['En retard','À rattraper'],['Sous 30 jours','À anticiper'],['À planifier','Échéance à renseigner'],[kind==='control'?'À jour':'Levée',kind==='control'?'Échéance future':'Observations levées']].map(([status,label])=><button key={status} data-status={status} aria-pressed={filter===status} onClick={()=>setFilter(filter===status?'':status)}><span>{label}</span><strong>{scoped.filter(record=>vgpTiming(record,today)===status).length}</strong><small>{status}</small></button>)}</div>
+  {records&&<div className="vgp-overview">
+   <div className="vgp-stats" aria-label={kind==='control'?'Indicateurs des contrôles':'Indicateurs des observations'}>
+    {indicators.map(({label,Icon,tone,count})=><button key={label} data-tone={tone} aria-pressed={filter===label}
+     onClick={()=>setFilter(filter===label?'':label)}><span><Icon size={17} aria-hidden="true"/>{label}</span><strong>{count}</strong></button>)}
+   </div>
+   <div className="vgp-overview-panels">
+    <section className="vgp-panel"><h2>{kind==='control'?'Répartition des échéances':'Avancement des observations'}</h2>
+     <strong className="vgp-total">{searchScope.length} {kind==='control'?'contrôle(s)':'observation(s)'}</strong>
+     <div className="vgp-distribution" aria-hidden="true">{indicators.filter(item=>item.count>0).map(({label,tone,count})=>
+      <span key={label} data-tone={tone} style={{flexGrow:count}}/>)}</div>
+     <ul className="vgp-legend">{indicators.map(({label,tone,count})=><li key={label} data-tone={tone}><i aria-hidden="true"/><span>{label}</span><b>{count}</b></li>)}</ul>
+    </section>
+    <section className="vgp-panel"><h2>Prochaines échéances</h2>
+     {upcoming.length?<ul className="vgp-upcoming">{upcoming.map(record=><li key={record.id}><button disabled={loadingDetail} onClick={()=>void open(record.id)}>
+      <time dateTime={record.due}>{displayDate(record.due)}</time><span>{record.title}<small>{record.domain}</small></span><ArrowRight size={15} aria-hidden="true"/>
+     </button></li>)}</ul>:<p>Aucune échéance à venir dans cette sélection.</p>}
+    </section>
+   </div>
+  </div>}
   <div className="vgp-filters"><label className="vgp-search"><Search size={17}/><span className="sr-only">Rechercher</span><input placeholder="Équipement, site, référence, prestataire…" value={query} onChange={e=>setQuery(e.target.value)}/></label>
    <label><span className="sr-only">Domaine</span><select value={domain} onChange={e=>setDomain(e.target.value)}><option value="">Tous les domaines</option>{domains.map(value=><option key={value}>{value}</option>)}</select></label>
-   <label><span className="sr-only">Suivi</span><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">Tous les états</option>{['En retard','Sous 30 jours','À planifier','À jour',...(kind==='observation'?['Levée']:[])].map(value=><option key={value}>{value}</option>)}</select></label>
+   <label><span className="sr-only">Suivi</span><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">Tous les états</option>{stateOptions.map(value=><option key={value}>{value}</option>)}</select></label>
   </div>
   {error&&<p role="alert" className="error">{error} <button className="outline" onClick={()=>void load()}>Réessayer</button></p>}
   {loadingDetail&&<p role="status">Ouverture de la fiche…</p>}
   {!records&&!error?<p role="status">Chargement du registre…</p>:<>
    <div className="vgp-table-wrap"><table className="vgp-table"><thead><tr><th>Équipement / observation</th><th>Domaine</th><th>{kind==='control'?'Dernier contrôle':'Date source'}</th><th>Échéance</th><th>Prévu le</th><th>Suivi</th><th><span className="sr-only">Ouvrir</span></th></tr></thead><tbody>{list.rows.map(record=><tr key={record.id}>
-    <td><button className="vgp-record-link" disabled={loadingDetail} onClick={()=>void open(record.id)}>{record.title}</button><small>{record.location||record.provider||record.reference}{kind==='observation'&&' · '+record.sourceSheet}</small></td><td>{record.domain}</td><td>{displayDate(record.lastDate)}</td><td>{displayDate(record.due)}</td><td>{displayDate(record.plannedDate)}</td><td><span className="vgp-badge" data-status={vgpTiming(record,today)}>{vgpTiming(record,today)}</span>{kind==='observation'&&<small>{record.status}</small>}</td><td><button className="vgp-open" disabled={loadingDetail} onClick={()=>void open(record.id)} aria-label={'Ouvrir '+record.title}><ArrowRight size={18}/></button></td>
+    <td><button className="vgp-record-link" disabled={loadingDetail} onClick={()=>void open(record.id)}>{record.title}</button><small>{record.location||record.provider||record.reference}{kind==='observation'&&' · '+record.sourceSheet}</small></td><td data-label="Domaine">{record.domain}</td><td data-label={kind==='control'?'Dernier contrôle':'Date source'}>{displayDate(record.lastDate)}</td><td data-label="Échéance">{displayDate(record.due)}</td><td data-label="Prévu le">{displayDate(record.plannedDate)}</td><td data-label="Suivi"><span className="vgp-badge" data-status={vgpTiming(record,today)}>{vgpTiming(record,today)}</span>{kind==='observation'&&<small>{record.status}</small>}</td><td><button className="vgp-open" disabled={loadingDetail} onClick={()=>void open(record.id)} aria-label={'Ouvrir '+record.title}><ArrowRight size={18}/></button></td>
    </tr>)}</tbody></table>{!filtered.length&&<p className="vgp-empty">Aucun résultat pour ces filtres.</p>}</div>
    <ListPagination page={list.page} pages={list.pages} total={filtered.length} onChange={list.setPage}/>
   </>}
