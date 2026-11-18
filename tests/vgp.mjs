@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import ts from 'typescript';
+import {DatabaseSync} from 'node:sqlite';
+import {gzipSync} from 'node:zlib';
+import {createHash} from 'node:crypto';
+import {installVgpSource} from '../scripts/render-vgp-source.mjs';
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'polytechs-vgp-test-'));
+const db=new DatabaseSync(path.join(dir,'polytechs.sqlite'));
+function statement(sql,args=[]){return {bind(...values){return statement(sql,values)},async first(){return db.prepare(sql).get(...args)||null},async all(){return {results:db.prepare(sql).all(...args)}},async run(){return {meta:{changes:Number(db.prepare(sql).run(...args).changes)}}}}}
+globalThis.vgpDb={prepare:statement,async batch(statements){db.exec('BEGIN');try{const results=[];for(const statement of statements)results.push(await statement.run());db.exec('COMMIT');return results}catch(error){db.exec('ROLLBACK');throw error}}};
+globalThis.vgpUser={id:'admin',displayName:'QSSE',role:'admin'};
+globalThis.vgpAllowed=true;
+const objects=new Map();
+globalThis.vgpBucket={async put(key,value){objects.set(key,value)},async delete(key){objects.delete(key)},async get(key){return objects.has(key)?{body:objects.get(key)}:null}};
+function compile(name,file){
+ let source=fs.readFileSync(file,'utf8');
+ for(const [from,to] of [['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/vgp-server','./vgp-server.mjs'],['@/lib/vgp','./vgp.mjs'],['@/lib/hub','./hub.mjs'],['./hub','./hub.mjs']])source=source.replaceAll("'"+from+"'","'"+to+"'");
+ fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
+}
+try{
+ db.exec('PRAGMA foreign_keys=ON;');db.exec(fs.readFileSync('drizzle/0045_vgp.sql','utf8'));
+ db.exec('CREATE TABLE users(id TEXT PRIMARY KEY); INSERT INTO users VALUES (\'admin\'); CREATE TABLE hub_tickets(id TEXT PRIMARY KEY,data TEXT,revision INTEGER,created_at TEXT,updated_at TEXT,author TEXT);');
+ fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.vgpDb;export const bucket=()=>globalThis.vgpBucket;');
+ fs.writeFileSync(path.join(dir,'access.mjs'),`export const checkOrigin=req=>req.headers.get('origin')==='https://example.test';export const requireRole=async(req,role='reader')=>!globalThis.vgpUser?{error:Response.json({error:'login'},{status:401})}:role==='editor'&&globalThis.vgpUser.role==='reader'?{error:Response.json({error:'reader'},{status:403})}:{user:globalThis.vgpUser};`);
+ fs.writeFileSync(path.join(dir,'teams.mjs'),'export const teamsAllowed=async()=>globalThis.vgpAllowed;');
+ for(const [name,file] of [['hub','lib/hub.ts'],['vgp','lib/vgp.ts'],['vgp-server','lib/vgp-server.ts'],['route','app/api/vgp/route.ts'],['files','app/api/vgp/files/route.ts']])compile(name,file);
+ const lib=await import(path.join(dir,'vgp.mjs')),api=await import(path.join(dir,'route.mjs')),files=await import(path.join(dir,'files.mjs'));
+ const get=()=>new Request('https://example.test/api/vgp');
+ const post=body=>api.POST(new Request('https://example.test/api/vgp',{method:'POST',headers:{origin:'https://example.test','content-type':'application/json'},body:JSON.stringify(body)}));
+ const record={...lib.blankVgp('control'),title:'Chariot test',lastDate:'2026-01-31',months:1,due:'2026-02-28',plannedDate:'2026-12-01'};
+ assert.equal(lib.nextVgpDate('2026-01-31',1),'2026-02-28');assert.equal(lib.nextVgpDate('2024-01-31',1),'2024-02-29');
+ assert.equal(lib.vgpTiming(record,'2026-11-18'),'En retard');
+ assert.equal(lib.vgpError({...record,due:'2026-02-30'}),'Renseignez des dates valides.');
+ const saved=await post({operation:'save',revision:0,data:record});assert.equal(saved.status,200);const {id}=await saved.json();
+ assert.equal((await post({operation:'save',id,revision:0,data:record})).status,409);
+ assert.equal((await post({operation:'save',id,revision:1,data:{...record,pilotId:'unknown'}})).status,400);
+ const ticket=await post({operation:'ticket',id,revision:1});assert.equal(ticket.status,200);const linked=await ticket.json();assert.ok(linked.ticketId);
+ assert.equal((await post({operation:'ticket',id,revision:2})).status,200);assert.equal(db.prepare('SELECT count(*) n FROM hub_tickets').get().n,1);
+ assert.equal(db.prepare('SELECT count(*) n FROM vgp_history').get().n,2);
+ const upload=(file)=>{const data=new FormData();data.set('recordId',id);data.set('file',file);return files.POST(new Request('https://example.test/api/vgp/files',{method:'POST',headers:{origin:'https://example.test'},body:data}))};
+ assert.equal((await upload(new File(['bad'],'rapport.pdf'))).status,400);
+ const added=await upload(new File(['%PDF-test'],'rapport.pdf'));assert.equal(added.status,200);const fileId=(await added.json()).id;
+ assert.equal((await files.GET(new Request('https://example.test/api/vgp/files?id='+fileId))).status,200);
+ globalThis.vgpAllowed=false;
+ assert.equal((await api.GET(get())).status,403);assert.equal((await files.GET(new Request('https://example.test/api/vgp/files?id='+fileId))).status,403);
+ globalThis.vgpAllowed=true;globalThis.vgpUser.role='reader';assert.equal((await post({operation:'save',revision:0,data:record})).status,403);
+ globalThis.vgpUser=null;assert.equal((await api.GET(get())).status,401);
+ const source={records:[{...record,id:'vgp-source-123456789012345678901234',raw:{A:'source'},revision:1}]};
+ const bytes=Buffer.from(JSON.stringify(source));const env={POLYTECHS_VGP_SOURCE:createHash('sha256').update(bytes).digest('hex')+':1',POLYTECHS_VGP_SOURCE_1:gzipSync(bytes).toString('base64')};
+ installVgpSource(dir,env);installVgpSource(dir,env);assert.equal(db.prepare('SELECT count(*) n FROM vgp_records').get().n,2);
+ db.prepare('UPDATE vgp_records SET data=? WHERE id=?').run(JSON.stringify({...source.records[0],note:'Correction conservée'}),source.records[0].id);
+ installVgpSource(dir,env);assert.equal(JSON.parse(db.prepare('SELECT data FROM vgp_records WHERE id=?').get(source.records[0].id).data).note,'Correction conservée');
+ console.log('VGP : droits QSSE, dates, périodicité, concurrence, historique, tickets uniques, PDF privés et import réexécutable vérifiés.');
+}finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}

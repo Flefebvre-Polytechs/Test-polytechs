@@ -34,3 +34,6 @@ try {
 } catch (error) {
   console.error('QSSE quality source could not be installed:', error instanceof Error ? error.message : 'Unknown error.');
 }
+
+const {installVgpSource}=await import('./render-vgp-source.mjs');
+installVgpSource(dir,process.env);

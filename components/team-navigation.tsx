@@ -20,6 +20,7 @@ const qsseSections=[
     ['Situations dangereuses','/qse#'+encodeURIComponent('Situations dangereuses'),TriangleAlert],
     ['EPI · stock et dotations','/epi-stock',EpiIcon],
     ['Plans de prévention','/plans-prevention',ShieldAlert],
+    ['VGP · contrôles périodiques','/vgp',ShieldCheck],
   ]},
   {name:'Environnement',links:[
     ['Suivi des consommations','/environnement/consommations',ChartNoAxesCombined],
