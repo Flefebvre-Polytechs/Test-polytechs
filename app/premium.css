@@ -105,8 +105,6 @@
   /* Dashboards keep user selected dimensions, colours and resize handles. */
   body .team-workspace .unit-board { background: var(--pt-canvas); }
   body .team-workspace .unit-board main { width: 100%; max-width: none; margin: 0; padding: 30px 28px 42px; }
-  body .team-workspace .unit-board main>.board-commandbar { border: 1px solid var(--pt-line); border-radius: 12px; padding: 12px 16px; background: #fff; margin-bottom: 20px; box-shadow: var(--pt-shadow); }
-  body .board-commandbar button { border-radius: 7px; }
   body .board-card, body .team-workspace .custom-card { border-color: #dce4ed; border-radius: 14px; box-shadow: 0 3px 14px #142b4305; }
   body .board-card h3 { font-size: 16px; letter-spacing: -.015em; }
   body .indicator-controls select { min-height: 34px; border-color: #d6e0e9; font-size: 13px; }

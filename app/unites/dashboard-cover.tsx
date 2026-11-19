@@ -1,4 +1,3 @@
-import type {ReactNode} from 'react';
 import {ArrowDown,ArrowUpRight,CalendarDays,Layers3,ListTodo,MessagesSquare} from 'lucide-react';
 import type {Team} from '@/components/team-navigation';
 import {todayParis} from '@/lib/hub';
@@ -11,8 +10,8 @@ const moduleLinks:Record<string,{url:string;label:string}[]>={
 };
 const fullDate=new Intl.DateTimeFormat('fr-FR',{dateStyle:'full',timeZone:'Europe/Paris'});
 
-export function DashboardCover({team,title,activity,custom,children}:{
-  team:Team;title:string;activity:boolean;custom?:boolean;children?:ReactNode;
+export function DashboardCover({team,title,activity,custom}:{
+  team:Team;title:string;activity:boolean;custom?:boolean;
 }){
   const {Icon}=teamVisual(team.id);
   const today=todayParis(),links=moduleLinks[team.id]??[];
@@ -30,9 +29,8 @@ export function DashboardCover({team,title,activity,custom,children}:{
         {links.map(link=><a key={link.url} href={link.url}>{link.label} <ArrowUpRight size={14} aria-hidden="true"/></a>)}
       </nav>}
     </div>
-    <div className="board-cover-aside">
-      <time dateTime={today}><CalendarDays size={16} aria-hidden="true"/>{fullDate.format(new Date(today+'T12:00:00Z'))}</time>
-      {children&&<div className="board-cover-actions">{children}</div>}
-    </div>
+    <time className="board-cover-date" dateTime={today}>
+      <CalendarDays size={16} aria-hidden="true"/>{fullDate.format(new Date(today+'T12:00:00Z'))}
+    </time>
   </header>;
 }
