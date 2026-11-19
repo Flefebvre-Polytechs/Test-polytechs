@@ -3,6 +3,14 @@ export const ticketStatuses=['Ouvert','En cours','À vérifier','Clôturé'];
 export type Task={id:string;title:string;done:boolean;pilot:string;due:string};
 export type TicketLabel={id:string;kind:'topic'|'location';category:string;name:string};
 export type Ticket={analysis?:TicketAnalysis;topicTags?:string[];locationTags?:string[];gmaoOrderId?:string;archivedAt?:string;archivedBy?:string;qualityActionId?:string;title:string;category:string;description:string;teams:string[];pilot:string;due:string;status:string;actions:Task[];responsibles:string[];source?:{routineId:string;date:string;questionId?:string}};
+export type DashboardTicket=Pick<Ticket,'title'|'category'|'status'|'due'> & {id:string;updated_at:string;archived?:boolean};
+export type DashboardTicketStats={
+ counts:Record<string,{open:number;closed:number;total:number}>;
+ totals:{open:number;late:number;verify:number};
+ priorities:DashboardTicket[];
+ recent:DashboardTicket[];
+ updatedAt:string;
+};
 export const ticketAnalysisMethods = {
  '5p':{label:'5P · 5 Pourquoi',fields:[
   ['p1','Pourquoi le problème est-il apparu ?'],['p2','Pourquoi cette première cause existe-t-elle ?'],

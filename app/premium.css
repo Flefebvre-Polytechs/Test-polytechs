@@ -69,7 +69,7 @@
   body :is(.eyebrow,.ticket-eyebrow,.ged-eyebrow,.smi-eyebrow,.waste-eyebrow,.stock-eyebrow,.audit-page-kicker) { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: #527698; }
 
   /* Surfaces and summaries: a shared radius and restrained depth, no decorative data. */
-  body :is(.panel,.metric,.board-card,.overview-card,.gmao-card,.stock-card,.waste-chart-card,.waste-register,.ged-register,.hub-communication-feed article,.evrp-panel,.qa-list) { border: 1px solid var(--pt-line); border-radius: var(--pt-radius); box-shadow: var(--pt-shadow); background: #fff; }
+  body :is(.panel,.metric,.board-card,.gmao-card,.stock-card,.waste-chart-card,.waste-register,.ged-register,.hub-communication-feed article,.evrp-panel,.qa-list) { border: 1px solid var(--pt-line); border-radius: var(--pt-radius); box-shadow: var(--pt-shadow); background: #fff; }
   body :is(.work-summary button,.smi-kpis article,.audit-page-stats article,.qa-stats>* ,.gmao-stats>*,.waste-kpis>*,.evrp-summary>*,.stock-metrics>*) { border: 1px solid var(--pt-line); border-radius: 14px; box-shadow: var(--pt-shadow); background: #fff; padding: 22px; }
   body :is(.work-summary,.smi-kpis,.audit-page-stats,.qa-stats,.gmao-stats,.waste-kpis,.evrp-summary,.stock-metrics) { gap: 16px; margin-bottom: 26px; }
   body :is(.work-summary,.smi-kpis,.audit-page-stats,.qa-stats,.gmao-stats,.waste-kpis,.evrp-summary,.stock-metrics) strong { font-variant-numeric: tabular-nums; letter-spacing: -.035em; color: #183950; font-size: 32px; line-height: 1.15; }
@@ -107,15 +107,7 @@
   body .team-workspace .unit-board main { width: 100%; max-width: none; margin: 0; padding: 30px 28px 42px; }
   body .team-workspace .unit-board main>.board-commandbar { border: 1px solid var(--pt-line); border-radius: 12px; padding: 12px 16px; background: #fff; margin-bottom: 20px; box-shadow: var(--pt-shadow); }
   body .board-commandbar button { border-radius: 7px; }
-  body .board-canvas { border-radius: 18px; border-color: var(--pt-line); padding: 24px; box-shadow: var(--pt-shadow); }
-  body .board-cover { border-radius: 12px; background: linear-gradient(115deg,#112c47,#17496c); padding: 30px 32px; min-height: 184px; }
-  body .board-cover h1 { font-size: clamp(30px,3vw,42px); font-weight: 600; letter-spacing: -.04em; }
-  body .board-cover-actions button { border-radius: 8px; }
   body .board-card, body .team-workspace .custom-card { border-color: #dce4ed; border-radius: 14px; box-shadow: 0 3px 14px #142b4305; }
-  body .overview-metric { border: 1px solid #dfe6ee; border-radius: 14px; overflow: hidden; box-shadow: 0 3px 14px #142b4305; background: #fff; }
-  body .overview-band { padding: 14px 16px; font-size: 13px; font-weight: 600; }
-  body .overview-metric-body { padding: 16px; }
-  body .overview-metric .metric-chart-trigger { border-radius: 10px; }
   body .board-card h3 { font-size: 16px; letter-spacing: -.015em; }
   body .indicator-controls select { min-height: 34px; border-color: #d6e0e9; font-size: 13px; }
   body .custom-card .indicator-latest strong { font-size: 28px; letter-spacing: -.04em; }
@@ -223,9 +215,6 @@
   body :is(.work-summary button,.smi-kpis article,.audit-page-stats article,.qa-stats>*,.gmao-stats>*,.waste-kpis>*,.evrp-summary>*) { padding: 16px; border-radius: 12px; }
   body :is(.work-summary,.smi-kpis,.audit-page-stats,.qa-stats,.gmao-stats,.waste-kpis,.evrp-summary) strong { font-size: 27px; }
   body .hub-ticket-row { padding: 16px; }
-  body .board-canvas { padding: 12px; border-radius: 14px; }
-  body .board-cover { padding: 24px; min-height: 160px; }
-  body .board-cover h1 { font-size: 30px; }
   body .hub-communication-feed article { padding: 22px; }
   body .evrp-panel { padding: 18px; }
   body .ticket-reference-sheet .ticket-sheet-content { padding: 22px 18px; }

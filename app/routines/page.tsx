@@ -15,7 +15,9 @@ const frenchDate=(date:string)=>!validDate(date)?'Date à préciser':new Intl.Da
 const labelRepeat={none:'Ponctuelle',daily:'Tous les jours',weekly:'Toutes les semaines',monthly:'Tous les mois'};
 export default function Page(){return <AccountGate>{account=><Routines account={account}/>}</AccountGate>}
 function Routines({account}:{account:Account}){
-const [view,setView]=useState<'list'|'calendar'>('list'),[search,setSearch]=useState('');
+const [view,setView]=useState<'list'|'calendar'>(()=>
+ typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('view')==='calendar'?'calendar':'list'
+),[search,setSearch]=useState('');
 const [schedule,setSchedule]=useState<{routine:Row<Routine>;date:string;time:string}|null>(null);
 const [scheduleError,setScheduleError]=useState('');
 const [deleteTarget,setDeleteTarget]=useState<Row<Routine>|null>(null);

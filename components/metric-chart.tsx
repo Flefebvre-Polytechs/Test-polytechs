@@ -1,14 +1,14 @@
 'use client';
-import {useState,type ReactNode} from 'react';
+import type {ReactNode} from 'react';
 import {Bar,BarChart,CartesianGrid,Cell,LabelList,Line,LineChart,Pie,PieChart,ReferenceLine,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
-import {Dialog,DialogContent,DialogDescription,DialogTitle} from '@/components/ui/dialog';
+import {Dialog,DialogContent,DialogDescription,DialogTitle,DialogTrigger} from '@/components/ui/dialog';
 import {targetReached,type Widget} from '@/lib/unit-dashboard';
 export type Point={label:string;value:number};
 export const chartModes={bar:'Bâtons',pie:'Camembert',donut:'Anneau',line:'Courbe'} as const;
 const palette=['#005eaa','#57a5d2','#7d8ed5','#60aa74','#e69b4a','#cb6671','#697c93'];
 const number=(n:number)=>n.toLocaleString('fr-FR',{maximumFractionDigits:2});
-export function MetricChart({title,points,mode='bar',accent='#005eaa',caption,details,detailsContent,target,targetDirection='at-least',unit=''}:{title:string;points:Point[];mode?:Widget['chartType'];accent?:string;caption?:string;details?:string;detailsContent?:ReactNode;target?:number;targetDirection?:Widget['targetDirection'];unit?:string}){
- const [open,setOpen]=useState(false),valid=points.filter(p=>Number.isFinite(p.value)),pie=mode==='pie'||mode==='donut',hasNegative=valid.some(p=>p.value<0),hasPositive=valid.some(p=>p.value>0);
+export function MetricChart({title,points,mode='bar',accent='#005eaa',caption,details,detailsContent,trigger,controls,target,targetDirection='at-least',unit=''}:{title:string;points:Point[];mode?:Widget['chartType'];accent?:string;caption?:string;details?:string;detailsContent?:ReactNode;trigger?:ReactNode;controls?:ReactNode;target?:number;targetDirection?:Widget['targetDirection'];unit?:string}){
+ const valid=points.filter(p=>Number.isFinite(p.value)),pie=mode==='pie'||mode==='donut',hasNegative=valid.some(p=>p.value<0),hasPositive=valid.some(p=>p.value>0);
  const canPlot=valid.length>0&&(!pie||(!hasNegative&&hasPositive)),hasTarget=target!==undefined&&Number.isFinite(target);
  const color=(p:Point,i=0)=>hasTarget?(targetReached(p.value,target!,targetDirection)?'#16a34a':'#dc2626'):(pie&&i?palette[i%palette.length]:accent);
  const goal=hasTarget?'Objectif '+(targetDirection==='at-most'?'≤':'≥')+' '+number(target!)+' '+unit:'';
@@ -16,5 +16,27 @@ export function MetricChart({title,points,mode='bar',accent='#005eaa',caption,de
  const labels=hasTarget?<LabelList dataKey="value" position="top" formatter={(v:any)=>number(Number(v))} fontSize={12}/>:null;
  function plot(){return <ResponsiveContainer width="100%" height="100%">{pie?<PieChart><Pie data={valid} dataKey="value" nameKey="label" innerRadius={mode==='donut'?'48%':0} outerRadius="80%" stroke="#fff" strokeWidth={2}>{valid.map((p,i)=><Cell key={i} fill={color(p,i)}/>)}</Pie><Tooltip formatter={(value:any)=>number(Number(value))}/></PieChart>:mode==='line'?<LineChart data={valid} margin={{top:32,right:24,bottom:12,left:0}}><CartesianGrid vertical={false} stroke="#e9eef4"/><XAxis dataKey="label" tick={{fontSize:11}} minTickGap={18}/><YAxis tick={{fontSize:12}}/><Tooltip formatter={(value:any)=>number(Number(value))}/>{reference}<Line type="linear" dataKey="value" stroke={hasTarget?'#94a3b8':accent} strokeWidth={3} dot={(props:any)=><circle key={props.index} cx={props.cx} cy={props.cy} r={5} fill={color(props.payload)} stroke="#fff" strokeWidth={1}/>} activeDot={{r:6}}>{labels}</Line></LineChart>:<BarChart data={valid} margin={{top:32,right:24,bottom:12,left:0}}><CartesianGrid vertical={false} stroke="#e9eef4"/><XAxis dataKey="label" tick={{fontSize:11}} minTickGap={18}/><YAxis tick={{fontSize:12}}/><Tooltip formatter={(value:any)=>number(Number(value))}/>{reference}<Bar dataKey="value" fill={accent} radius={[4,4,0,0]} maxBarSize={55}>{valid.map((p,i)=><Cell key={i} fill={color(p,i)}/>)}{labels}</Bar></BarChart>}</ResponsiveContainer>}
  function legend(){return hasTarget?<div className="metric-target-legend"><strong>{goal}</strong><span><i style={{background:'#16a34a'}}/>Objectif atteint</span><span><i style={{background:'#dc2626'}}/>Objectif non atteint</span></div>:null}
- return <>{legend()}<button type="button" className="metric-chart-trigger" onClick={()=>setOpen(true)} aria-label={'Voir le détail de '+title}>{canPlot?<div className="metric-chart-plot" aria-hidden="true">{plot()}</div>:<div className="metric-chart-empty">{pie&&hasNegative?'Le camembert nécessite des valeurs positives.':valid.length?'Aucune valeur positive à représenter.':'Renseignez des valeurs pour afficher le graphique.'}</div>}<span className="metric-chart-hint">Cliquer pour voir le détail →</span></button><Dialog open={open} onOpenChange={setOpen}><DialogContent className="metric-detail-dialog"><DialogTitle>{title}</DialogTitle><DialogDescription>{caption||'Détail des valeurs affichées dans ce graphique.'}</DialogDescription>{legend()}<div className="metric-detail-plot">{canPlot&&plot()}</div><div className="metric-detail-table"><table><thead><tr><th>Élément</th><th>Valeur</th>{hasTarget&&<th>Objectif</th>}</tr></thead><tbody>{valid.map((p,i)=><tr key={i}><td>{p.label}</td><td>{number(p.value)}</td>{hasTarget&&<td style={{color:color(p)}}>{targetReached(p.value,target!,targetDirection)?'Objectif atteint':'Objectif non atteint'}</td>}</tr>)}</tbody></table>{!valid.length&&<p>Aucune valeur renseignée.</p>}</div>{details&&<p className="metric-detail-note">{details}</p>}{detailsContent}</DialogContent></Dialog></>;
+ return <>
+  {legend()}
+  <Dialog>
+   <DialogTrigger asChild>
+    <button type="button" className="metric-chart-trigger" aria-label={trigger===undefined?'Voir le détail de '+title:undefined}>
+     {trigger??<>
+      {canPlot?<div className="metric-chart-plot" aria-hidden="true">{plot()}</div>:<div className="metric-chart-empty">{pie&&hasNegative?'Le camembert nécessite des valeurs positives.':valid.length?'Aucune valeur positive à représenter.':'Renseignez des valeurs pour afficher le graphique.'}</div>}
+      <span className="metric-chart-hint">Cliquer pour voir le détail →</span>
+     </>}
+    </button>
+   </DialogTrigger>
+   <DialogContent className="metric-detail-dialog">
+    <DialogTitle>{title}</DialogTitle>
+    <DialogDescription>{caption||'Détail des valeurs affichées dans ce graphique.'}</DialogDescription>
+    {controls}
+    {legend()}
+    {canPlot&&<div className="metric-detail-plot">{plot()}</div>}
+    <div className="metric-detail-table"><table><thead><tr><th>Élément</th><th>Valeur</th>{hasTarget&&<th>Objectif</th>}</tr></thead><tbody>{valid.map((p,i)=><tr key={i}><td>{p.label}</td><td>{number(p.value)}</td>{hasTarget&&<td style={{color:color(p)}}>{targetReached(p.value,target!,targetDirection)?'Objectif atteint':'Objectif non atteint'}</td>}</tr>)}</tbody></table>{!valid.length&&<p>Aucune valeur renseignée.</p>}</div>
+    {details&&<p className="metric-detail-note">{details}</p>}
+    {detailsContent}
+   </DialogContent>
+  </Dialog>
+ </>;
 }

@@ -129,5 +129,40 @@ assert.equal((await (await getScope('scope=tickets&page=0&search=Secret%20RH')).
 for(let i=0;i<510;i++)db.prepare('INSERT INTO hub_communications VALUES(?,?,1,?,?,?)').run('msg-'+i,JSON.stringify({title:i===509?'Ancienne note':'Message '+i,body:'Information',teams:['production'],sourceTeam:'maintenance'}),'2020','2020','Admin');
 const messageSearch=await (await getScope('scope=communications&page=0&search=ancienne&source=maintenance')).json();assert.equal(messageSearch.total,1);assert.equal(messageSearch.rows[0].id,'msg-509');
 console.log('Pagination/search: older than 500 records, accent folding, totals, stable pages, communications and RH isolation passed.');
+
+const addBoardTicket=db.prepare('INSERT INTO hub_tickets VALUES(?,?,1,?,?,?)');
+for(const [id,patch] of [
+ ['dashboard-overdue',{due:'2000-01-01'}],
+ ['dashboard-verify',{status:'À vérifier'}],
+ ['dashboard-future',{due:'2100-01-01'}],
+ ['dashboard-archive',{due:'1999-01-01',status:'Clôturé',archivedAt:'2000-01-01'}],
+ ['dashboard-rh',{due:'1998-01-01',teams:['production','rh']}],
+]){
+ addBoardTicket.run(id,JSON.stringify({...fillTicket,...patch,title:id}),'2000','2000','Admin');
+}
+const snapshot=await (await getScope('scope=overview-stats&team=production')).json();
+assert.equal(snapshot.priorities[0].id,'dashboard-overdue');
+assert.ok(snapshot.priorities.findIndex(row=>row.id==='dashboard-verify')>0);
+assert.ok(!snapshot.recent.some(row=>row.id==='dashboard-overdue'),'Priorities include older tickets outside the recent list');
+assert.ok(snapshot.priorities.every(row=>!['dashboard-archive','dashboard-rh'].includes(row.id)));
+assert.equal(snapshot.counts.Qualité.closed,1,'Archived tickets remain in historical indicators');
+const ticketStats=(await (await getScope('scope=tickets&team=production&page=0')).json()).stats;
+assert.deepEqual(snapshot.totals,{open:ticketStats.open,late:ticketStats.late,verify:ticketStats.verify});
+assert.equal((await getScope('scope=overview-stats&team=rh')).status,403);
+
+const addBoardMessage=db.prepare('INSERT INTO hub_communications VALUES(?,?,1,?,?,?)');
+for(const [id,published,updated,teams] of [
+ ['dashboard-old','2000','2028',['production']],
+ ['dashboard-new','2028','2028',['production']],
+ ['dashboard-confidential','2029','2029',['production','rh']],
+]){
+ addBoardMessage.run(id,JSON.stringify({title:id,body:'Information',sourceTeam:'production',teams}),published,updated,'Admin');
+}
+const messagesScope='scope=communications&team=production&page=0&sort=published';
+const localFeed=await (await getScope(messagesScope+'&source=production')).json();
+assert.deepEqual(localFeed.rows.map(row=>row.id),['dashboard-new','dashboard-old']);
+const otherFeed=await (await getScope(messagesScope+'&excludeSource=production')).json();
+assert.ok(otherFeed.rows.length&&otherFeed.rows.every(row=>row.data.sourceTeam==='maintenance'));
+console.log('Dashboard: separate communication feeds, due priorities, complete counts, archives and RH access passed.');
 console.log('GMAO : droits par service, demandes/tickets/fichiers, workflow et contrôle, historique, conflits concurrents, préventif sans doublons, fin de mois et stock fractionnaire vérifiés.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}

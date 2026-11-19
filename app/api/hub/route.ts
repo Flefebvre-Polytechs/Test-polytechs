@@ -3,7 +3,7 @@ import {visibleNotifications} from '@/lib/notification-access';
 import {gmaoTicketContributor,gmaoTicketReader} from '@/lib/gmao-server';
 import {database} from '@/db/raw';
 import {checkOrigin,requireRole} from '@/lib/access';
-import {auditAnswerError,auditCompletionError,auditQuestionType,ticketError,routineError,communicationError,occurrenceDates,validDate,todayParis,newTicket,type Routine,type Run,type Ticket} from '@/lib/hub';
+import {auditAnswerError,auditCompletionError,auditQuestionType,ticketError,routineError,communicationError,occurrenceDates,validDate,todayParis,newTicket,type DashboardTicket,type DashboardTicketStats,type Routine,type Run,type Ticket} from '@/lib/hub';
 import {teamContentVisible,accessibleTeams,someTeamAllowed,teamsAllowed} from '@/lib/team-access';
 const fail=(error:string,status=400)=>Response.json({error},{status});
 const ok=(v:unknown)=>Response.json(v,{headers:{'Cache-Control':'no-store'}});
@@ -11,10 +11,40 @@ const parse=(r:any)=>({...r,data:JSON.parse(r.data)});
 const tables={ticket:'hub_tickets',routine:'hub_routines',communication:'hub_communications'} as const;
 async function recipients(ids:unknown){if(!Array.isArray(ids)||ids.length>100||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)return false;const users=(await database().prepare('SELECT id FROM users').all()).results;return ids.every(id=>users.some(u=>u.id===id))}
 async function notify(ids:string[],title:string,href:string){if(!ids.length)return '';try{const db=database();await db.batch([...new Set(ids)].map(id=>db.prepare('INSERT INTO hub_notifications (id,user_id,title,href,seen,created_at) VALUES (?,?,?,?,0,?)').bind(crypto.randomUUID(),id,title,href,new Date().toISOString())));return ''}catch(e){console.error(e);return 'Enregistrement réussi, mais les notifications n’ont pas pu être créées. Utilisez « Notifier » pour réessayer.'}}
-export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;const db=database(),q=new URL(req.url).searchParams,scope=q.get('scope')||'meta',contextTeam=q.get('team')||'';if(contextTeam&&['tickets','ticket','communications','routines','run','audit-history','overview-stats'].includes(scope)&&!(await accessibleTeams(gate.user!)).has(contextTeam))return fail('Accès à cette équipe non autorisé.',403);
+export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;const db=database(),q=new URL(req.url).searchParams,scope=q.get('scope')||'meta',contextTeam=q.get('team')||'';if(contextTeam&&['tickets','ticket','communications','routines','run','audit-history'].includes(scope)&&!(await accessibleTeams(gate.user!)).has(contextTeam))return fail('Accès à cette équipe non autorisé.',403);
 if(scope==='meta'){const [teams,users]=await Promise.all([db.prepare('SELECT id,name,rank,parent_id FROM teams ORDER BY rank,name').all(),db.prepare('SELECT id,display_name FROM users ORDER BY display_name').all()]);const allowed=await accessibleTeams(gate.user!),editable=await accessibleTeams(gate.user!,true);return ok({teams:teams.results.filter((t:any)=>allowed.has(t.id)),editableTeams:[...editable],contributingTeams:[...await accessibleTeams(gate.user!,true,'contribute')],managedTeams:[...await accessibleTeams(gate.user!,true,'manage')],users:users.results})}
 if(scope==='notifications'){const visible=await visibleNotifications(req,gate.user!);return ok({notifications:visible,unread:visible.filter(n=>!n.seen).length})}
-if(scope==='overview-stats'){const team=q.get('team')||'';if(!team||!await db.prepare('SELECT id FROM teams WHERE id=?').bind(team).first())return fail('Équipe inconnue.');const allowed=await accessibleTeams(gate.user!);if(!allowed.has(team))return fail('Accès à cette équipe non autorisé.',403);const scopeIds=[team];const rows=await db.prepare('SELECT id,data,created_at,updated_at FROM hub_tickets ORDER BY updated_at DESC').all();const counts:Record<string,{open:number;closed:number;total:number}>=Object.create(null),recent:any[]=[];for(const r of rows.results as any[]){const item=JSON.parse(r.data);if(!Array.isArray(item.teams)||!teamContentVisible(allowed,item.teams,gate.user!.role==='admin')||!item.teams.some((id:string)=>scopeIds.includes(id)))continue;const category=String(item.category||'Autre');const entry=counts[category]||{open:0,closed:0,total:0};entry.total++;entry[item.status==='Clôturé'?'closed':'open']++;counts[category]=entry;if(recent.length<150)recent.push({id:r.id,title:item.title,category,status:item.status,due:item.due,updated_at:r.updated_at})}return ok({counts,recent,shown:recent.length,updatedAt:new Date().toISOString()})}
+if(scope==='overview-stats'){
+ if(!contextTeam)return fail('Équipe inconnue.');
+ const allowed=await accessibleTeams(gate.user!);
+ if(!allowed.has(contextTeam))return fail('Accès à cette équipe non autorisé.',403);
+ const rows=await db.prepare(`SELECT id,data,updated_at FROM hub_tickets
+  WHERE EXISTS (SELECT 1 FROM json_each(data,'$.teams') WHERE value=?) ORDER BY updated_at DESC,id ASC`)
+  .bind(contextTeam).all<{id:string;data:string;updated_at:string}>();
+ const counts:DashboardTicketStats['counts']=Object.create(null);
+ const totals={open:0,late:0,verify:0};
+ const recent:DashboardTicket[]=[],priorities:DashboardTicket[]=[];
+ const today=todayParis();
+ for(const row of rows.results){
+  const item=JSON.parse(row.data) as Ticket;
+  if(!Array.isArray(item.teams)||!teamContentVisible(allowed,item.teams,gate.user!.role==='admin'))continue;
+  const archived=!!item.archivedAt,closed=item.status==='Clôturé';
+  const category=item.category||'Autre',due=validDate(item.due)?item.due:'';
+  const summary={id:row.id,title:item.title,category,status:item.status,due,updated_at:row.updated_at,archived};
+  if(recent.length<150)recent.push(summary);
+  const entry=counts[category]??={open:0,closed:0,total:0};
+  entry.total++;
+  if(closed||archived){entry.closed++;continue}
+  entry.open++;
+  totals.open++;
+  if(due&&due<today)totals.late++;
+  if(item.status==='À vérifier')totals.verify++;
+  priorities.push(summary);
+ }
+ const rank=({due,status}:DashboardTicket)=>due&&due<=today?0:status==='À vérifier'?1:2;
+ priorities.sort((a,b)=>rank(a)-rank(b)||(a.due||'9999').localeCompare(b.due||'9999'));
+ return ok({counts,totals,recent,shown:recent.length,priorities:priorities.slice(0,6),updatedAt:new Date().toISOString()});
+}
 if(scope==='ticket'){const row=await db.prepare('SELECT * FROM hub_tickets WHERE id=?').bind(q.get('id')||'').first();if(!row)return fail('Ticket introuvable.',404);if(contextTeam&&!JSON.parse((row as any).data).teams?.includes(contextTeam))return fail('Ce ticket ne concerne pas cette équipe.',404);if(!await someTeamAllowed(gate.user!,JSON.parse((row as any).data).teams||[])&&!await gmaoTicketReader(gate.user!,String(row.id)))return fail('Accès au ticket non autorisé.',403);const [comments,files]=await Promise.all([db.prepare('SELECT * FROM hub_comments WHERE ticket_id=? ORDER BY created_at,id').bind(row.id).all(),db.prepare('SELECT * FROM hub_files WHERE ticket_id=? ORDER BY created_at,id').bind(row.id).all()]);return ok({ticket:parse(row),comments:comments.results,files:files.results,gmaoContributor:await gmaoTicketContributor(gate.user!,String(row.id)),gmaoDataContributor:await gmaoTicketContributor(gate.user!,String(row.id),'contribute')})}
 if(scope==='run'){const id=q.get('id')||'',date=q.get('date')||'';if(!validDate(date))return fail('Date invalide.');const routine=await db.prepare('SELECT * FROM hub_routines WHERE id=?').bind(id).first<any>();if(!routine)return fail('Routine introuvable.',404);if(contextTeam&&!JSON.parse(routine.data).teams?.includes(contextTeam))return fail('Cette routine ne concerne pas cette équipe.',404);if(!await someTeamAllowed(gate.user!,JSON.parse(routine.data).teams||[]))return fail('Accès à la routine non autorisé.',403);const run=await db.prepare('SELECT * FROM hub_runs WHERE id=?').bind(id+':'+date).first();if(!run&&JSON.parse(routine.data).archivedAt)return fail('Compte rendu introuvable.',404);const tickets=[];
  if(run){
@@ -53,11 +83,14 @@ if(scope==='tickets'||scope==='communications'){
  }
  if(scope==='tickets'){clauses.push("(COALESCE(json_extract(data,'$.archivedAt'),'')!='')=?");params.push(archive?1:0)}
  if(contextTeam){clauses.push("EXISTS (SELECT 1 FROM json_each(data,'$.teams') WHERE value=?)");params.push(contextTeam)}
+ const excludeSource=scope==='communications'?q.get('excludeSource'):null;
+ if(excludeSource){clauses.push("COALESCE(json_extract(data,'$.sourceTeam'),'')!=?");params.push(excludeSource)}
  const normalize=(v:string)=>v.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLocaleLowerCase('fr');
  const term=normalize(q.get('search')||''),category=q.get('category'),status=q.get('status'),pilot=q.get('pilot'),source=q.get('source'),focus=q.get('focus'),mine=q.get('mine')==='1';
+ if(scope==='communications'&&source){clauses.push("json_extract(data,'$.sourceTeam')=?");params.push(source)}
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const stats={open:0,late:0,verify:0,mine:0};let total=0,offset=0;const requested=Math.max(0,Math.floor(Number(q.get('page'))||0)),size=q.has('page')?15:500;const visible:any[]=[];
- const sort=q.get('sort'),order=sort==='title'?"json_extract(data,'$.title') COLLATE NOCASE ASC,id ASC":sort==='due'?(archive?"json_extract(data,'$.archivedAt') DESC,id ASC":"COALESCE(NULLIF(json_extract(data,'$.due'),''),'9999') ASC,id ASC"):"updated_at DESC,id ASC";
+ const sort=q.get('sort'),order=scope==='communications'&&sort==='published'?"created_at DESC,id ASC":sort==='title'?"json_extract(data,'$.title') COLLATE NOCASE ASC,id ASC":sort==='due'?(archive?"json_extract(data,'$.archivedAt') DESC,id ASC":"COALESCE(NULLIF(json_extract(data,'$.due'),''),'9999') ASC,id ASC"):"updated_at DESC,id ASC";
  // Bounded batches: authorization is applied before scanning, filtering and pagination.
  while(true){const batch=await db.prepare(`SELECT * FROM ${table} ${clauses.length?'WHERE '+clauses.join(' AND '):''} ORDER BY ${order} LIMIT 500 OFFSET ?`).bind(...params,offset).all();
  for(const raw of batch.results){const r=parse(raw),v=r.data;if(!teamContentVisible(allowed,v.teams||[],gate.user!.role==='admin'))continue;

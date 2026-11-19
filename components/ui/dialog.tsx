@@ -55,8 +55,9 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const fullscreenElement = typeof document === "undefined" ? undefined : document.fullscreenElement
   return (
-    <DialogPortal data-slot="dialog-portal">
+    <DialogPortal data-slot="dialog-portal" container={fullscreenElement}>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
