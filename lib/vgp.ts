@@ -13,10 +13,7 @@ export function blankVgp(kind:VgpRecord['kind']):VgpRecord {
  lastDate:'',due:'',plannedDate:'',months:null,regulatory:'',status:'À qualifier',description:'',
  note:'',ticketId:'',sourceSheet:'',sourceRow:0,raw:{}};
 }
-export function vgpTiming(record:VgpRecord,today:string){
- if(record.equipment!==undefined&&(!record.equipment||typeof record.equipment!=='object'||
-  [record.equipment.family,record.equipment.number,record.equipment.reference].some(value=>typeof value!=='string'||value.length>250)))
-  return 'Vérifiez la famille et les références du matériel (250 caractères maximum).';
+export function vgpTiming(record:Pick<VgpRecord,'kind'|'status'|'due'>,today:string){
  if(record.kind==='observation'&&record.status==='Levée')return 'Levée';
  if(!record.due)return 'À planifier';
  if(record.due<today)return 'En retard';
@@ -76,8 +73,9 @@ export function vgpEquipmentIdentity(record:VgpRecord):VgpEquipmentIdentity{
  ] as const;
  const commonFamily=match.find(([pattern])=>pattern.test(label))?.[1];
  return {
-  family:record.equipment?.family.trim()||commonFamily||sourceFamily||type||record.domain||'Famille à renseigner',
-  number:record.equipment?.number.trim()||number,
-  reference:record.equipment?.reference.trim()||reference,
+  family:record.equipment?.family?.trim()||commonFamily||sourceFamily||type||
+   record.domain.replace(/\s+20\d{2}(?:-\d+)?$/, '')||'Famille à renseigner',
+  number:record.equipment?.number?.trim()||number,
+  reference:record.equipment?.reference?.trim()||reference,
  };
 }

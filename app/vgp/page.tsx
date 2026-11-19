@@ -1,248 +1,120 @@
 'use client';
+
 import {useEffect,useRef,useState} from 'react';
-import {ShieldCheck,Plus,Search,CalendarClock,FileText,Ticket,ArrowRight,AlertTriangle,Clock3,CheckCircle2,ListChecks} from 'lucide-react';
+import {Boxes,CalendarDays,ClipboardList,LayoutDashboard,Plus,ShieldCheck} from 'lucide-react';
 import {AccountGate,type Account} from '@/components/account-gate';
 import {HubFrame,hubRequest,useHubMeta} from '@/components/hub-layout';
-import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
-import {ListPagination,useListPage} from '@/components/list-pagination';
-import {useConfirmation} from '@/components/use-confirmation';
-import {blankVgp,nextVgpDate,vgpTiming,vgpStatuses,vgpResults,type VgpRecord,type VgpPassage} from '@/lib/vgp';
 import {todayParis} from '@/lib/hub';
-import {VgpFamilies,type VgpListRecord} from './families';
+import {VgpFamilies} from './families';
+import {VgpPriorities,VgpRegister} from './register';
+import {VgpRecordSheet,type VgpSheetRequest} from './record-sheet';
+import {displayDate,type RegisterRow,type ReportFollowUp,type SheetTarget} from './model';
 import './style.css';
 
-type ReportDue=Pick<VgpPassage,'id'|'record_id'|'performed_date'>;
-type FileRow={passage_id:string|null;id:string;name:string;author:string;created_at:string};
-const controlIndicators=[
- ['En retard',AlertTriangle,'red'],['Sous 30 jours',Clock3,'amber'],
- ['À planifier',CalendarClock,'slate'],['À jour',CheckCircle2,'green'],
+type View='priorites'|'materiel'|'controles'|'observations';
+type Registry={records:RegisterRow[];pendingReports:ReportFollowUp[];pendingResults?:ReportFollowUp[]};
+const views=[
+ {key:'priorites',label:'Priorités',icon:LayoutDashboard},
+ {key:'materiel',label:'Familles et matériel',icon:Boxes},
+ {key:'controles',label:'Contrôles',icon:CalendarDays},
+ {key:'observations',label:'Observations',icon:ClipboardList},
 ] as const;
-const observationIndicators=[
- ['À qualifier',AlertTriangle,'slate'],['À traiter',ListChecks,'red'],
- ['En cours',Clock3,'amber'],['Levée',CheckCircle2,'green'],
-] as const;
-type HistoryRow={snapshot:string;saved_at:string;saved_by:string};
-const displayDate=(date:string)=>date?new Date(date+'T12:00:00Z').toLocaleDateString('fr-FR'):'—';
-export default function Page(){return <AccountGate>{account=><Vgp account={account}/>}</AccountGate>}
+
+export default function Page(){
+ return <AccountGate>{account=><Vgp account={account}/>}</AccountGate>;
+}
+
 function Vgp({account}:{account:Account}){
- const {meta}=useHubMeta(),{askConfirm,confirmation}=useConfirmation();
- const [records,setRecords]=useState<VgpListRecord[]|null>(null),[error,setError]=useState('');
- const [kind,setKind]=useState<'control'|'observation'>('control'),[query,setQuery]=useState(''),[domain,setDomain]=useState(''),[filter,setFilter]=useState('');
- const [edit,setEdit]=useState<VgpRecord|null>(null),[baseline,setBaseline]=useState(''),[files,setFiles]=useState<FileRow[]>([]),[history,setHistory]=useState<HistoryRow[]>([]);
- const [busy,setBusy]=useState(false),[detailError,setDetailError]=useState(''),[loadingDetail,setLoadingDetail]=useState(false);
- const [families,setFamilies]=useState(false);
- const [priorities,setPriorities]=useState(true),[priorityFilter,setPriorityFilter]=useState('');
- const [pendingReports,setPendingReports]=useState<ReportDue[]>([]);
- const [passages,setPassages]=useState<VgpPassage[]>([]),[entry,setEntry]=useState<{
-  performedDate:string;result:string;reportExpected:boolean;note:string;nextDue:string;
- }|null>(null);
- const [focusedPassage,setFocusedPassage]=useState('');
- const sequence=useRef(0);
+ const {meta}=useHubMeta();
+ const [registry,setRegistry]=useState<Registry|null>(null),[error,setError]=useState('');
+ const [view,setView]=useState<View>('priorites'),[registerPreset,setRegisterPreset]=useState({status:'',revision:0});
+ const [sheet,setSheet]=useState<VgpSheetRequest|null>(null),[sheetKey,setSheetKey]=useState(0);
+ const requestSequence=useRef(0),returnFocus=useRef<HTMLElement|null>(null);
  const canEdit=account.role==='admin'||account.role==='editor'&&!!meta.editableTeams?.includes('qsse');
- const dirty=!!edit&&JSON.stringify(edit)!==baseline;
  const today=todayParis();
- async function load(){try{const data=await hubRequest('/api/vgp');setRecords(data.records);setPendingReports(data.pendingReports);setError('')}catch(e){setError((e as Error).message)}}
- async function open(id:string,passageId=''){
-  const request=++sequence.current;setLoadingDetail(true);
+
+ async function load(){
+  const sequence=++requestSequence.current;
   try{
-   const data=await hubRequest('/api/vgp?id='+encodeURIComponent(id));
-   if(request!==sequence.current)return;
-   setEdit(data.record);setBaseline(JSON.stringify(data.record));setFiles(data.files);setHistory(data.history);setPassages(data.passages);setFocusedPassage(passageId);setEntry(null);setDetailError('');
-   window.history.replaceState(null,'','/vgp?id='+encodeURIComponent(id)+(passageId?'&passage='+encodeURIComponent(passageId):''));
-  }catch(e){setError((e as Error).message)}finally{if(request===sequence.current)setLoadingDetail(false)}
+   const data:Registry=await hubRequest('/api/vgp');
+   if(sequence===requestSequence.current){setRegistry(data);setError('')}
+  }catch(e){if(sequence===requestSequence.current)setError((e as Error).message)}
  }
- useEffect(()=>{void load();const query=new URLSearchParams(location.search);const id=query.get('id');if(id)void open(id,query.get('passage')||'')},[]);
+
  useEffect(()=>{
-  if(!dirty&&!entry)return;
-  const prevent=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=''};
-  window.addEventListener('beforeunload',prevent);return()=>window.removeEventListener('beforeunload',prevent);
- },[dirty,entry]);
- async function close(){if(busy)return;if((dirty||entry)&&!await askConfirm('Abandonner les modifications non enregistrées ?'))return;sequence.current++;setEntry(null);setEdit(null);window.history.replaceState(null,'','/vgp')}
- function create(){const record=blankVgp(priorities?'control':kind);if(record.kind==='observation')record.equipment={family:'',number:'',reference:''};setEdit(record);setBaseline(JSON.stringify(record));setFiles([]);setHistory([]);setPassages([]);setEntry(null);setDetailError('')}
- function patch(field:keyof VgpRecord,value:string|number|null){setEdit(record=>record&&({...record,[field]:value}))}
- async function save(operation='save',resultUpdate?:{passageId:string;result:string}){
-  if(!edit)return;setBusy(true);setDetailError('');
-  try{
-   const result=await hubRequest('/api/vgp',{operation,id:edit.id,revision:edit.revision,data:resultUpdate??(operation==='passage'?entry:edit)});
-   await open(result.id,resultUpdate?.passageId);await load();
-   if(operation==='ticket')location.assign('/tickets?id='+encodeURIComponent(result.ticketId));
-  }catch(e){setDetailError((e as Error).message)}finally{setBusy(false)}
+  const query=new URLSearchParams(location.search);
+  const routeView=query.get('vue');
+  if(views.some(item=>item.key===routeView))setView(routeView as View);
+  const id=query.get('id');
+  if(id)setSheet({id,passageId:query.get('passage')||undefined});
+  void load();
+  return ()=>{requestSequence.current++};
+ },[]);
+
+ function updateURL(nextView:View,id?:string,passageId?:string){
+  const url=new URL(location.href);
+  if(nextView==='priorites')url.searchParams.delete('vue');else url.searchParams.set('vue',nextView);
+  if(id)url.searchParams.set('id',id);else url.searchParams.delete('id');
+  if(id&&passageId)url.searchParams.set('passage',passageId);else url.searchParams.delete('passage');
+  history.replaceState(null,'',url.pathname+url.search);
  }
- async function upload(file?:File,passageId?:string){
-  if(!file||!edit)return;setBusy(true);setDetailError('');
-  try{
-   const form=new FormData();form.set('recordId',edit.id);form.set('file',file);if(passageId)form.set('passageId',passageId);
-   const response=await fetch('/api/vgp/files',{method:'POST',body:form});const result=await response.json() as {error?:string};
-   if(!response.ok)throw Error(result.error||'Dépôt impossible.');await open(edit.id);await load();
-  }catch(e){setDetailError((e as Error).message)}finally{setBusy(false)}
+ function selectView(next:View){
+  if(next!==view)setRegisterPreset({status:'',revision:0});
+  setView(next);updateURL(next);
  }
- const scoped=(records||[]).filter(record=>record.kind===kind);
- const domains=[...new Set(scoped.map(record=>record.domain).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
- const searchScope=scoped.filter(record=>(!domain||record.domain===domain)&&
-  (record.title+' '+record.location+' '+record.reference+' '+record.description+' '+record.provider).toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')));
- const indicators=(kind==='control'?controlIndicators:observationIndicators).map(([label,Icon,tone])=>({
-  label,Icon,tone,count:searchScope.filter(record=>(kind==='control'?vgpTiming(record,today):record.status)===label).length,
- }));
- const filtered=searchScope.filter(record=>!filter||vgpTiming(record,today)===filter||kind==='observation'&&record.status===filter)
-  .sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.title.localeCompare(b.title,'fr'));
- const upcoming=searchScope.filter(record=>record.due>=today&&record.status!=='Levée')
-  .sort((a,b)=>a.due.localeCompare(b.due)||a.title.localeCompare(b.title,'fr')).slice(0,4);
- const stateOptions=kind==='control'?controlIndicators.map(([label])=>label):
-  [...observationIndicators.map(([label])=>label),...controlIndicators.map(([label])=>label)];
- const byId=new Map((records||[]).map(record=>[record.id,record]));
- const duePriority=(records||[]).filter(record=>record.kind==='control'&&vgpTiming(record,today)==='En retard');
- const planning=(records||[]).filter(record=>record.kind==='control'&&!record.plannedDate&&vgpTiming(record,today)==='Sous 30 jours');
- const overdueObservations=(records||[]).filter(record=>record.kind==='observation'&&['À traiter','En cours'].includes(record.status)&&vgpTiming(record,today)==='En retard');
- const priorityItems=[
-  {label:'Contrôles en retard',tone:'red',Icon:AlertTriangle,items:duePriority.map(record=>({record,date:record.due,action:record.plannedDate?'Vérifier le rendez-vous':'Relancer le contrôle',key:record.id}))},
-  {label:'À programmer sous 30 jours',tone:'amber',Icon:CalendarClock,items:planning.map(record=>({record,date:record.due,action:'Programmer',key:record.id}))},
-  {label:'Rapports attendus',tone:'slate',Icon:FileText,items:pendingReports.flatMap(report=>{const record=byId.get(report.record_id);return record?[{record,date:report.performed_date,action:'Déposer le rapport',key:report.id}]:[]})},
-  {label:'Écarts en retard',tone:'red',Icon:ListChecks,items:overdueObservations.map(record=>({record,date:record.due,action:'Suivre l’écart',key:record.id}))},
- ];
- const items=priorityItems.filter(group=>!priorityFilter||group.label===priorityFilter).flatMap(group=>group.items)
-  .sort((a,b)=>a.date.localeCompare(b.date)||a.record.title.localeCompare(b.record.title,'fr'));
- const priorityPage=useListPage(items,priorityFilter,10);
- const list=useListPage(filtered,[kind,domain,filter,query].join('|'),50);
- function field(key:keyof VgpRecord,label:string,type='text'){
-  if(!edit)return null;
-  return <label key={key}>{label}{type==='textarea'?<textarea rows={4} maxLength={10000} value={String(edit[key]||'')} onChange={e=>patch(key,e.target.value)}/>
-   :<input type={type} maxLength={key==='title'?300:10000} value={String(edit[key]||'')} onChange={e=>patch(key,e.target.value)}/>}</label>;
+ function register(kind:RegisterRow['kind'],status:string){
+  const next=kind==='control'?'controles':'observations';
+  setRegisterPreset(previous=>({status,revision:previous.revision+1}));
+  setView(next);updateURL(next);
  }
+ function open(target:SheetTarget,fromSheet=false){
+  if(!fromSheet)returnFocus.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  setSheetKey(previous=>previous+1);setSheet(target);updateURL(view,target.id,target.passageId);
+ }
+ function create(kind:RegisterRow['kind'],family?:string){
+  returnFocus.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  setSheetKey(previous=>previous+1);setSheet({kind,family});
+ }
+ function close(){setSheet(null);updateURL(view)}
+ function changed(id:string,passageId?:string){updateURL(view,id,passageId);void load()}
+
+ const records=registry?.records||[];
+ const controlCount=records.filter(record=>record.kind==='control').length;
+ const observationCount=records.length-controlCount;
+ const observationView=view==='observations'||view==='materiel';
  return <HubFrame active="VGP" teamId="qsse" className="vgp-workspace">
-  <header className="vgp-heading"><div><span className="vgp-eyebrow">PRÉVENTION · SUIVI DES CONTRÔLES</span><h1><ShieldCheck/> VGP et contrôles périodiques</h1><p>Organiser les vérifications, conserver les rapports et suivre les écarts.</p></div>
-   {canEdit&&!families&&<button className="primary" disabled={loadingDetail} onClick={create}><Plus size={17}/>{priorities||kind==='control'?'Ajouter un contrôle':'Ajouter une observation'}</button>}
-  </header>
-  <nav className="vgp-tabs" aria-label="Registre VGP">
-   <button aria-pressed={priorities&&!families} onClick={()=>{setPriorities(true);setFamilies(false)}}>Priorités</button>
-   <button aria-pressed={families} onClick={()=>setFamilies(true)}>Familles et matériel</button>
-   {([['control','Contrôles'],['observation','Observations']] as const).map(([value,label])=><button key={value}
-    aria-pressed={!families&&!priorities&&kind===value} onClick={()=>{setFamilies(false);setPriorities(false);setKind(value);setDomain('');setFilter('');setQuery('')}}>
-    {label}<span>{records?.filter(record=>record.kind===value).length??'—'}</span>
-   </button>)}
-  </nav>
-  {families&&records&&<VgpFamilies records={records} busy={loadingDetail} onOpen={id=>void open(id)}/>}
-  {!families&&priorities&&records&&<div className="vgp-overview">
-   <div className="vgp-stats" aria-label="Indicateurs de priorité">{priorityItems.map(({label,tone,Icon,items})=>
-    <button key={label} data-tone={tone} aria-pressed={priorityFilter===label} onClick={()=>setPriorityFilter(priorityFilter===label?'':label)}>
-     <span><Icon size={17} aria-hidden="true"/>{label}</span><strong>{items.length}</strong>
-    </button>)}</div>
-   <section className="vgp-panel"><h2>À traiter en priorité</h2>
-    {items.length?<ul className="vgp-upcoming vgp-priority-list">{priorityPage.rows.map(({record,date,action,key})=><li key={key}>
-     <button disabled={loadingDetail} onClick={()=>void open(record.id,action==='Déposer le rapport'?key:'')}><time dateTime={date}>{displayDate(date)}</time>
-      <span><strong>{record.title}</strong><small>{record.location||record.domain} · {meta.users.find(user=>user.id===record.pilotId)?.display_name||'Pilote à attribuer'}</small></span>
-      <span>{action}</span><ArrowRight size={15} aria-hidden="true"/>
-     </button></li>)}</ul>:<p>Aucune action prioritaire dans cette sélection.</p>}
-    <ListPagination page={priorityPage.page} pages={priorityPage.pages} total={items.length} onChange={priorityPage.setPage}/>
-   </section>
-   <section className="vgp-panel vgp-data"><h2>Données à compléter</h2><div>
-    <button className="outline" onClick={()=>{setPriorities(false);setKind('control');setFilter('À planifier');setDomain('');setQuery('')}}>
-     {records.filter(record=>record.kind==='control'&&!record.due).length} contrôles sans échéance
-    </button>
-    <button className="outline" onClick={()=>{setPriorities(false);setKind('observation');setFilter('À qualifier');setDomain('');setQuery('')}}>
-     {records.filter(record=>record.kind==='observation'&&record.status==='À qualifier').length} observations à qualifier
-    </button>
-   </div></section>
-  </div>}
-  {(priorities||families)&&!records&&!error&&<p role="status">Chargement du registre…</p>}
-  {!families&&!priorities&&<>
-  {records&&<div className="vgp-overview">
-   <div className="vgp-stats" aria-label={kind==='control'?'Indicateurs des contrôles':'Indicateurs des observations'}>
-    {indicators.map(({label,Icon,tone,count})=><button key={label} data-tone={tone} aria-pressed={filter===label}
-     onClick={()=>setFilter(filter===label?'':label)}><span><Icon size={17} aria-hidden="true"/>{label}</span><strong>{count}</strong></button>)}
-   </div>
-   <div className="vgp-overview-panels">
-    <section className="vgp-panel"><h2>{kind==='control'?'Répartition des échéances':'Avancement des observations'}</h2>
-     <strong className="vgp-total">{searchScope.length} {kind==='control'?'contrôle(s)':'observation(s)'}</strong>
-     <div className="vgp-distribution" aria-hidden="true">{indicators.filter(item=>item.count>0).map(({label,tone,count})=>
-      <span key={label} data-tone={tone} style={{flexGrow:count}}/>)}</div>
-     <ul className="vgp-legend">{indicators.map(({label,tone,count})=><li key={label} data-tone={tone}><i aria-hidden="true"/><span>{label}</span><b>{count}</b></li>)}</ul>
-    </section>
-    <section className="vgp-panel"><h2>Prochaines échéances</h2>
-     {upcoming.length?<ul className="vgp-upcoming">{upcoming.map(record=><li key={record.id}><button disabled={loadingDetail} onClick={()=>void open(record.id)}>
-      <time dateTime={record.due}>{displayDate(record.due)}</time><span>{record.title}<small>{record.domain}</small></span><ArrowRight size={15} aria-hidden="true"/>
-     </button></li>)}</ul>:<p>Aucune échéance à venir dans cette sélection.</p>}
-    </section>
-   </div>
-  </div>}
-  <div className="vgp-filters"><label className="vgp-search"><Search size={17}/><span className="sr-only">Rechercher</span><input placeholder="Équipement, site, référence, prestataire…" value={query} onChange={e=>setQuery(e.target.value)}/></label>
-   <label><span className="sr-only">Domaine</span><select value={domain} onChange={e=>setDomain(e.target.value)}><option value="">Tous les domaines</option>{domains.map(value=><option key={value}>{value}</option>)}</select></label>
-   <label><span className="sr-only">Suivi</span><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">Tous les états</option>{stateOptions.map(value=><option key={value}>{value}</option>)}</select></label>
-  </div>
-
-  {loadingDetail&&<p role="status">Ouverture de la fiche…</p>}
-  {!records&&!error?<p role="status">Chargement du registre…</p>:<>
-   <div className="vgp-table-wrap"><table className="vgp-table"><thead><tr><th>Équipement / observation</th><th>Domaine</th><th>{kind==='control'?'Dernier contrôle':'Date source'}</th><th>Échéance</th><th>Prévu le</th><th>Suivi</th><th><span className="sr-only">Ouvrir</span></th></tr></thead><tbody>{list.rows.map(record=><tr key={record.id}>
-    <td><button className="vgp-record-link" disabled={loadingDetail} onClick={()=>void open(record.id)}>{record.title}</button><small>{record.location||record.provider||record.reference}{kind==='observation'&&' · '+record.sourceSheet}</small></td><td data-label="Domaine">{record.domain}</td><td data-label={kind==='control'?'Dernier contrôle':'Date source'}>{displayDate(record.lastDate)}</td><td data-label="Échéance">{displayDate(record.due)}</td><td data-label="Prévu le">{displayDate(record.plannedDate)}</td><td data-label="Suivi"><span className="vgp-badge" data-status={vgpTiming(record,today)}>{vgpTiming(record,today)}</span>{kind==='observation'&&<small>{record.status}</small>}</td><td><button className="vgp-open" disabled={loadingDetail} onClick={()=>void open(record.id)} aria-label={'Ouvrir '+record.title}><ArrowRight size={18}/></button></td>
-   </tr>)}</tbody></table>{!filtered.length&&<p className="vgp-empty">Aucun résultat pour ces filtres.</p>}</div>
-   <ListPagination page={list.page} pages={list.pages} total={filtered.length} onChange={list.setPage}/>
-  </>}
-  </>}
-  {error&&<p role="alert" className="error">{error} <button className="outline" onClick={()=>void load()}>Réessayer</button></p>}
-  <p className="vgp-source-note">Les périodicités et échéances importées reprennent le classeur de suivi. Une intervention prévue conserve l’échéance initiale jusqu’à sa mise à jour.</p>
-  <Dialog open={!!edit} onOpenChange={value=>{if(!value)void close()}}><DialogContent className="vgp-dialog" showCloseButton={!busy}>
-   <DialogTitle>{edit?.title|| (kind==='control'?'Nouveau contrôle':'Nouvelle observation')}</DialogTitle><DialogDescription>Échéances, suivi, rapports et historique de la fiche.</DialogDescription>
-   {edit&&<>{detailError&&<p className="error" role="alert">{detailError}</p>}
-    <div className="vgp-detail-scroll">
-    {edit.kind==='control'&&edit.id&&<section className="vgp-detail-section">
-     <h3><CalendarClock size={17}/> Passages du contrôle</h3>
-     {canEdit&&!entry&&<button className="primary" disabled={dirty||busy} onClick={()=>setEntry({performedDate:today,result:'En attente du rapport',reportExpected:true,note:'',nextDue:nextVgpDate(today,edit.months)})}>Enregistrer un passage</button>}
-     {entry&&<fieldset className="vgp-form vgp-passage-form" disabled={busy}>
-      <legend className="sr-only">Nouveau passage</legend>
-      <p className="vgp-wide">Échéance du passage {displayDate(edit.due)} · Rendez-vous {displayDate(edit.plannedDate)}</p>
-      <label>Date réelle<input type="date" max={today} value={entry.performedDate} onChange={e=>{const performedDate=e.target.value;setEntry({...entry,performedDate,nextDue:nextVgpDate(performedDate,edit.months)})}}/></label>
-      <label>Résultat<select value={entry.result} onChange={e=>setEntry({...entry,result:e.target.value,reportExpected:entry.reportExpected||e.target.value==='En attente du rapport'})}>{vgpResults.map(value=><option key={value}>{value}</option>)}</select></label>
-      <label>Prochaine échéance<input type="date" value={entry.nextDue} onChange={e=>setEntry({...entry,nextDue:e.target.value})}/></label>
-      <label className="vgp-check"><input type="checkbox" checked={entry.reportExpected} disabled={entry.result==='En attente du rapport'} onChange={e=>setEntry({...entry,reportExpected:e.target.checked})}/> Rapport attendu</label>
-      <label className="vgp-wide">Notes<textarea rows={2} maxLength={10000} value={entry.note} onChange={e=>setEntry({...entry,note:e.target.value})}/></label>
-      <div className="vgp-wide vgp-passage-actions"><button className="outline" onClick={()=>setEntry(null)}>Annuler</button><button className="primary" disabled={!entry.performedDate} onClick={()=>void save('passage')}>Valider le passage</button></div>
-     </fieldset>}
-     {passages.map(passage=>{
-      const reports=files.filter(file=>file.passage_id===passage.id);
-      return <details className="vgp-passage" key={passage.id} open={focusedPassage===passage.id}><summary><strong>{displayDate(passage.performed_date)}</strong> · {passage.result}{passage.report_expected&&!reports.length?' · Rapport attendu':''}</summary>
-       <p>Échéance {displayDate(passage.due)} · Prévu le {displayDate(passage.planned_date)} · Saisi par {passage.created_by}</p>
-       {passage.note&&<p>{passage.note}</p>}
-       {canEdit&&(busy||dirty||entry?<span>Enregistrez la fiche pour ouvrir un ticket.</span>:
-        <a className="outline" href={'/tickets?new=1&vgp='+encodeURIComponent(edit.id)+'&passage='+encodeURIComponent(passage.id)}>
-         <Ticket size={15}/> Ouvrir un ticket d’écart
-        </a>)}
-
-       {canEdit&&passage.result==='En attente du rapport'&&<label className="vgp-upload">Renseigner le résultat
-        <select value="" disabled={busy||dirty||!!entry} onChange={e=>{if(e.target.value)void save('passage-result',{passageId:passage.id,result:e.target.value})}}>
-         <option value="">Choisir le résultat</option>{vgpResults.filter(result=>result!=='En attente du rapport').map(result=><option key={result}>{result}</option>)}
-        </select>
-       </label>}
-       {reports.map(file=><a className="vgp-file" key={file.id} href={'/api/vgp/files?id='+encodeURIComponent(file.id)} target="_blank" rel="noreferrer"><FileText size={16}/>{file.name}</a>)}
-       {canEdit&&<label className="vgp-upload">Déposer le rapport PDF du passage<input type="file" accept="application/pdf,.pdf" disabled={busy||dirty||!!entry} onChange={e=>{const file=e.target.files?.[0];e.target.value='';void upload(file,passage.id)}}/></label>}
-      </details>;
-     })}
-     {!passages.length&&!entry&&<p>Aucun passage enregistré dans le module.</p>}
-    </section>}
-    <fieldset disabled={!canEdit||busy||!!entry} className="vgp-form">
-     {field('title','Désignation')}{field('domain','Domaine')}
-     {edit.kind==='observation'&&edit.equipment&&([
-      ['family','Famille de matériel'],['number','N° équipement'],['reference','Référence APAVE'],
-     ] as const).map(([key,label])=><label key={key}>{label}<input maxLength={250} value={edit.equipment?.[key]||''}
-      onChange={event=>{const value=event.target.value;setEdit(previous=>previous?.equipment?{...previous,equipment:{...previous.equipment,[key]:value}}:previous)}}/></label>)}
-     {edit.kind==='observation'&&<label className="vgp-wide">Contrôle associé<select value={edit.controlId||''} onChange={e=>patch('controlId',e.target.value)}><option value="">À rattacher</option>{(records||[]).filter(record=>record.kind==='control').map(record=><option key={record.id} value={record.id}>{record.domain} · {record.title}</option>)}</select></label>}{field('location','Site / localisation')}{field('reference','Référence équipement / rapport')}
-     {field('provider','Entreprise de vérification')}
-     <label>Pilote du suivi<select value={edit.pilotId} onChange={e=>patch('pilotId',e.target.value)}><option value="">À attribuer</option>{meta.users.map(user=><option key={user.id} value={user.id}>{user.display_name}</option>)}</select></label>
-     {field('lastDate',edit.kind==='control'?'Dernière vérification':'Date du relevé / source','date')}
-     <label>Périodicité (mois)<input type="number" min="1" max="240" value={edit.months??''} onChange={e=>patch('months',e.target.value?Number(e.target.value):null)}/></label>
-     {field('due','Échéance de contrôle / traitement','date')}{field('plannedDate','Intervention prévue le','date')}
-     {edit.kind==='control'&&<div className="vgp-wide"><button type="button" className="outline" disabled={!nextVgpDate(edit.lastDate,edit.months)} onClick={()=>patch('due',nextVgpDate(edit.lastDate,edit.months))}><CalendarClock size={15}/> Calculer depuis le dernier contrôle</button></div>}
-     <label>Caractère réglementaire<select value={edit.regulatory} onChange={e=>patch('regulatory',e.target.value)}><option value="">Non renseigné</option><option>Oui</option><option>Non</option></select></label>
-     {edit.kind==='observation'&&<label>Traitement de l’observation<select value={edit.status} onChange={e=>patch('status',e.target.value)}>{vgpStatuses.map(value=><option key={value}>{value}</option>)}</select></label>}
-     <div className="vgp-wide">{field('description',edit.kind==='control'?'Objet du contrôle':'Non-conformité / observation','textarea')}</div>
-     <div className="vgp-wide">{field('note','Suivi, actions et justification de levée','textarea')}</div>
-    </fieldset>
-    {edit.kind==='control'&&<section className="vgp-detail-section"><h3><AlertTriangle size={17}/> Observations associées</h3>{(records||[]).filter(record=>record.controlId===edit.id&&record.kind==='observation').map(record=><button key={record.id} className="vgp-file" disabled={busy||dirty||!!entry} onClick={()=>void open(record.id)}>{record.title} · {record.status}<ArrowRight size={15}/></button>)}{!(records||[]).some(record=>record.controlId===edit.id&&record.kind==='observation')&&<p>Aucune observation rattachée à ce contrôle.</p>}</section>}
-    <section className="vgp-detail-section"><h3><Ticket size={17}/> Ticket de suivi</h3>{edit.ticketId?<a className="outline" href={'/tickets?id='+encodeURIComponent(edit.ticketId)}>Ouvrir le ticket lié <ArrowRight size={15}/></a>:canEdit?<button className="outline" disabled={busy||dirty||!edit.id||!!entry} onClick={()=>void save('ticket')}>Créer un ticket de suivi</button>:<p>Aucun ticket lié.</p>}{canEdit&&(!edit.id||dirty)&&<small>Enregistrez la fiche pour ouvrir son ticket.</small>}</section>
-    <section className="vgp-detail-section"><h3><FileText size={17}/> Rapports et preuves PDF</h3>{files.filter(file=>!file.passage_id).map(file=><a className="vgp-file" key={file.id} href={'/api/vgp/files?id='+encodeURIComponent(file.id)} target="_blank" rel="noreferrer"><FileText size={16}/><span>{file.name}<small>{file.author} · {new Date(file.created_at).toLocaleDateString('fr-FR')}</small></span><ArrowRight size={15}/></a>)}{!files.some(file=>!file.passage_id)&&<p>Aucun PDF général déposé.</p>}{canEdit&&<label className="vgp-upload">Déposer un rapport PDF · 15 Mo maximum<input type="file" accept="application/pdf,.pdf" disabled={busy||dirty||!edit.id||!!entry} onChange={e=>{const file=e.target.files?.[0];e.target.value='';void upload(file)}}/></label>}</section>
-    {!!Object.keys(edit.raw||{}).length&&<details className="vgp-detail-section"><summary>Données du classeur · {edit.sourceSheet}, ligne {edit.sourceRow}</summary><dl className="vgp-source-data">{Object.entries(edit.raw).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></details>}
-    {!!history.length&&<details className="vgp-detail-section"><summary>Historique des modifications</summary>{history.map((entry,index)=>{const old=JSON.parse(entry.snapshot) as VgpRecord;return <details key={index}><summary>{new Date(entry.saved_at).toLocaleString('fr-FR')} · {entry.saved_by}</summary><p>{old.title||'Création de la fiche'}</p><p>Échéance précédente {displayDate(old.due)} · Prévu le {displayDate(old.plannedDate)}</p><p>{old.note}</p></details>})}</details>}
+  <div className="vgp-shell">
+   <header className="vgp-heading">
+    <div className="vgp-heading-content">
+     <span className="vgp-heading-section"><ShieldCheck size={17} aria-hidden="true"/> PRÉVENTION</span>
+     <h1>VGP et contrôles périodiques</h1>
+     <p>Échéances du parc, rapports de contrôle et suivi des écarts.</p>
     </div>
-    <footer className="vgp-footer"><button className="outline" disabled={busy} onClick={()=>void close()}>Fermer</button><span>{dirty?'Modifications à enregistrer':''}</span>{canEdit&&<button className="primary" disabled={busy||!!entry} onClick={()=>void save()}>{busy?'Enregistrement…':'Enregistrer la fiche'}</button>}</footer>
-   </>}
-  </DialogContent></Dialog>{confirmation}
+    <div className="vgp-heading-side">
+     <time dateTime={today}><CalendarDays size={15} aria-hidden="true"/> {displayDate(today)}</time>
+     {canEdit&&<button className="primary vgp-add" type="button" onClick={()=>create(observationView?'observation':'control')}>
+      <Plus size={18} aria-hidden="true"/> {observationView?'Nouvelle observation':'Nouveau contrôle'}
+     </button>}
+    </div>
+   </header>
+   <nav className="vgp-tabs" aria-label="Vues du registre VGP">
+    {views.map(({key,label,icon:Icon})=><button type="button" key={key} aria-pressed={view===key} onClick={()=>selectView(key)}>
+     <Icon size={17} aria-hidden="true"/><span>{label}</span>
+     {registry&&(key==='controles'||key==='observations')&&<b>{key==='controles'?controlCount:observationCount}</b>}
+    </button>)}
+   </nav>
+   {error&&<p className="vgp-message" data-tone="red" role="alert">{error}
+    <button className="vgp-text-action" type="button" onClick={()=>void load()}>Recharger le registre</button></p>}
+   {!registry&&!error&&<p className="vgp-sheet-loading" role="status">Chargement du registre…</p>}
+   {registry&&view==='priorites'&&<VgpPriorities records={records} users={meta.users} today={today} busy={!!sheet}
+    pendingReports={registry.pendingReports} pendingResults={registry.pendingResults??[]} onOpen={open} onRegister={register}/>}
+   {registry&&view==='materiel'&&<VgpFamilies records={records} busy={!!sheet} onOpen={open}
+    onAdd={canEdit?family=>create('observation',family):undefined}/>}
+   {registry&&(view==='controles'||view==='observations')&&<VgpRegister key={view+':'+registerPreset.revision}
+    kind={view==='controles'?'control':'observation'} records={records} users={meta.users} initialStatus={registerPreset.status}
+    today={today} busy={!!sheet} onOpen={open}/>}
+  </div>
+  {sheet&&<VgpRecordSheet key={sheetKey} request={sheet} records={records} users={meta.users} today={today} canEdit={canEdit}
+   returnFocus={returnFocus.current} onClose={close} onFollow={target=>open(target,true)} onChanged={changed}/>}
  </HubFrame>;
 }
