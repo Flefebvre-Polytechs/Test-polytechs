@@ -272,6 +272,7 @@ const rows:[string,string,string,string,string][]=[
 ['Impossible de lire cette image.','Unable to read this image.','Dieses Bild kann nicht gelesen werden.','Impossibile leggere questa immagine.','No se puede leer esta imagen.'],
 ['Choisissez une image JPEG, PNG ou WebP de 12 Mo maximum.','Choose a JPEG, PNG or WebP image up to 12 MB.','Wählen Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 12 MB.','Scegli un’immagine JPEG, PNG o WebP di massimo 12 MB.','Elija una imagen JPEG, PNG o WebP de máximo 12 MB.'],
 ['Mon profil','My profile','Mein Profil','Il mio profilo','Mi perfil'],
+['Aide et guides','Help and guides','Hilfe und Anleitungen','Aiuto e guide','Ayuda y guías'],
 ['Ma photo','My photo','Mein Foto','La mia foto','Mi foto'],
 ['Changer la photo','Change photo','Foto ändern','Cambia foto','Cambiar foto'],
 ['Supprimer la photo','Remove photo','Foto entfernen','Rimuovi foto','Eliminar foto'],

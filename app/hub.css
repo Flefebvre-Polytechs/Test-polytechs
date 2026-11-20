@@ -13,3 +13,20 @@
 .hub-heading{padding-bottom:18px;border-bottom:1px solid #e5ecf3}.hub-heading h1{font-size:28px}.hub-heading p{font-size:16px;line-height:1.5;color:#52667b}.hub-content{background:#fafcfe;padding:26px;min-height:calc(100vh - 58px)}
 .hub-filters,.work-filters{padding:14px;background:#fff;border:1px solid #dce5ee;border-radius:10px;gap:10px}.hub-filters :is(input,select),.work-filters :is(input,select){min-height:42px;font-size:14px}.filter-reset{font-size:14px;color:#005eaa;text-decoration:underline;padding:9px}.hub-empty{background:#fff;line-height:1.6}.hub-empty p{margin-top:8px}.hub-ticket-list{background:#fff;border:1px solid #dce5ee;border-radius:10px;overflow:hidden}.hub-ticket-row{padding:16px;min-height:88px;font-size:14px}.hub-ticket-row strong{font-size:16px}.hub-ticket-row small{font-size:13px}.hub-status{font-size:13px;padding:6px 8px;background:#eef3f8;border:1px solid #dce5ee}.hub-status[data-status="En cours"]{background:#e9f3ff;color:#075b9c;border-color:#b5d8f1}.hub-status[data-status="À vérifier"]{background:#fff5df;color:#8a5400;border-color:#ecd397}.hub-status[data-status="Clôturé"]{background:#e9f6ee;color:#236841;border-color:#b7dcc5}.ticket-due{white-space:nowrap}.list-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 2px;font-size:14px;color:#52667b}.list-pagination>div{display:flex;gap:8px}.list-pagination button{min-height:40px}.hub-comments time,.calendar-event small{font-size:12px}.hub-tag{font-size:13px}.hub-ticket-dialog .hub-status{white-space:nowrap}.hub-communication-feed article{background:#fff;box-shadow:0 2px 8px #17314f05;border-radius:12px}
 @media(max-width:760px){.team-sidebar{position:relative;max-height:none;height:auto;padding:10px 14px}.team-sidebar>.team-brand{display:inline-block}.team-sidebar .team-brand img{width:105px;height:45px;margin:0}.service-menu-toggle{display:flex;gap:8px;align-items:center;float:right;padding:10px 12px;border:1px solid #dce5ee;border-radius:7px;font-size:14px;color:#005eaa}.service-sidebar-content{display:none;clear:both}.service-sidebar-content.is-open{display:block;max-height:65vh;overflow:auto;padding-top:10px}.hub-topbar{padding:0 8px}.hub-topbar>nav>a{padding:10px 8px;font-size:14px}.hub-topbar>nav>a svg{display:block;width:16px}.hub-content{padding:16px}.hub-heading h1{font-size:24px}.hub-filters :is(input,select){flex:1 1 140px;width:100%;min-width:0}.hub-ticket-row{grid-template-columns:minmax(0,1fr) auto;gap:9px;padding:14px}.hub-ticket-row>.hub-tag{grid-column:1;grid-row:1}.hub-ticket-row>.hub-status{grid-column:2;grid-row:1}.hub-ticket-row>div{grid-column:1/3}.hub-ticket-row>span.ticket-pilot{display:block;grid-column:1;font-size:13px}.hub-ticket-row>span.ticket-due{display:block;grid-column:2;font-size:14px}.hub-ticket-row>span.ticket-progress{display:flex;grid-column:1/3;font-size:13px}.list-pagination{flex-wrap:wrap}.hub-topbar .hub-bell{flex:none}}
+
+.profile-help-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  margin: 12px 0;
+  padding: 8px 11px;
+  border: 1px solid #cfe2f1;
+  border-radius: 9px;
+  background: #eef6fc;
+  color: #0b598e;
+  font-size: .875rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.profile-help-link:hover { background: #e3f0fa; color: #074976; }
