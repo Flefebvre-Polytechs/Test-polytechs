@@ -30,6 +30,7 @@ type TicketSheetProps={
  close:()=>void;
  save:()=>void;
  saveLabel?:string;
+ initialActionId?:string;
  modalError?:string;
  modalNotice?:string;
  uploading?:boolean;
@@ -50,7 +51,7 @@ type TicketSheetProps={
 
 export function TicketSheet({
  edit,account,meta,canEdit,canContribute,dirty,busy,patch,close,save,
- saveLabel='Enregistrer le ticket',modalError='',modalNotice='',uploading=false,
+ saveLabel='Enregistrer le ticket',initialActionId='',modalError='',modalNotice='',uploading=false,
  comments=[],files=[],comment='',notifyComment=true,recipientIds=[],
  archiveTicket,upload,setComment,setNotifyComment,sendComment,notify,onCloseAutoFocus,children,
 }:TicketSheetProps){
@@ -79,11 +80,12 @@ export function TicketSheet({
  }
  function viewAction(id:string){
   const row=actionPlanRef.current?.querySelector<HTMLDivElement>('[data-ticket-action-id="'+CSS.escape(id)+'"]');
-  if(!row)return;
+  if(!row)return false;
   const step=row.closest('details');
   if(step)step.open=true;
   row.scrollIntoView({block:'nearest'});
   row.focus({preventScroll:true});
+  return true;
  }
  const vgpLink=edit?.data.description.match(/^Passage et rapport : (\/vgp\?id=[a-z0-9-]+&passage=[a-z0-9-]+)$/im)?.[1];
  const vgpRecordLink=edit?.data.description.match(/^(?:Fiche VGP : |Suivi VGP )(\/vgp\?id=[a-z0-9-]+)$/im)?.[1];
@@ -108,7 +110,8 @@ export function TicketSheet({
             </div>)}</div>
           </fieldset>;
  return <Dialog open={!!edit} onOpenChange={v=>{if(!v)closeSheet()}}>
-  <DialogContent className="hub-ticket-dialog ticket-reference-sheet" showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus}>
+  <DialogContent className="hub-ticket-dialog ticket-reference-sheet" showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus}
+   onOpenAutoFocus={event=>{if(initialActionId&&viewAction(initialActionId))event.preventDefault()}}>
     <DialogTitle className="sr-only">{edit?.data.title||'Nouveau ticket'}</DialogTitle>
     <DialogDescription className="sr-only">Signalement, attribution, plan d’actions et activité du ticket.</DialogDescription>
     {edit&&<>

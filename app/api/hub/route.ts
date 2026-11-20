@@ -2,7 +2,7 @@ import {ticketLabelError} from '@/lib/ticket-labels';
 import {visibleNotifications} from '@/lib/notification-access';
 import {gmaoTicketContributor,gmaoTicketReader} from '@/lib/gmao-server';
 import {database} from '@/db/raw';
-import {checkOrigin,requireRole} from '@/lib/access';
+import {checkOrigin,requireRole,type Account} from '@/lib/access';
 import {auditAnswerError,auditCompletionError,auditQuestionType,ticketError,routineError,communicationError,occurrenceDates,validDate,todayParis,newTicket,type DashboardTicket,type DashboardTicketStats,type Routine,type Run,type Ticket} from '@/lib/hub';
 import {teamContentVisible,accessibleTeams,someTeamAllowed,teamsAllowed} from '@/lib/team-access';
 const fail=(error:string,status=400)=>Response.json({error},{status});
@@ -11,6 +11,42 @@ const parse=(r:any)=>({...r,data:JSON.parse(r.data)});
 const tables={ticket:'hub_tickets',routine:'hub_routines',communication:'hub_communications'} as const;
 async function recipients(ids:unknown){if(!Array.isArray(ids)||ids.length>100||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)return false;const users=(await database().prepare('SELECT id FROM users').all()).results;return ids.every(id=>users.some(u=>u.id===id))}
 async function notify(ids:string[],title:string,href:string){if(!ids.length)return '';try{const db=database();await db.batch([...new Set(ids)].map(id=>db.prepare('INSERT INTO hub_notifications (id,user_id,title,href,seen,created_at) VALUES (?,?,?,?,0,?)').bind(crypto.randomUUID(),id,title,href,new Date().toISOString())));return ''}catch(e){console.error(e);return 'Enregistrement réussi, mais les notifications n’ont pas pu être créées. Utilisez « Notifier » pour réessayer.'}}
+
+async function saveTicket(db:D1Database,mutation:D1PreparedStatement,id:string,ticket:Ticket,now:string,previous?:Ticket){
+ const priorPilots=new Map((previous?.actions??[]).map(action=>[action.id,action.pilot]));
+ const assignments=ticket.actions.filter(action=>action.pilot&&priorPilots.get(action.id)!==action.pilot);
+ const assignedIds=[...new Set(assignments.map(action=>action.pilot))];
+ if(assignedIds.length){
+  const pilots=await db.prepare(`SELECT id,display_name,role FROM users WHERE id IN (${assignedIds.map(()=>'?').join(',')})`)
+   .bind(...assignedIds).all<{id:string;display_name:string;role:Account['role']}>();
+  for(const row of pilots.results){
+   const user:Account={id:row.id,username:'',displayName:row.display_name,role:row.role,mustChangePassword:false};
+   if(!await someTeamAllowed(user,ticket.teams)&&
+    !(ticket.gmaoOrderId&&!ticket.teams.includes('rh')&&await gmaoTicketReader(user,id))){
+    return {error:fail(`${user.displayName} n’a pas accès au ticket. Vérifiez les services concernés ou choisissez un autre pilote pour l’action.`)} as const;
+   }
+  }
+ }
+ const href='/tickets?id='+encodeURIComponent(id);
+ const notices=assignments.map(action=>({
+  id:'ticket-action:'+crypto.randomUUID(),userId:action.pilot,
+  title:('Action attribuée · '+action.title.trim()).slice(0,300),
+  href:href+'&action='+encodeURIComponent(action.id),
+ }));
+ const ticketTitle=((previous?'Ticket mis à jour · ':'Nouveau ticket · ')+ticket.title).slice(0,300);
+ for(const userId of new Set([ticket.pilot,...ticket.responsibles].filter(Boolean))){
+  if(!assignedIds.includes(userId))notices.push({id:crypto.randomUUID(),userId,title:ticketTitle,href});
+ }
+ let result;
+ if(notices.length){
+  // The ticket and its notifications are committed together. A stale revision creates no alerts.
+  [result]=await db.batch([mutation,db.prepare(`INSERT INTO hub_notifications (id,user_id,title,href,seen,created_at)
+   SELECT value->>'id',value->>'userId',value->>'title',value->>'href',0,?
+   FROM json_each(?) WHERE changes()=1`).bind(now,JSON.stringify(notices))]);
+ }else result=await mutation.run();
+ return {changed:!!result.meta.changes,actionNotifications:assignments.length} as const;
+}
+
 export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;const db=database(),q=new URL(req.url).searchParams,scope=q.get('scope')||'meta',contextTeam=q.get('team')||'';if(contextTeam&&['tickets','ticket','communications','routines','run','audit-history'].includes(scope)&&!(await accessibleTeams(gate.user!)).has(contextTeam))return fail('Accès à cette équipe non autorisé.',403);
 if(scope==='meta'){const [teams,users]=await Promise.all([db.prepare('SELECT id,name,rank,parent_id FROM teams ORDER BY rank,name').all(),db.prepare('SELECT id,display_name FROM users ORDER BY display_name').all()]);const allowed=await accessibleTeams(gate.user!),editable=await accessibleTeams(gate.user!,true);return ok({teams:teams.results.filter((t:any)=>allowed.has(t.id)),editableTeams:[...editable],contributingTeams:[...await accessibleTeams(gate.user!,true,'contribute')],managedTeams:[...await accessibleTeams(gate.user!,true,'manage')],users:users.results})}
 if(scope==='notifications'){const visible=await visibleNotifications(req,gate.user!);return ok({notifications:visible,unread:visible.filter(n=>!n.seen).length})}
@@ -174,22 +210,23 @@ if(b.action==='audit-ticket'){
   return fail('Choisissez des services autorisés et conservez le rattachement RH lorsque l’audit concerne les RH.',403);
  const knownTeams=(await db.prepare('SELECT id FROM teams').all()).results;
  if(teams.some(id=>!knownTeams.some(team=>team.id===id)))return fail('Équipe inconnue.');
- const recipientsToNotify=[...new Set([pilot,...responsibles,...actions.map(action=>action.pilot)].filter(Boolean))];
- if(!await recipients(recipientsToNotify))return fail('Pilote ou responsable inconnu.');
+ const recipientIds=[...new Set([pilot,...responsibles,...actions.map(action=>action.pilot)].filter(Boolean))];
+ if(!await recipients(recipientIds))return fail('Pilote ou responsable inconnu.');
  const labelsError=await ticketLabelError(ticket);if(labelsError)return fail(labelsError);
  const matching=`json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?
   AND json_extract(data,'$.source.questionId')=?`;
  const linkArgs=[b.routineId,b.date,b.questionId];
  const id=crypto.randomUUID();
  // Write once for this occurrence and point, even if a request is retried.
- const result=await db.prepare(`INSERT INTO hub_tickets (id,data,revision,created_at,updated_at,author)
+ const mutation=db.prepare(`INSERT INTO hub_tickets (id,data,revision,created_at,updated_at,author)
   SELECT ?,?,1,?,?,? WHERE NOT EXISTS(SELECT 1 FROM hub_tickets WHERE ${matching})
   AND EXISTS(SELECT 1 FROM hub_runs WHERE id=? AND revision=?)
   AND EXISTS(SELECT 1 FROM hub_routines WHERE id=? AND revision=?)`)
-  .bind(id,JSON.stringify(ticket),now,now,author,...linkArgs,runId,run.revision,b.routineId,row.revision).run();
- if(result.meta.changes){
-  const warning=await notify(recipientsToNotify,'Nouveau ticket · '+ticket.title,'/tickets?id='+encodeURIComponent(id));
-  return ok({id,title:ticket.title,questionId:b.questionId,status:ticket.status,created:true,warning});
+  .bind(id,JSON.stringify(ticket),now,now,author,...linkArgs,runId,run.revision,b.routineId,row.revision);
+ const result=await saveTicket(db,mutation,id,ticket,now);
+ if(result.error)return result.error;
+ if(result.changed){
+  return ok({id,title:ticket.title,questionId:b.questionId,status:ticket.status,created:true,warning:'',actionNotifications:result.actionNotifications});
  }
  const existing=await db.prepare(`SELECT id,data FROM hub_tickets WHERE ${matching}`).bind(...linkArgs).first<{id:string;data:string}>();
  if(existing){
@@ -230,10 +267,54 @@ let linked:any=null;if(kind==='ticket'&&b.id){const r=await db.prepare('SELECT d
  const keepArchivedLink=sourceRoutine?.archivedAt&&b.id&&await db.prepare(`SELECT id FROM hub_tickets WHERE id=?
   AND json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?`).bind(b.id,v.source.routineId,v.source.date).first();
  if(!sourceRoutine||(!keepArchivedLink&&!occurrenceDates(sourceRoutine,v.source.date,v.source.date).length))return fail('Routine d’origine introuvable.');}
-if(kind==='ticket'&&!b.id){delete v.archivedAt;delete v.archivedBy;delete v.qualityActionId;delete v.gmaoOrderId}if(kind==='ticket'){const labelsError=await ticketLabelError(v);if(labelsError)return fail(labelsError);}const id=b.id||crypto.randomUUID(),table=tables[kind];if(b.id){const previousAccess=await db.prepare(`SELECT data FROM ${table} WHERE id=?`).bind(id).first<any>();if(previousAccess&&kind==='ticket'){const stored=JSON.parse(previousAccess.data);if(stored.archivedAt)return fail('Restaurez le ticket avant de le modifier.',403);v.archivedAt=stored.archivedAt||'';v.archivedBy=stored.archivedBy||'';v.qualityActionId=stored.qualityActionId||'';v.gmaoOrderId=stored.gmaoOrderId||''}if(!previousAccess||!await teamsAllowed(gate.user!,JSON.parse(previousAccess.data).teams||[],true)&&!delegated)return fail('Modification de cette fiche non autorisée.',403);if(kind==='routine'){
- const origin=JSON.parse(previousAccess.data) as Routine;
- if(origin.archivedAt)return fail('Cet audit est archivé.',409);
- if(origin.mode==='on-demand'||origin.mode==='scheduled-copy'){
-  if(v.mode!==origin.mode||v.repeat!=='none')return fail('Cette session doit rester un audit unique.');
- }else if(v.mode&&v.mode!=='catalog')return fail('Mode d’audit invalide.');
- const previous=await db.prepare('SELECT data FROM hub_routines WHERE id=?').bind(id).first<any>();if(previous&&await db.prepare('SELECT id FROM hub_runs WHERE routine_id=? LIMIT 1').bind(id).first()){const old=JSON.parse(previous.data);if(['mode','start','time','repeat','interval','end','questions','binaryConformity'].some(k=>JSON.stringify(old[k])!==JSON.stringify(v[k])))return fail('Cette routine possède des comptes rendus. Créez une nouvelle routine pour changer son calendrier ou sa grille ; vous pouvez suspendre celle-ci.')}}const result=await db.prepare(`UPDATE ${table} SET data=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?`).bind(JSON.stringify(v),now,id,b.revision).run();if(!result.meta.changes)return fail('Cette fiche a changé. Fermez puis rechargez-la ; votre saisie est conservée.',409)}else if(kind==='routine')await db.prepare('INSERT INTO hub_routines (id,data,revision,updated_at) VALUES (?,?,1,?)').bind(id,JSON.stringify(v),now).run();else await db.prepare(`INSERT INTO ${table} (id,data,revision,created_at,updated_at,author) VALUES (?,?,1,?,?,?)`).bind(id,JSON.stringify(v),now,now,author).run();const warning=kind==='ticket'?await notify([...new Set([v.pilot,...v.responsibles,...v.actions.map((a:any)=>a.pilot)].filter(Boolean))] as string[],(b.id?'Ticket mis à jour · ':'Nouveau ticket · ')+v.title,'/tickets?id='+encodeURIComponent(id)):'';return ok({id,revision:(b.revision||0)+1,warning});}catch(e){console.error(e);return fail('Enregistrement impossible. Votre saisie est conservée.',503)}}
+if(kind==='ticket'){
+ if(!b.id){delete v.archivedAt;delete v.archivedBy;delete v.qualityActionId;delete v.gmaoOrderId}
+ const labelsError=await ticketLabelError(v);if(labelsError)return fail(labelsError);
+}
+const id=b.id||crypto.randomUUID(),table=tables[kind];
+let previousTicket:Ticket|undefined;
+let mutation:D1PreparedStatement;
+if(b.id){
+ const previous=await db.prepare(`SELECT data,revision FROM ${table} WHERE id=?`).bind(id).first<{data:string;revision:number}>();
+ if(!previous)return fail('Modification de cette fiche non autorisée.',403);
+ const stored=JSON.parse(previous.data);
+ if(kind==='ticket'&&stored.archivedAt)return fail('Restaurez le ticket avant de le modifier.',403);
+ if(!await teamsAllowed(gate.user!,stored.teams||[],true)&&!delegated)return fail('Modification de cette fiche non autorisée.',403);
+ if(previous.revision!==b.revision)return fail('Cette fiche a changé. Fermez puis rechargez-la. Votre saisie est conservée.',409);
+ if(kind==='ticket'){
+  previousTicket=stored;
+  v.archivedAt=stored.archivedAt||'';
+  v.archivedBy=stored.archivedBy||'';
+  v.qualityActionId=stored.qualityActionId||'';
+  v.gmaoOrderId=stored.gmaoOrderId||'';
+ }
+ if(kind==='routine'){
+  const origin=stored as Routine;
+  if(origin.archivedAt)return fail('Cet audit est archivé.',409);
+  if(origin.mode==='on-demand'||origin.mode==='scheduled-copy'){
+   if(v.mode!==origin.mode||v.repeat!=='none')return fail('Cette session doit rester un audit unique.');
+  }else if(v.mode&&v.mode!=='catalog')return fail('Mode d’audit invalide.');
+  if(await db.prepare('SELECT id FROM hub_runs WHERE routine_id=? LIMIT 1').bind(id).first()&&
+   ['mode','start','time','repeat','interval','end','questions','binaryConformity'].some(k=>JSON.stringify(stored[k])!==JSON.stringify(v[k]))){
+   return fail('Cette routine possède des comptes rendus. Créez une nouvelle routine pour changer son calendrier ou sa grille. Vous pouvez suspendre celle-ci.');
+  }
+ }
+ mutation=db.prepare(`UPDATE ${table} SET data=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?`)
+  .bind(JSON.stringify(v),now,id,b.revision);
+}else if(kind==='routine'){
+ mutation=db.prepare('INSERT INTO hub_routines (id,data,revision,updated_at) VALUES (?,?,1,?)').bind(id,JSON.stringify(v),now);
+}else{
+ mutation=db.prepare(`INSERT INTO ${table} (id,data,revision,created_at,updated_at,author) VALUES (?,?,1,?,?,?)`)
+  .bind(id,JSON.stringify(v),now,now,author);
+}
+const revision=b.id?b.revision+1:1;
+if(kind==='ticket'){
+ const result=await saveTicket(db,mutation,id,v,now,previousTicket);
+ if(result.error)return result.error;
+ if(!result.changed)return fail('Cette fiche a changé. Fermez puis rechargez-la. Votre saisie est conservée.',409);
+ return ok({id,revision,warning:'',actionNotifications:result.actionNotifications});
+}
+const result=await mutation.run();
+if(!result.meta.changes)return fail('Cette fiche a changé. Fermez puis rechargez-la. Votre saisie est conservée.',409);
+return ok({id,revision,warning:''});
+}catch(e){console.error(e);return fail('Enregistrement impossible. Votre saisie est conservée.',503)}}

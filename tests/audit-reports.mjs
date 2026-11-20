@@ -7,17 +7,17 @@ import sharp from 'sharp';
 import ts from 'typescript';
 const dir=fs.mkdtempSync(path.join(process.cwd(),'.audit-test-')),db=new DatabaseSync(':memory:'),objects=new Map();
 fs.writeFileSync(path.join(dir,'prevention-documents.mjs'),'export const planAccess=async()=>null;');
-function stmt(sql,args=[]){return {bind(...values){return stmt(sql,values)},async first(){return db.prepare(sql).get(...args)||null},async all(){return {results:db.prepare(sql).all(...args)}},async run(){return {meta:{changes:Number(db.prepare(sql).run(...args).changes)}}}}}
-globalThis.auditDb={prepare:stmt,async batch(statements){db.exec('BEGIN IMMEDIATE');try{const out=[];for(const s of statements)out.push(await s.run());db.exec('COMMIT');return out}catch(e){db.exec('ROLLBACK');throw e}}};
+function stmt(sql,args=[]){return {bind(...values){return stmt(sql,values)},async first(){return db.prepare(sql).get(...args)||null},async all(){return {results:db.prepare(sql).all(...args)}},run(){return {meta:{changes:Number(db.prepare(sql).run(...args).changes)}}}}}
+globalThis.auditDb={prepare:stmt,async batch(statements){db.exec('BEGIN IMMEDIATE');try{const out=statements.map(statement=>statement.run());db.exec('COMMIT');return out}catch(e){db.exec('ROLLBACK');throw e}}};
 globalThis.auditBucket={async put(key,bytes){objects.set(key,bytes)},async get(key){return objects.has(key)?{body:objects.get(key)}:null},async delete(key){objects.delete(key)}};
 globalThis.auditUser={id:'editor',role:'editor',displayName:'Auditeur de test'};globalThis.auditOrigin=true;
 function compile(name,file){let source=fs.readFileSync(file,'utf8');for(const [a,b] of [['./team-access','./teams.mjs'],['./prevention-documents','./prevention-documents.mjs'],['@/lib/notification-access','./notification-access.mjs'],['@/lib/ticket-labels','./ticket-labels.mjs'],['./hub','./hub.mjs'],['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/hub','./hub.mjs'],['@/lib/team-access','./teams.mjs'],['@/lib/gmao-server','./gmao.mjs'],['@/lib/audit-server','./audit-server.mjs'],['@/lib/audit-pdf','./audit-pdf.mjs']])source=source.replaceAll("'"+a+"'","'"+b+"'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 try{
  fs.writeFileSync(path.join(dir,'raw.mjs'),'export const database=()=>globalThis.auditDb;export const bucket=()=>globalThis.auditBucket;');
- fs.writeFileSync(path.join(dir,'access.mjs'),`export const checkOrigin=()=>globalThis.auditOrigin;export const requireRole=async(req,role)=>!globalThis.auditUser?{error:Response.json({error:'Connexion nécessaire'},{status:401})}:role==='editor'&&globalThis.auditUser.role==='reader'?{error:Response.json({error:'Lecture seule'},{status:403})}:{user:globalThis.auditUser};`);
+ fs.writeFileSync(path.join(dir,'access.mjs'),`export const checkOrigin=()=>globalThis.auditOrigin;export const notificationSessionKey=async()=>globalThis.auditSession;export const requireRole=async(req,role)=>!globalThis.auditUser?{error:Response.json({error:'Connexion nécessaire'},{status:401})}:role==='editor'&&globalThis.auditUser.role==='reader'?{error:Response.json({error:'Lecture seule'},{status:403})}:{user:globalThis.auditUser};`);
  fs.writeFileSync(path.join(dir,'gmao.mjs'),'export const gmaoTicketContributor=async()=>false;export const gmaoTicketReader=async()=>false;');
- for(const [name,file] of [['notification-access','lib/notification-access.ts'],['ticket-labels','lib/ticket-labels.ts'],['hub','lib/hub.ts'],['teams','lib/team-access.ts'],['audit-server','lib/audit-server.ts'],['audit-pdf','lib/audit-pdf.ts'],['hub-route','app/api/hub/route.ts'],['photos','app/api/routine-files/route.ts'],['report','app/api/routines/report/route.ts']])compile(name,file);
- db.exec(`PRAGMA foreign_keys=ON;CREATE TABLE users(id TEXT PRIMARY KEY,display_name TEXT);CREATE TABLE teams(id TEXT PRIMARY KEY,name TEXT);CREATE TABLE team_access(team_id TEXT,restricted INTEGER);CREATE TABLE team_members(team_id TEXT,user_id TEXT,level TEXT);CREATE TABLE hub_routines(id TEXT PRIMARY KEY,data TEXT,revision INTEGER,updated_at TEXT);CREATE TABLE hub_runs(id TEXT PRIMARY KEY,routine_id TEXT REFERENCES hub_routines(id),date TEXT,data TEXT,revision INTEGER,author TEXT,updated_at TEXT);CREATE TABLE hub_tickets(id TEXT PRIMARY KEY,data TEXT,created_at TEXT);INSERT INTO users VALUES('editor','Auditeur de test');INSERT INTO teams VALUES('qsse','QSSE'),('rh','RH');INSERT INTO team_access VALUES('qsse',1),('rh',1);INSERT INTO team_members VALUES('qsse','editor','user');`);
+ for(const [name,file] of [['notification-access','lib/notification-access.ts'],['ticket-labels','lib/ticket-labels.ts'],['hub','lib/hub.ts'],['teams','lib/team-access.ts'],['audit-server','lib/audit-server.ts'],['audit-pdf','lib/audit-pdf.ts'],['hub-route','app/api/hub/route.ts'],['notification-route','app/api/notifications/route.ts'],['photos','app/api/routine-files/route.ts'],['report','app/api/routines/report/route.ts']])compile(name,file);
+ db.exec(`PRAGMA foreign_keys=ON;CREATE TABLE users(id TEXT PRIMARY KEY,display_name TEXT,role TEXT NOT NULL DEFAULT 'editor');CREATE TABLE teams(id TEXT PRIMARY KEY,name TEXT);CREATE TABLE team_access(team_id TEXT,restricted INTEGER);CREATE TABLE team_members(team_id TEXT,user_id TEXT,level TEXT);CREATE TABLE hub_routines(id TEXT PRIMARY KEY,data TEXT,revision INTEGER,updated_at TEXT);CREATE TABLE hub_runs(id TEXT PRIMARY KEY,routine_id TEXT REFERENCES hub_routines(id),date TEXT,data TEXT,revision INTEGER,author TEXT,updated_at TEXT);CREATE TABLE hub_tickets(id TEXT PRIMARY KEY,data TEXT,created_at TEXT);INSERT INTO users(id,display_name) VALUES('editor','Auditeur de test');INSERT INTO teams VALUES('qsse','QSSE'),('rh','RH');INSERT INTO team_access VALUES('qsse',1),('rh',1);INSERT INTO team_members VALUES('qsse','editor','user');`);
  db.exec(fs.readFileSync('drizzle/0021_audit_reports.sql','utf8'));
  const hub=await import(path.join(dir,'hub-route.mjs')),photos=await import(path.join(dir,'photos.mjs')),report=await import(path.join(dir,'report.mjs')),lib=await import(path.join(dir,'hub.mjs'));
  assert.equal(lib.auditScore([{result:'Non applicable'}]).percent,null);assert.equal(lib.auditScore([{result:'À faire'}]).percent,null);assert.equal(lib.auditScore([{result:'Conforme'},{result:'Non conforme'},{result:'Non applicable'},{result:'À faire'}]).percent,50);
@@ -192,7 +192,10 @@ try{
  assert.deepEqual(storedTicket.topicTags,['dechets']);
  assert.equal(storedTicket.status,'En cours');
  assert.deepEqual(storedTicket.analysis,treeAnalysis);
- assert.equal(db.prepare('SELECT count(*) AS n FROM hub_notifications').get().n,1);
+ const auditNotices=db.prepare('SELECT user_id,title,href FROM hub_notifications').all();
+ assert.deepEqual(auditNotices.map(notice=>({...notice})),[{
+  user_id:'editor',title:'Action attribuée · Corriger l’écart',href:'/tickets?id='+linked[0].id+'&action=action-test',
+ }]);
  const ticketAuditUrl='https://example.test/api/hub?scope=run&id='+ticketSession.id+'&date='+auditToday;
  const reopened=await (await hub.GET(new Request(ticketAuditUrl))).json();
  assert.equal(reopened.run.data.completed,false);
@@ -236,6 +239,65 @@ try{
  }}))).status,200);
  assert.deepEqual(await loadAnalysis(),treeAnalysis);
 
+ db.exec(`
+  INSERT INTO users VALUES ('second-pilot','Deuxième pilote','editor'),('outside','Autre service','editor');
+  INSERT INTO team_members VALUES ('qsse','second-pilot','contributor');
+  CREATE TABLE notification_receipts(notification_id TEXT PRIMARY KEY,user_id TEXT,acknowledged_at TEXT,deferred_session TEXT,deferred_at TEXT);
+ `);
+ const notifications=await import(path.join(dir,'notification-route.mjs'));
+ const namedAction={id:'action-a',title:'Ajuster le réglage',pilot:'editor',done:false,due:auditToday};
+ const secondAction={...namedAction,id:'action-b',title:'Vérifier le résultat',pilot:'second-pilot'};
+ const draft={...regularData,actions:[namedAction,secondAction,{...namedAction,id:'action-c',pilot:''}]};
+ const inaccessible=await hub.POST(request({action:'ticket',data:{...draft,actions:[{...namedAction,pilot:'outside'}]}}));
+ assert.equal(inaccessible.status,400);
+ assert.match((await inaccessible.json()).error,/Autre service n’a pas accès au ticket/);
+ const created=await hub.POST(request({action:'ticket',data:draft}));
+ assert.equal(created.status,200);
+ const {id:assignedTicket,actionNotifications}=await created.json();
+ assert.equal(actionNotifications,2);
+ const getNotices=()=>db.prepare('SELECT id,user_id,title,href FROM hub_notifications WHERE href LIKE ? ORDER BY rowid')
+  .all('/tickets?id='+assignedTicket+'&action=%');
+ assert.deepEqual(getNotices().map(notice=>[notice.user_id,new URLSearchParams(notice.href.split('?')[1]).get('action')]),
+  [['editor','action-a'],['second-pilot','action-b']]);
+ const saveDraft=(revision,data)=>hub.POST(request({action:'ticket',id:assignedTicket,revision,data}));
+ const renamed={...draft,description:'Description mise à jour'};
+ assert.equal((await saveDraft(1,renamed)).status,200);
+ assert.equal(getNotices().length,2,'An unrelated edit does not send another assignment notice');
 
- console.log('Audit reports: real SQLite permissions, RH isolation, immediate revocation, server timestamps, N/A scoring, saved-only PDF, photos, concurrent revisions, history, legacy data and long pagination passed.');
+ const author=globalThis.auditUser;
+ globalThis.auditUser={id:'second-pilot',role:'editor',displayName:'Deuxième pilote'};
+ globalThis.auditSession='session-a';
+ const pending=async()=>((await (await notifications.GET(new Request('https://example.test/api/notifications'))).json()).notifications);
+ const decide=(id,action)=>notifications.POST(new Request('https://example.test/api/notifications',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action}),
+ }));
+ const [notice]=await pending();
+ assert.equal(notice.title,'Action attribuée · Vérifier le résultat');
+ assert.ok(notice.href.endsWith('&action=action-b'));
+ assert.match(notice.context,/Échéance/);
+ assert.equal((await decide(notice.id,'later')).status,200);
+ assert.equal((await pending()).length,0);
+ globalThis.auditSession='session-b';
+ assert.deepEqual((await pending()).map(item=>item.id),[notice.id]);
+
+ globalThis.auditUser=author;
+ const reassigned={...renamed,actions:renamed.actions.map(action=>action.id==='action-b'?{...action,pilot:'editor'}:action)};
+ const concurrent=await Promise.all([saveDraft(2,reassigned),saveDraft(2,reassigned)]);
+ assert.deepEqual(concurrent.map(response=>response.status).sort(),[200,409]);
+ assert.equal(getNotices().length,3,'Only the committed revision notifies the new pilot');
+ globalThis.auditUser={id:'second-pilot',role:'editor',displayName:'Deuxième pilote'};
+ assert.equal((await pending()).length,0,'A former pilot no longer sees the assignment');
+ globalThis.auditUser=author;
+ assert.equal((await saveDraft(3,renamed)).status,200);
+ globalThis.auditUser={id:'second-pilot',role:'editor',displayName:'Deuxième pilote'};
+ const renewed=await pending();
+ assert.equal(renewed.length,1,'Only the latest assignment for this action is shown');
+ assert.notEqual(renewed[0].id,notice.id);
+ assert.equal((await decide(renewed[0].id,'acknowledge')).status,200);
+ globalThis.auditSession='session-c';
+ assert.equal((await pending()).length,0,'Acknowledging the latest assignment does not bring an older one back');
+ globalThis.auditUser=author;
+ delete globalThis.auditSession;
+
+ console.log('Audit reports and action notifications passed.');
 }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});delete globalThis.auditDb;delete globalThis.auditBucket;delete globalThis.auditUser;delete globalThis.auditOrigin}
