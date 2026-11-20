@@ -13,13 +13,15 @@ type ReportProps = {
  description: string;
  actions: Task[];
  actionPlan: ReactNode;
+ people: {id:string;name:string}[];
  readOnly: boolean;
  disabled: boolean;
  onChange: (analysis:TicketAnalysis,action?:Task)=>void;
+ onViewAction: (id:string)=>void;
  legacyResponses: ReactNode;
 };
 
-export function TicketEightD({analysis,problem,description,actions,actionPlan,readOnly,disabled,onChange,legacyResponses}:ReportProps){
+export function TicketEightD({analysis,problem,description,actions,actionPlan,people,readOnly,disabled,onChange,onViewAction,legacyResponses}:ReportProps){
  const {values}=analysis;
  const steps=eightDProgress(analysis,actions);
  const completedSteps=steps.filter(step=>step.status==='complete').length;
@@ -81,8 +83,8 @@ export function TicketEightD({analysis,problem,description,actions,actionPlan,re
      <div className="ticket-8d-grid">{step.fields.filter(field=>field.id!=='sampleQuantity'||values.sampleRequest==='Oui'||values.sampleQuantity).map(field)}</div>
      {step.number===4&&<div className="ticket-8d-why">
       <h4>5 Pourquoi</h4>
-      <FiveWhyTree causes={analysis.causes??[]} problem={values.problem||problem} actions={actions}
-       readOnly={readOnly} disabled={disabled}
+      <FiveWhyTree causes={analysis.causes??[]} problem={values.problem||problem} actions={actions} people={people}
+       readOnly={readOnly} disabled={disabled} onViewAction={onViewAction}
        onChange={(causes,action)=>onChange({...analysis,causes},action)}/>
      </div>}
      {step.number===7&&<div className="ticket-8d-checks">

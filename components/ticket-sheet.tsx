@@ -1,6 +1,6 @@
 'use client';
 
-import {useState,type ReactNode} from 'react';
+import {useRef,useState,type ReactNode} from 'react';
 import {Archive,ArchiveRestore,AlignLeft,CalendarDays,Check,CircleCheck,MessageSquare,Paperclip,Plus,Send,ShieldCheck,Users,X} from 'lucide-react';
 import type {Account} from '@/components/account-gate';
 import type {Meta} from '@/components/hub-layout';
@@ -55,6 +55,7 @@ export function TicketSheet({
  archiveTicket,upload,setComment,setNotifyComment,sendComment,notify,onCloseAutoFocus,children,
 }:TicketSheetProps){
  const [showAnalysisRequest,setShowAnalysisRequest]=useState(0);
+ const actionPlanRef=useRef<HTMLFieldSetElement>(null);
  const {askConfirm,confirmation:analysisConfirmation}=useConfirmation();
  async function removeAnalysis(){
   if(!edit?.data.analysis||busy||uploading)return;
@@ -76,22 +77,32 @@ export function TicketSheet({
   setShowAnalysisRequest(0);
   close();
  }
+ function viewAction(id:string){
+  const row=actionPlanRef.current?.querySelector<HTMLDivElement>('[data-ticket-action-id="'+CSS.escape(id)+'"]');
+  if(!row)return;
+  const step=row.closest('details');
+  if(step)step.open=true;
+  row.scrollIntoView({block:'nearest'});
+  row.focus({preventScroll:true});
+ }
  const vgpLink=edit?.data.description.match(/^Passage et rapport : (\/vgp\?id=[a-z0-9-]+&passage=[a-z0-9-]+)$/im)?.[1];
  const vgpRecordLink=edit?.data.description.match(/^(?:Fiche VGP : |Suivi VGP )(\/vgp\?id=[a-z0-9-]+)$/im)?.[1];
  const formLocked=!canContribute||!!edit?.data.archivedAt||!!edit?.data.gmaoOrderId&&edit.data.status==='Clôturé'||busy||uploading;
  const coreReadOnly=!canEdit||!!edit?.data.archivedAt||!!edit?.data.gmaoOrderId;
  const coreLocked=coreReadOnly||busy||uploading;
+ const people=meta.users.map(user=>({id:user.id,name:user.display_name}));
  // A creator name in legacy records is not enough to identify a homonym.
  const authorId=(label?:string)=>{const matches=meta.users.filter(user=>user.display_name===label);return matches.length===1?matches[0].id:undefined};
- const actionPlan=edit&&<fieldset className="ticket-actions-section ticket-sheet-actions" disabled={formLocked}>
+ const actionPlan=edit&&<fieldset ref={actionPlanRef} className="ticket-actions-section ticket-sheet-actions" disabled={formLocked}>
             <div className="hub-section-heading"><h3><CircleCheck size={17}/> Actions <span className="ticket-count">{edit.data.actions.filter(a=>a.done).length}/{edit.data.actions.length}</span></h3>{canEdit&&<button className="ticket-add-action" disabled={edit.data.actions.length>=100} onClick={()=>patch({actions:[...edit.data.actions,{id:crypto.randomUUID(),title:'',done:false,pilot:'',due:''}]})}><Plus size={14}/> Ajouter une action</button>}</div>
             {edit.data.actions.length>0&&<div className="ticket-action-column-labels" aria-hidden="true"><span>Action à réaliser</span><span>Pilote</span><span>Délai</span></div>}
             {!edit.data.actions.length&&<p className="ticket-action-empty">Ajoutez les étapes à réaliser pour résoudre ce ticket.</p>}
-            <div className="ticket-action-table">{edit.data.actions.map((a,i)=><div className={'ticket-action-row '+(a.done?'ticket-action-done':'')} key={a.id}>
+            <div className="ticket-action-table">{edit.data.actions.map((a,i)=><div className={'ticket-action-row '+(a.done?'ticket-action-done':'')} key={a.id}
+              data-ticket-action-id={a.id} tabIndex={-1}>
               <span className="ticket-action-number" aria-hidden="true">{i+1}</span>
               <label className="ticket-action-toggle"><input className="sr-only" type="checkbox" aria-label={'Action '+(i+1)+' réalisée'} checked={a.done} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,done:e.target.checked}:x)})}/><span aria-hidden="true"><Check size={15}/></span></label>
               <input disabled={!canEdit} className="ticket-action-title" aria-label={'Action '+(i+1)} placeholder="Action à réaliser" maxLength={500} value={a.title} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,title:e.target.value}:x)})}/>
-              <TicketPilotPicker className="ticket-action-owner" label={'Pilote de l’action '+(i+1)} options={meta.users.map(u=>({id:u.id,name:u.display_name}))} value={a.pilot} onChange={pilot=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,pilot}:x)})} disabled={formLocked||!canEdit}/>
+              <TicketPilotPicker className="ticket-action-owner" label={'Pilote de l’action '+(i+1)} options={people} value={a.pilot} onChange={pilot=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,pilot}:x)})} disabled={formLocked||!canEdit}/>
               <input disabled={!canEdit} className="ticket-action-date" aria-label={'Délai de l’action '+(i+1)} type="date" value={a.due} onChange={e=>patch({actions:edit.data.actions.map(x=>x.id===a.id?{...x,due:e.target.value}:x)})}/>
               {canEdit&&<button className="ticket-action-remove" aria-label={'Retirer l’action '+(i+1)} title="Retirer l’action" onClick={()=>removeAction(a.id)}><X size={14}/></button>}
             </div>)}</div>
@@ -104,7 +115,7 @@ export function TicketSheet({
       <header className="ticket-sheet-toolbar">
         <fieldset className="ticket-meta-fields" disabled={coreLocked}>
           <div className="ticket-meta-creator" aria-label="Créateur du ticket"><PersonAvatar id={!edit.id?account.id:authorId(edit.author)} name={edit.author||(!edit.id?account.displayName:'?')}/><span><small>Créateur</small><strong data-no-translate>{edit.author||(!edit.id?account.displayName:'Créateur non renseigné')}</strong></span></div>
-          <div className="ticket-meta-pilot"><span className="ticket-meta-label">Pilote</span><TicketPilotPicker label="Pilote du ticket" options={meta.users.map(u=>({id:u.id,name:u.display_name}))} value={edit.data.pilot} onChange={pilot=>patch({pilot})} disabled={coreLocked}/></div>
+          <div className="ticket-meta-pilot"><span className="ticket-meta-label">Pilote</span><TicketPilotPicker label="Pilote du ticket" options={people} value={edit.data.pilot} onChange={pilot=>patch({pilot})} disabled={coreLocked}/></div>
           <label className="ticket-meta-due"><CalendarDays size={16}/><span className="sr-only">Échéance du ticket</span><input aria-label="Échéance du ticket" type="date" value={edit.data.due} onChange={e=>patch({due:e.target.value})}/></label>
           <TicketVisualSelect label="Catégorie du ticket" value={edit.data.category} onChange={category=>patch(category===edit.data.category?{category}:{category,topicTags:[]})} options={categories.map(c=>({id:c,name:c}))} disabled={coreLocked}/>
           <label className="ticket-meta-status" data-status={edit.data.status}><CircleCheck size={16}/><span className="sr-only">Statut du ticket</span><select aria-label="Statut du ticket" value={edit.data.status} onChange={e=>patch({status:e.target.value})}>{ticketStatuses.map(s=><option key={s} disabled={s==='Clôturé'&&(!edit.data.pilot||edit.data.actions.some(a=>!a.done))}>{s}</option>)}</select></label>
@@ -123,7 +134,7 @@ export function TicketSheet({
             <TicketLabelFields ticket={edit.data} onChange={patch} disabled={coreLocked}/>
             <div className="ticket-sheet-services"><Users size={16} aria-hidden="true"/><TicketSearchPicker compact label="Services concernés" options={meta.teams.filter(t=>coreLocked||!meta.editableTeams||meta.editableTeams.includes(t.id))} value={edit.data.teams} onChange={teams=>patch({teams})} disabled={coreLocked}/></div>
           </fieldset>
-          <details className="ticket-responsibles"><summary><Users size={14}/> Responsables à notifier <span>{edit.data.responsibles.length}</span></summary><TicketSearchPicker compact kind="person" label="Autres responsables à notifier" options={meta.users.map(u=>({id:u.id,name:u.display_name}))} value={edit.data.responsibles} onChange={responsibles=>patch({responsibles})} disabled={coreLocked}/></details>
+          <details className="ticket-responsibles"><summary><Users size={14}/> Responsables à notifier <span>{edit.data.responsibles.length}</span></summary><TicketSearchPicker compact kind="person" label="Autres responsables à notifier" options={people} value={edit.data.responsibles} onChange={responsibles=>patch({responsibles})} disabled={coreLocked}/></details>
           <div className="ticket-sheet-links">
             {vgpRecordLink&&<a href={vgpRecordLink}>Ouvrir la fiche VGP →</a>}
             {vgpLink&&<a href={vgpLink}>Ouvrir le passage VGP et son rapport →</a>}
@@ -132,7 +143,7 @@ export function TicketSheet({
             {edit.id&&!edit.data.gmaoOrderId&&!edit.data.qualityActionId&&!edit.data.archivedAt&&edit.data.status!=='Clôturé'&&canEdit&&meta.editableTeams?.includes('maintenance')&&<a href={'/maintenance?ticket='+encodeURIComponent(edit.id)}>Transformer en demande d’intervention →</a>}
             {edit.data.source&&<a href={'/routines?routine='+edit.data.source.routineId+'&date='+edit.data.source.date}>Voir l’audit à l’origine du ticket →</a>}
           </div>
-          {edit.data.analysis&&<TicketAnalysisFields analysis={edit.data.analysis} problem={edit.data.title} description={edit.data.description} actions={edit.data.actions} actionPlan={actionPlan}
+          {edit.data.analysis&&<TicketAnalysisFields analysis={edit.data.analysis} problem={edit.data.title} description={edit.data.description} actions={edit.data.actions} actionPlan={actionPlan} people={people} onViewAction={viewAction}
            disabled={busy||uploading} readOnly={coreReadOnly} showRequest={showAnalysisRequest}
            onChange={(analysis,action)=>patch(action?{analysis,actions:[...edit.data.actions,action]}:{analysis})}/>}
           {edit.data.analysis?.method!=='8d'&&actionPlan}

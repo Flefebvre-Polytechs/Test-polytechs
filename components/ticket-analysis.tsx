@@ -31,9 +31,9 @@ export function TicketAnalysisMenu({analysis,disabled,onChange,onRemove,onShow}:
  </DropdownMenu>;
 }
 
-export function TicketAnalysisFields({analysis,problem,description,actions,actionPlan,readOnly,disabled,showRequest,onChange}:{
- analysis:TicketAnalysis;problem:string;description:string;actions:Task[];actionPlan?:ReactNode;readOnly:boolean;disabled:boolean;showRequest:number;
- onChange:(analysis:TicketAnalysis,action?:Task)=>void;
+export function TicketAnalysisFields({analysis,problem,description,actions,actionPlan,people,readOnly,disabled,showRequest,onChange,onViewAction}:{
+ analysis:TicketAnalysis;problem:string;description:string;actions:Task[];actionPlan?:ReactNode;people:{id:string;name:string}[];
+ readOnly:boolean;disabled:boolean;showRequest:number;onChange:(analysis:TicketAnalysis,action?:Task)=>void;onViewAction:(id:string)=>void;
 }){
  const heading=useRef<HTMLHeadingElement>(null);
  const id=useId();
@@ -56,10 +56,10 @@ export function TicketAnalysisFields({analysis,problem,description,actions,actio
    {analysis.method==='8d'?<small>Rapport de réclamation</small>:<small>{causes?causes.length+(causes.length===1?' cause':' causes'):`${filled}/${method.fields.length} renseignés`}</small>}
   </header>
   {analysis.method==='8d'?<TicketEightD analysis={analysis} problem={problem} description={description} actions={actions}
-   actionPlan={actionPlan} readOnly={readOnly} disabled={disabled} onChange={onChange}
+   actionPlan={actionPlan} people={people} readOnly={readOnly} disabled={disabled} onChange={onChange} onViewAction={onViewAction}
    legacyResponses={<TicketEightDLegacy responses={analysis.values} fields={method.fields}
     disabled={readOnly||disabled} onChange={values=>onChange({...analysis,values})}/>}/>
-   :causes?<FiveWhyTree causes={causes} problem={problem} actions={actions} readOnly={readOnly} disabled={disabled}
+   :causes?<FiveWhyTree causes={causes} problem={problem} actions={actions} people={people} readOnly={readOnly} disabled={disabled} onViewAction={onViewAction}
    onChange={(next,action)=>onChange({method:'5p',values:{},causes:next},action)}/>
    :<fieldset className="ticket-analysis-fields" disabled={disabled}>
     <legend className="sr-only">{method.label}</legend>

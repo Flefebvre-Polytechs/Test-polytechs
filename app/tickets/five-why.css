@@ -1,0 +1,284 @@
+.ticket-five-why-layout {
+  container-type: inline-size;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.ticket-five-why-viewport {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  border: 1px solid #d9e7f2;
+  border-radius: 12px;
+  background: #f1f7fb radial-gradient(#dce7f0 1px, transparent 1px) 0 0 / 16px 16px;
+  scrollbar-color: #a4bcd0 #ebf3f9;
+}
+
+.ticket-five-why-tree {
+  --why-gap: 14px;
+  --why-join: 16px;
+  --why-line: #83a9c4;
+  --why-card: clamp(148px, (100cqi - 36px - (var(--why-columns) - 1) * var(--why-gap)) / var(--why-columns), 226px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  min-width: 100%;
+  padding: 16px;
+}
+
+.ticket-five-why-problem {
+  display: grid;
+  gap: 5px;
+  justify-items: start;
+  width: clamp(200px, 58cqi, 420px);
+  max-width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #1d4b6c;
+  border-radius: 10px;
+  background: linear-gradient(114deg, #173653, #235d82);
+  color: #fff;
+  box-shadow: 0 3px 10px #19395420;
+}
+.ticket-five-why-problem small { color: #c7e5f7; font-size: 11px; font-weight: 700; }
+.ticket-five-why-problem strong {
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.ticket-five-why-add-root {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  margin-top: 3px;
+  padding: 3px 8px;
+  border: 1px solid #ffffff43;
+  border-radius: 6px;
+  background: #ffffff18;
+  color: #fff;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ticket-five-why-add-root svg { flex: none; }
+.ticket-five-why-add-root:hover:not(:disabled) { background: #ffffff30; }
+
+.ticket-five-why-branches {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: var(--why-gap);
+  margin: 0;
+  padding: var(--why-join) 0 0;
+  list-style: none;
+}
+.ticket-five-why-branches > li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: var(--why-join);
+}
+.ticket-five-why-branches::before,
+.ticket-five-why-branches > li::before,
+.ticket-five-why-branches > li::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+}
+.ticket-five-why-branches::before,
+.ticket-five-why-branches > li::after {
+  inset-inline-start: 50%;
+  height: var(--why-join);
+  border-inline-start: 1px solid var(--why-line);
+}
+.ticket-five-why-branches > li::before {
+  inset-inline: calc(var(--why-gap) / -2);
+  border-top: 1px solid var(--why-line);
+}
+.ticket-five-why-branches > li:first-child::before { inset-inline-start: 50%; }
+.ticket-five-why-branches > li:last-child::before { inset-inline-end: 50%; }
+
+.ticket-five-why-card {
+  position: relative;
+  width: var(--why-card);
+  min-width: 0;
+  border: 1px solid #b9d0e3;
+  border-radius: 10px;
+  background: #e8f2fb;
+  box-shadow: 0 2px 6px #214a6d0c;
+}
+.ticket-five-why-card:hover,
+.ticket-five-why-card[data-active=true] {
+  border-color: #4286bb;
+  background: #f6fbff;
+}
+.ticket-five-why-card[data-active=true] { box-shadow: 0 0 0 2px #acd0eb; }
+
+.ticket-five-why-node {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  min-height: 92px;
+  padding: 8px 10px;
+  border-radius: inherit;
+  text-align: left;
+  color: #193951;
+}
+.ticket-five-why-level {
+  min-height: 22px;
+  padding-inline-end: 25px;
+  color: #215f8e;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ticket-five-why-answer {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.32;
+}
+.ticket-five-why-card[data-empty=true] .ticket-five-why-answer { color: #506980; }
+.ticket-five-why-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #21695c;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+.ticket-five-why-action[data-done=true] { color: #176149; }
+.ticket-five-why-more {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: #235884;
+}
+.ticket-five-why-more:hover:not(:disabled),
+.ticket-five-why-more[data-state=open] { background: #d6e9f8; color: #17466c; }
+.ticket-five-why-limit { display: block; margin-top: 7px; color: #50657a; }
+
+[data-slot=dialog-content].ticket-five-why-dialog {
+  max-width: min(525px, calc(100vw - 24px));
+  max-height: 90dvh;
+  overflow: auto;
+  padding: 22px;
+}
+.ticket-five-why-dialog [data-slot=dialog-title] { padding-inline-end: 33px; }
+.ticket-five-why-context {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  padding: 8px 11px;
+  border-radius: 7px;
+  background: #eef5fb;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.ticket-five-why-form {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  color: #28465f;
+}
+.ticket-five-why-form label,
+.ticket-five-why-action-fields > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13px;
+}
+.ticket-five-why-form :is(label > input, label > textarea, label > select, [data-slot=input-group]) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid #ccdce9;
+  border-radius: 8px;
+  background: #f8fbfd;
+  color: #193951;
+  font-size: 14px;
+  font-weight: 400;
+}
+.ticket-five-why-form :is(label > input, label > textarea, label > select) { padding: 7px 9px; }
+.ticket-five-why-form textarea { resize: vertical; }
+.ticket-five-why-form [data-slot=input-group] { display: flex; padding-inline-start: 8px; }
+.ticket-five-why-action-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.ticket-five-why-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 11px;
+  border-top: 1px solid #e3ebf2;
+}
+.ticket-five-why-open-action { width: fit-content; }
+.ticket-action-row[data-ticket-action-id]:focus {
+  border-radius: 6px;
+  outline: 2px solid #4286bb;
+  outline-offset: 2px;
+}
+
+@container (max-width: 510px) {
+  .ticket-five-why-tree {
+    --why-indent: 12px;
+    align-items: stretch;
+    width: 100%;
+    padding: 10px;
+  }
+  .ticket-five-why-problem, .ticket-five-why-card { width: 100%; }
+  .ticket-five-why-branches {
+    display: block;
+    padding: 0 0 0 var(--why-indent);
+  }
+  .ticket-five-why-branches::before { display: none; }
+  .ticket-five-why-branches > li { display: block; padding-top: 9px; }
+  .ticket-five-why-branches > li::before,
+  .ticket-five-why-branches > li:first-child::before,
+  .ticket-five-why-branches > li:last-child::before {
+    inset-inline: calc(var(--why-indent) * -1) auto;
+    width: 1px;
+    height: 100%;
+    border: 0;
+    background: var(--why-line);
+  }
+  .ticket-five-why-branches > li:last-child::before { height: 32px; }
+  .ticket-five-why-branches > li::after {
+    top: 31px;
+    inset-inline-start: calc(var(--why-indent) * -1);
+    width: var(--why-indent);
+    height: 0;
+    border: 0;
+    border-top: 1px solid var(--why-line);
+  }
+  .ticket-five-why-node { min-height: 62px; }
+  .ticket-five-why-more { width: 36px; height: 34px; }
+}
+
+@media (max-width: 480px) {
+  .ticket-five-why-action-fields { grid-template-columns: minmax(0, 1fr); }
+  .ticket-five-why-dialog-actions button { flex: 1; }
+}
