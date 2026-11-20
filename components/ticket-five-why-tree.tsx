@@ -168,12 +168,16 @@ export function FiveWhyTree({causes,problem,actions,people,readOnly,disabled,onC
   return <ul className="ticket-five-why-branches">{nodes.map(node=>{
    const action=node.actionId?actionsById.get(node.actionId):undefined;
    const title=causeTitle(node);
+   const hasCause=!!(node.label?.trim()||node.answer.trim());
+   const rootWithAction=!!action&&(!!node.conclusion?.trim()||(hasCause&&!node.children.length));
    return <li key={node.id}>
     <div className="ticket-five-why-card" data-cause-id={node.id} data-active={selectedId===node.id}
-     data-empty={!node.label?.trim()&&!node.answer.trim()}>
+     data-empty={!hasCause} data-root-action={rootWithAction}>
      <button type="button" className="ticket-five-why-node" aria-haspopup="dialog" disabled={disabled} title={title}
       onClick={event=>openCause(node,event.currentTarget)}>
-      <span className="ticket-five-why-level">Pourquoi {node.depth}</span>
+      <span className="ticket-five-why-level">
+       {rootWithAction?<><span className="sr-only">Pourquoi {node.depth} · </span>Cause racine</>:'Pourquoi '+node.depth}
+      </span>
       <span className="ticket-five-why-answer">{title}</span>
       {action&&<span className="ticket-five-why-action" data-done={action.done}>
        {action.done?<ClipboardCheck size={13} aria-hidden="true"/>:<Link2 size={13} aria-hidden="true"/>}

@@ -117,6 +117,19 @@
 }
 .ticket-five-why-card[data-active=true] { box-shadow: 0 0 0 2px #acd0eb; }
 
+.ticket-five-why-card[data-root-action=true] {
+  border-color: #c69454;
+  background: #fff1d6;
+  box-shadow: inset 3px 0 #bd8639, 0 2px 6px #60451b13;
+}
+.ticket-five-why-card[data-root-action=true]:is(:hover,[data-active=true]) {
+  border-color: #9f6a26;
+  background: #fff6e5;
+}
+.ticket-five-why-card[data-root-action=true][data-active=true] {
+  box-shadow: inset 3px 0 #bd8639, 0 0 0 2px #e7ba7a;
+}
+
 .ticket-five-why-node {
   display: flex;
   flex-direction: column;
@@ -172,6 +185,12 @@
 }
 .ticket-five-why-more:hover:not(:disabled),
 .ticket-five-why-more[data-state=open] { background: #d6e9f8; color: #17466c; }
+.ticket-five-why-card[data-root-action=true] :is(.ticket-five-why-level,.ticket-five-why-more) {
+  color: #73501e;
+}
+.ticket-five-why-card[data-root-action=true] .ticket-five-why-more:is(:hover:not(:disabled),[data-state=open]) {
+  background: #f4dfb9;
+}
 .ticket-five-why-limit { display: block; margin-top: 7px; color: #50657a; }
 
 [data-slot=dialog-content].ticket-five-why-dialog {
