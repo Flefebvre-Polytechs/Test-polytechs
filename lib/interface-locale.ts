@@ -142,6 +142,7 @@ const rows:[string,string,string,string,string][]=[
 ['Créer un ticket','Create a ticket','Ticket erstellen','Crea un ticket','Crear un ticket'],
 ['Nouveau tableau','New board','Neues Dashboard','Nuovo cruscotto','Nuevo panel'],
 ['Ajouter un service','Add service','Bereich hinzufügen','Aggiungi servizio','Añadir servicio'],
+['Équipes et services','Teams and departments','Teams und Abteilungen','Team e servizi','Equipos y departamentos'],
 ['Modifier l’équipe','Edit team','Team bearbeiten','Modifica squadra','Editar equipo'],
 ['Ouvrir le tableau →','Open board →','Dashboard öffnen →','Apri cruscotto →','Abrir panel →'],
 ['Tableau du service','Service dashboard','Bereichs-Dashboard','Cruscotto del servizio','Panel del servicio'],

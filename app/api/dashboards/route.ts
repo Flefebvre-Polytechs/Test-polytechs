@@ -4,8 +4,72 @@ import {checkOrigin,requireRole} from '@/lib/access';
 import {boardError,recordMeasurement,validMeasurement} from '@/lib/unit-dashboard';
 import {accessibleTeams,teamsAllowed} from '@/lib/team-access';
 import {epiCanManage} from '@/lib/epi-access';
+import {teamGroups,teamsInGroup,type Team} from '@/lib/team-organization';
 const fail=(error:string,status=400)=>Response.json({error},{status});
 const response=(data:unknown)=>Response.json(data,{headers:{'Cache-Control':'no-store'}});
+async function saveTeam(db: D1Database, values: Record<string, unknown>, actorId: string) {
+ const {id, revision, rank, parentId, afterId} = values;
+ const name = typeof values.name === 'string' ? values.name.trim() : '';
+ if (!name || name.length > 100 || /[\u0000-\u001f\u007f]/.test(name) || (rank !== 1 && rank !== 2)) {
+  return fail('Renseignez un nom valide et choisissez le rang de l’équipe.');
+ }
+ if (id != null && (typeof id !== 'string' || id.length > 100)) return fail('Équipe invalide.');
+ const {results: teams} = await db.prepare('SELECT * FROM teams').all<Team>();
+ const previous = id ? teams.find(team => team.id === id) : undefined;
+ if (id && (!previous || previous.revision !== revision)) return fail('Équipe modifiée depuis son ouverture. Actualisez la liste.',409);
+ const parent = rank === 2 ? teams.find(team => team.id === parentId && team.rank === 1 && team.id !== id) : undefined;
+ if (rank === 2 && !parent) return fail('Choisissez une autre équipe de rattachement de rang 1.');
+ if (rank === 2 && previous && teams.some(team => team.parent_id === previous.id)) {
+  return fail('Cette équipe possède des services rattachés. Réaffectez-les avant de modifier son rang.');
+ }
+ const groupId = values.group === undefined ? previous?.navigation_group ?? 'other' : values.group;
+ const group = teamGroups.find(section => section.id === groupId);
+ if (!group) return fail('Choisissez une rubrique de navigation.');
+ const currentOrder = teamsInGroup(teams, group.id);
+ const siblings = currentOrder.filter(team => team.id !== id);
+ let position = siblings.length;
+ if (afterId === '') position = 0;
+ else if (afterId !== undefined) {
+  const anchor = siblings.findIndex(team => team.id === afterId);
+  if (anchor < 0) return fail('La position choisie a changé. Actualisez la liste.',409);
+  position = anchor + 1;
+ } else if (previous?.navigation_group === group.id) {
+  position = currentOrder.findIndex(team => team.id === previous.id);
+ }
+
+ const savedId = previous?.id ?? crypto.randomUUID();
+ const parentKey = parent?.id ?? null;
+ const order = siblings.map(team => team.id);
+ order.splice(position, 0, savedId);
+ const reorders = siblings.flatMap(team => {
+  const next = order.indexOf(team.id) + 1;
+  return team.navigation_order === next ? [] : [{id: team.id, position: next}];
+ });
+ const fields = [name, rank, parentKey, group.id, position + 1];
+ // The hierarchy and destination order must be validated against the same
+ // snapshot as the write, including changes to teams other than the edited row.
+ const snapshot = JSON.stringify(teams.map(team => [team.id, team.revision]));
+ const unchanged = `(SELECT COUNT(*) FROM teams) = json_array_length(?)
+  AND NOT EXISTS (
+   SELECT 1 FROM json_each(?) AS expected
+   LEFT JOIN teams AS t ON t.id = json_extract(expected.value,'$[0]')
+   WHERE t.revision IS NOT json_extract(expected.value,'$[1]')
+  )`;
+ const write = previous
+  ? db.prepare(`UPDATE teams SET name=?,rank=?,parent_id=?,navigation_group=?,navigation_order=?,revision=revision+1
+      WHERE id=? AND ${unchanged}`).bind(...fields,savedId,snapshot,snapshot)
+  : db.prepare(`INSERT INTO teams (id,name,rank,parent_id,navigation_group,navigation_order)
+      SELECT ?,?,?,?,?,? WHERE ${unchanged}`).bind(savedId,...fields,snapshot,snapshot);
+ const audit = db.prepare('INSERT INTO security_events (id,action,user_id,detail,created_at) SELECT ?,?,?,?,? WHERE changes()=1')
+  .bind(crypto.randomUUID(),previous?'team_updated':'team_created',actorId,
+   JSON.stringify({id:savedId,name,rank,parentId:parentKey,group:group.id,position:position+1}),new Date().toISOString());
+ const [result] = await db.batch([write,audit,db.prepare(`WITH positions AS (
+   SELECT json_extract(value,'$.id') AS id,json_extract(value,'$.position') AS position FROM json_each(?)
+  )
+  UPDATE teams SET navigation_order=positions.position,revision=teams.revision+1
+  FROM positions WHERE teams.id=positions.id AND changes()=1`).bind(JSON.stringify(reorders))]);
+ return result.meta.changes ? response({id:savedId}) : fail('L’organisation a changé. Actualisez la liste avant de réessayer.',409);
+}
 export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;const db=database(),q=new URL(req.url).searchParams,id=q.get('id')||(q.get('unit')?'legacy-'+q.get('unit'):'');if(!id){const [teams,boards]=await Promise.all([db.prepare('SELECT * FROM teams ORDER BY rank,name').all(),db.prepare("SELECT id,team_id,unit_code,json_extract(data,'$.title') AS title FROM team_dashboards WHERE id NOT LIKE 'legacy-%' ORDER BY title,id").all()]);const allowed=await accessibleTeams(gate.user!);const canWrite=await accessibleTeams(gate.user!,true);return response({teams:teams.results.filter(t=>allowed.has(String(t.id))),boards:boards.results.filter((b:any)=>allowed.has(b.team_id)),editableTeams:[...canWrite],epiManager:await epiCanManage(gate.user!),pdpAccess:await pdpRoleAccess(gate.user!),budgetManager:await hasFunctionRole(gate.user!,'budget_manager')})}const row=await db.prepare('SELECT * FROM team_dashboards WHERE id=?').bind(id).first<any>();if(!row)return fail('Tableau introuvable.',404);if(!await teamsAllowed(gate.user!,[row.team_id]))return fail('Accès à cette équipe non autorisé.',403);const team=await db.prepare('SELECT * FROM teams WHERE id=?').bind(row.team_id).first();const board=JSON.parse(row.data);if(row.id.startsWith('board-')&&row.revision===1&&!row.updated_at&&board.widgets?.length===2&&board.widgets.every((w:any)=>['note','indicator'].includes(w.id)&&!w.text&&!w.value&&!w.target))board.widgets=[];const code=await teamsAllowed(gate.user!,['qsse'])?row.unit_code:'';const units=code==='*'?(await db.prepare('SELECT * FROM evrp_units ORDER BY code').all()).results:code?[await db.prepare('SELECT * FROM evrp_units WHERE code=?').bind(code).first()].filter(Boolean):[];const query=(table:string,fields:string)=>!code?Promise.resolve({results:[]}):code==='*'?db.prepare(`SELECT ${fields} FROM ${table}`).all():db.prepare(`SELECT ${fields} FROM ${table} WHERE unit_code=?`).bind(code).all();const [risks,actions]=await Promise.all([query('evrp_risks','id,data,status'),query('evrp_actions','id,data')]);return response({id:row.id,canContribute:await teamsAllowed(gate.user!,[row.team_id],true,'contribute'),team,scope:code,unit:{code:code==='*'?'Toutes les unités':code,name:code==='*'?'Site Polytechs':(units[0] as any)?.name||'Aucun périmètre DUERP associé',roles:units.flatMap((u:any)=>JSON.parse(u.roles).map((r:any)=>({...r,job:(code==='*'?u.code+' · ':'')+r.job})))},board,revision:row.revision,updatedAt:row.updated_at,updatedBy:row.updated_by,risks:risks.results.map((r:any)=>({...r,data:JSON.parse(r.data)})),actions:actions.results.map((a:any)=>({...JSON.parse(a.data),id:a.id}))})}catch(e){console.error(e);return fail('Tableau de bord indisponible.',503)}}
 export async function POST(req:Request){try{if(!checkOrigin(req))return fail('Origine non autorisée.',403);const gate=await requireRole(req,'editor');if(gate.error)return gate.error;const b:any=await req.json();if(!b||typeof b!=='object')return fail('Saisie invalide.');const db=database();
 if(b.action==='indicator-values'){
@@ -15,7 +79,10 @@ if(b.action==='indicator-values'){
  const board=JSON.parse(row.data);const seen=new Set();for(const entry of b.values){if(!entry||typeof entry.id!=='string'||seen.has(entry.id))return fail('Indicateur invalide.');seen.add(entry.id);const w=board.widgets.find((w:any)=>w.id===entry.id&&w.type==='indicator');if(!w)return fail('Indicateur introuvable.');if(typeof entry.value!=='string'||typeof entry.date!=='string'||typeof entry.text!=='string')return fail('Saisie invalide.');if(!validMeasurement(entry))return fail('Renseignez une valeur numérique et une date valide.');recordMeasurement(w,entry);}
  const error=boardError(board);if(error)return fail(error);const saved=await db.prepare('UPDATE team_dashboards SET data=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?').bind(JSON.stringify(board),new Date().toISOString(),gate.user!.displayName,b.id,b.revision).run();if(!saved.meta.changes)return fail('Tableau modifié. Fermez et actualisez avant de réessayer.',409);return response({ok:true});
 }
-if(b.action==='team'){if(gate.user!.role!=='admin')return fail('Seul un administrateur peut organiser les équipes.',403);if(typeof b.name!=='string'||!b.name.trim()||b.name.length>100||![1,2].includes(b.rank))return fail('Nom et rang de l’équipe invalides.');if(b.rank===2&&b.id&&b.parentId===b.id)return fail('Une équipe ne peut pas être sa propre parente.');if(b.rank===2&&!(typeof b.parentId==='string'&&await db.prepare('SELECT id FROM teams WHERE id=? AND rank=1').bind(b.parentId).first()))return fail('Choisissez une équipe parente de rang 1.');if(b.id){if(typeof b.id!=='string'||!Number.isInteger(b.revision))return fail('Révision invalide.');if(b.rank===2&&await db.prepare('SELECT id FROM teams WHERE parent_id=?').bind(b.id).first())return fail('Cette équipe possède des services de rang 2 : conservez son rang 1.');const r=await db.prepare('UPDATE teams SET name=?,rank=?,parent_id=?,revision=revision+1 WHERE id=? AND revision=?').bind(b.name.trim(),b.rank,b.rank===2?b.parentId:null,b.id,b.revision).run();if(!r.meta.changes)return fail('Équipe modifiée depuis son ouverture. Actualisez.',409);return response({id:b.id})}const id=crypto.randomUUID();await db.prepare('INSERT INTO teams (id,name,rank,parent_id,revision) VALUES (?,?,?,?,1)').bind(id,b.name.trim(),b.rank,b.rank===2?b.parentId:null).run();return response({id})}
+if(b.action==='team'){
+ if(gate.user!.role!=='admin')return fail('Seul un administrateur peut organiser les équipes.',403);
+ return await saveTeam(db,b,gate.user!.id);
+}
 if(!['create','save'].includes(b.action)||typeof b.teamId!=='string'||typeof b.scope!=='string')return fail('Saisie invalide.');if(b.board&&Array.isArray(b.board.widgets))for(const w of b.board.widgets){if(w.type==='indicator'&&validMeasurement(w))recordMeasurement(w,{date:w.date,value:w.value,text:w.text});}const error=boardError(b.board);if(error)return fail(error);if(!await db.prepare('SELECT id FROM teams WHERE id=?').bind(b.teamId).first())return fail('Équipe introuvable.',404);if(!await teamsAllowed(gate.user!,[b.teamId],true))return fail('Modification de cette équipe non autorisée.',403);if(b.scope&&!await teamsAllowed(gate.user!,['qsse']))return fail('Accès QSSE nécessaire pour un périmètre DUERP.',403);if(b.scope!==''&&b.scope!=='*'&&!await db.prepare('SELECT code FROM evrp_units WHERE code=?').bind(b.scope).first())return fail('Périmètre DUERP invalide.');const now=new Date().toISOString(),author=gate.user!.displayName;
 if(b.action==='create'){const id=crypto.randomUUID();await db.prepare('INSERT INTO team_dashboards (id,team_id,unit_code,data,revision,updated_at,updated_by) VALUES (?,?,?,?,1,?,?)').bind(id,b.teamId,b.scope,JSON.stringify(b.board),now,author).run();return response({id})}
 if(typeof b.id!=='string'||!Number.isInteger(b.revision)||b.revision<1)return fail('Révision invalide.');const old=await db.prepare('SELECT team_id FROM team_dashboards WHERE id=?').bind(b.id).first<any>();if(!old||!await teamsAllowed(gate.user!,[old.team_id],true))return fail('Modification de ce tableau non autorisée.',403);const result=await db.prepare('UPDATE team_dashboards SET team_id=?,unit_code=?,data=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?').bind(b.teamId,b.scope,JSON.stringify(b.board),now,author,b.id,b.revision).run();if(!result.meta.changes)return fail('Ce tableau a été modifié. Votre saisie est conservée ; annulez puis actualisez pour récupérer la dernière version.',409);return response({revision:b.revision+1,updatedAt:now,updatedBy:author})}catch(e){console.error(e);return fail('Enregistrement impossible. Votre saisie est conservée.',503)}}

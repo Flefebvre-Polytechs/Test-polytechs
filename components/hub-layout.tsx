@@ -31,6 +31,35 @@ type WorkspaceDirectory={
  budgetManager?:boolean;
  pdpAccess?:boolean;
 };
-export function HubFrame({active,children,className='',teamId}:{active:string;children:ReactNode|((directory:WorkspaceDirectory|null)=>ReactNode);className?:string;teamId?:string}){const [context]=useServiceFilter();const effectiveTeam=active==='SMI'?'':teamId??context;const [tree,setTree]=useState<WorkspaceDirectory|null>(null),[error,setError]=useState('');useEffect(()=>{let live=true;hubRequest('/api/dashboards').then(d=>{if(live)setTree(d)}).catch(()=>{if(live)setError('Les services ne sont pas disponibles.')});return()=>{live=false}},[]);return <div className={'team-workspace hub-workspace '+className}><a className="skip-link" href="#workspace-content">Aller au contenu</a><ServiceSidebar budgetManager={!!tree?.budgetManager} epiManager={!!tree?.epiManager} pdpAccess={!!tree?.pdpAccess} rhAccess={!!tree?.teams.some(t=>t.id==='rh')}><p className="navlabel">SERVICES ET MODULES</p>{tree?<TeamTree teams={tree.teams} boards={tree.boards}/>:<div className="service-nav-state"><p role={error?'alert':'status'}>{error||'Chargement des services…'}</p><a href="/unites">Ouvrir les services</a></div>}</ServiceSidebar><div className="hub-main"><WorkspaceNav active={active} teamId={effectiveTeam} teamName={tree?.teams.find(t=>t.id===effectiveTeam)?.name}/><main id="workspace-content" tabIndex={-1} className="hub-content">{typeof children==='function'?children(tree):children}</main></div></div>}
+type DirectoryControls={error:string;reload:()=>void};
+export function HubFrame({active,children,className='',teamId}:{
+ active:string;children:ReactNode|((directory:WorkspaceDirectory|null,controls:DirectoryControls)=>ReactNode);className?:string;teamId?:string;
+}){
+ const [context]=useServiceFilter();
+ const effectiveTeam=active==='SMI'?'':teamId??context;
+ const [tree,setTree]=useState<WorkspaceDirectory|null>(null),[error,setError]=useState('');
+ const [version,setVersion]=useState(0);
+ function reload(){setError('');setVersion(v=>v+1)}
+ useEffect(()=>{
+  let live=true;
+  hubRequest('/api/dashboards').then(d=>{if(live)setTree(d)}).catch(()=>{if(live)setError('Les services ne sont pas disponibles.')});
+  return()=>{live=false};
+ },[version]);
+ return <div className={'team-workspace hub-workspace '+className}>
+  <a className="skip-link" href="#workspace-content">Aller au contenu</a>
+  <ServiceSidebar budgetManager={!!tree?.budgetManager} epiManager={!!tree?.epiManager} pdpAccess={!!tree?.pdpAccess} rhAccess={!!tree?.teams.some(t=>t.id==='rh')}>
+   <p className="navlabel">SERVICES ET MODULES</p>
+   {tree?<TeamTree teams={tree.teams} boards={tree.boards}/>:<div className="service-nav-state">
+    <p role={error?'alert':'status'}>{error||'Chargement des services…'}</p><a href="/unites">Ouvrir les services</a>
+   </div>}
+  </ServiceSidebar>
+  <div className="hub-main">
+   <WorkspaceNav active={active} teamId={effectiveTeam} teamName={tree?.teams.find(t=>t.id===effectiveTeam)?.name}/>
+   <main id="workspace-content" tabIndex={-1} className="hub-content">
+    {typeof children==='function'?children(tree,{error,reload}):children}
+   </main>
+  </div>
+ </div>;
+}
 export function TeamPicker({meta,value,onChange,disabled=false,label='Équipes concernées',visual=false}:{meta:Meta;value:string[];onChange:(v:string[])=>void;disabled?:boolean;label?:string;visual?:boolean}){if(visual)return <TicketSearchPicker label={label} options={meta.teams.filter(t=>disabled||!meta.editableTeams||meta.editableTeams.includes(t.id))} value={value} onChange={onChange} disabled={disabled}/>;return <fieldset className={'hub-team-picker'+(visual?' ticket-team-picker':'')} disabled={disabled}><legend>{label}</legend>{meta.teams.filter(t=>disabled||!meta.editableTeams||meta.editableTeams.includes(t.id)).map(t=><label key={t.id} data-team-family={visual?teamVisual(t.id).family:undefined}><input type="checkbox" checked={value.includes(t.id)} onChange={e=>onChange(e.target.checked?[...value,t.id]:value.filter(id=>id!==t.id))}/>{visual?<TeamMark id={t.id} name={t.name}/>:<span>{t.name}</span>}</label>)}</fieldset>}
 export function UserPicker({meta,value,onChange,disabled=false,label='Pilote'}:{meta:Meta;value:string;onChange:(v:string)=>void;disabled?:boolean;label?:string}){return <label>{label}<select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled}><option value="">À désigner</option>{meta.users.map(u=><option key={u.id} value={u.id}>{u.display_name}</option>)}</select></label>}

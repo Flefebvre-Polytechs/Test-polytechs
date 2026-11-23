@@ -13,6 +13,7 @@ import {DropdownMenuItem} from '@/components/ui/dropdown-menu';
 import {WidgetAppearance,CustomContent} from '@/components/widget-customizer';
 import {MetricChart} from '@/components/metric-chart';
 import {TeamTree,type Team,type BoardLink} from '@/components/team-navigation';
+import {teamSettingsHref} from '@/lib/team-organization';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {AccountGate,type Account} from '@/components/account-gate';
 import {widgetLabels,newWidget,defaultBoard,boardError,duplicateWidget,reorderWidgets,readableInk,actionSummary,parisToday,type Board,type Widget} from '@/lib/unit-dashboard';
@@ -31,7 +32,7 @@ const stageRef=useRef<HTMLElement>(null);
 const [editableTeams,setEditableTeams]=useState<string[]>([]);
 const [catalogReady,setCatalogReady]=useState(false);
 const [missions,setMissions]=useState({epiManager:false,pdpAccess:false,budgetManager:false});
-const [teams,setTeams]=useState<Team[]>([]),[boards,setBoards]=useState<BoardLink[]>([]),[selected,setSelected]=useState(''),[activeTeam,setActiveTeam]=useState(''),[data,setData]=useState<Payload|null>(null),[draft,setDraft]=useState<Board|null>(null),[scope,setScope]=useState(''),[targetTeam,setTargetTeam]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[tick,setTick]=useState(0),[year,setYear]=useState(new Date().getFullYear()),[addType,setAddType]=useState<Widget['type']>('indicator'),[dialog,setDialog]=useState<'board'|'team'|null>(null),[formName,setFormName]=useState(''),[formRank,setFormRank]=useState(2),[formParent,setFormParent]=useState('direction'),[formTeam,setFormTeam]=useState('direction'),[editingTeam,setEditingTeam]=useState<Team|null>(null),[formError,setFormError]=useState(''),[dragId,setDragId]=useState(''),[preview,setPreview]=useState(false),[removed,setRemoved]=useState<{w:Widget;i:number}|null>(null);
+const [teams,setTeams]=useState<Team[]>([]),[boards,setBoards]=useState<BoardLink[]>([]),[selected,setSelected]=useState(''),[activeTeam,setActiveTeam]=useState(''),[data,setData]=useState<Payload|null>(null),[draft,setDraft]=useState<Board|null>(null),[scope,setScope]=useState(''),[targetTeam,setTargetTeam]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[tick,setTick]=useState(0),[year,setYear]=useState(new Date().getFullYear()),[addType,setAddType]=useState<Widget['type']>('indicator'),[newBoardOpen,setNewBoardOpen]=useState(false),[formName,setFormName]=useState(''),[formTeam,setFormTeam]=useState('direction'),[formError,setFormError]=useState(''),[dragId,setDragId]=useState(''),[preview,setPreview]=useState(false),[removed,setRemoved]=useState<{w:Widget;i:number}|null>(null);
 useEffect(()=>{
  const controller=new AbortController();
  request('/api/dashboards',{signal:controller.signal}).then(d=>{
@@ -52,7 +53,7 @@ useEffect(()=>{
  return()=>controller.abort();
 },[account.id,tick]);
 useEffect(()=>{setData(null);if(!selected)return;const c=new AbortController();setError('');request('/api/dashboards?id='+encodeURIComponent(selected),{signal:c.signal}).then(d=>{setData(d);setScope(d.scope);setTargetTeam(d.team.id)}).catch(e=>{if(e.name!=='AbortError')setError(e.message)});return()=>c.abort()},[selected,tick]);
-useEffect(()=>{if(!draft&&!dialog)return;const guard=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard)},[draft,dialog]);
+useEffect(()=>{if(!draft&&!newBoardOpen)return;const guard=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard)},[draft,newBoardOpen]);
 const zoomKey='polytechs-board-zoom-'+(selected||'service-'+activeTeam);
 useEffect(()=>{
  setShowOverview(localStorage.getItem('polytechs-overview-'+selected)!=='hidden');
@@ -127,8 +128,19 @@ useEffect(()=>{
  const timer=setTimeout(()=>selectBoard(nextId),10000);
  return()=>clearTimeout(timer);
 },[playing,draft,busy,data,selected,activeTeam,boards]);
-function openForm(kind:'board'|'team',edit?:Team){setPlaying(false);setFormName(edit?.name||'');setFormRank(edit?.rank||2);setFormParent(edit?.parent_id||teams.find(t=>t.rank===1)?.id||'');setFormTeam(activeTeam);setEditingTeam(edit||null);setFormError('');setDialog(kind)}
-async function submitForm(e:React.FormEvent){e.preventDefault();setBusy(true);setFormError('');try{const b=defaultBoard();b.title=formName.trim();b.widgets=[];const payload=dialog==='team'?{action:'team',name:formName,rank:formRank,parentId:formParent,id:editingTeam?.id,revision:editingTeam?.revision}:{action:'create',teamId:formTeam,scope:'',board:b};const r=await request('/api/dashboards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});history.replaceState(null,'',dialog==='team'?'/unites?team='+r.id:'/unites?board='+r.id);setDialog(null);setTick(t=>t+1);setNotice(dialog==='team'?'Équipe enregistrée.':'Tableau créé. Vous pouvez maintenant le personnaliser.')}catch(e){setFormError((e as Error).message)}finally{setBusy(false)}}
+function openBoardForm(){
+ setPlaying(false);setFormName('');setFormTeam(activeTeam);setFormError('');setNewBoardOpen(true);
+}
+async function submitForm(e:React.FormEvent){
+ e.preventDefault();setBusy(true);setFormError('');
+ try{
+  const board=defaultBoard();board.title=formName.trim();board.widgets=[];
+  const r=await request('/api/dashboards',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({action:'create',teamId:formTeam,scope:'',board})});
+  history.replaceState(null,'','/unites?board='+encodeURIComponent(r.id));
+  setNewBoardOpen(false);setTick(t=>t+1);setNotice('Tableau créé. Vous pouvez maintenant le personnaliser.');
+ }catch(e){setFormError((e as Error).message)}finally{setBusy(false)}
+}
 function update(id:string,patch:Partial<Widget>){setDraft(b=>b&&({...b,widgets:b.widgets.map(w=>w.id===id?{...w,...patch}:w)}))}
 function removeWidget(w:Widget,i:number){setRemoved({w,i});setDraft(b=>b&&({...b,widgets:b.widgets.filter(x=>x.id!==w.id)}))}
 async function copyBoard(){if(!data)return;setPlaying(false);setBusy(true);setError('');try{const r=await request('/api/dashboards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',teamId:data.team.id,scope:data.scope,board:{...structuredClone(data.board),title:(data.board.title+' · copie').slice(0,100)}})});history.replaceState(null,'','/unites?board='+r.id);setTick(t=>t+1);setNotice('Copie indépendante créée.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
@@ -155,7 +167,7 @@ const commands=draft?<>
  <button type="button" className="dashboard-tool" disabled={busy} onClick={()=>setPreview(!preview)}>{preview?'Éditeur':'Aperçu'}</button>
  <button type="button" className="primary" disabled={busy} onClick={save}>{busy?'Enregistrement…':'Enregistrer'}</button>
 </>:(editable||hasMeasures)?<>
- {editable&&<button type="button" className="dashboard-tool icon-only" aria-label="Nouveau tableau" title="Nouveau tableau" disabled={busy} onClick={()=>openForm('board')}>
+ {editable&&<button type="button" className="dashboard-tool icon-only" aria-label="Nouveau tableau" title="Nouveau tableau" disabled={busy} onClick={openBoardForm}>
   <Plus size={17} aria-hidden="true"/>
  </button>}
  {editable&&selected&&<button type="button" className="dashboard-tool" aria-label="Modifier" title="Modifier le tableau" disabled={busy||!board} onClick={editBoard}>
@@ -170,7 +182,7 @@ return <div className="team-workspace dashboard-workspace">
  <ServiceSidebar {...missions} rhAccess={teams.some(t=>t.id==='rh')}>
   <p className="navlabel">SERVICES ET TABLEAUX</p>
   <TeamTree teams={teams} boards={boards} selected={selected} disabled={!!draft||busy} onSelect={chooseBoard} onTeam={selectTeam}/>
-  {account.role==='admin'&&<button className="outline" disabled={!!draft||busy} onClick={()=>openForm('team')}><Plus size={16}/> Ajouter un service</button>}
+  {account.role==='admin'&&<button className="outline" disabled={!!draft||busy} onClick={()=>location.assign('/equipes?nouvelle=1')}><Plus size={16}/> Ajouter un service</button>}
   <div className="hub-account">{account.displayName}<button disabled={!!draft||busy} onClick={logout}>Déconnexion</button></div>
  </ServiceSidebar>
  <div className="unit-board" style={{background:board?.background||'#f3f5f7'}}>
@@ -185,8 +197,8 @@ return <div className="team-workspace dashboard-workspace">
       {showOverview?<EyeOff aria-hidden="true"/>:<Eye aria-hidden="true"/>}{showOverview?'Masquer l’activité':'Afficher l’activité'}
      </DropdownMenuItem>}
      {editable&&selected&&board&&<DropdownMenuItem onSelect={()=>void copyBoard()}><Copy aria-hidden="true"/>Dupliquer le tableau</DropdownMenuItem>}
-     {!selected&&account.role==='admin'&&<DropdownMenuItem onSelect={()=>openForm('team',team)}>
-      <Settings2 aria-hidden="true"/>Modifier l’équipe
+     {account.role==='admin'&&<DropdownMenuItem asChild>
+      <a href={teamSettingsHref(team.id)}><Settings2 aria-hidden="true"/>Modifier l’équipe</a>
      </DropdownMenuItem>}
     </>}/>}
    {error&&<div role="alert" className="error">{error}</div>}
@@ -217,5 +229,21 @@ return <div className="team-workspace dashboard-workspace">
  <div className={'board-grid custom-grid '+(draft&&!preview?'grid-editing':'')} style={{'--board-columns':board.columns||3,gap:board.gap||18} as CSSProperties}>{board.widgets.map((w,i)=><article className={'board-card custom-card '+(draft&&!preview?'is-editing':'')} key={w.id} style={{'--indicator-plot-height':Math.max(120,Math.min(400,(w.minHeight||280)-160))+'px','--block-span':Math.min(w.span||(w.wide?2:1),board.columns||3),'--block-ink':readableInk(w.background||'#ffffff'),'--block-font':(w.fontSize||16)+'px',minHeight:w.minHeight||160,background:w.background||'#ffffff',color:readableInk(w.background||'#ffffff'),borderTop:'4px solid '+(w.accent||'#005eaa'),textAlign:w.align||'left'} as CSSProperties} onDragOver={e=>{if(draft&&!preview&&!busy&&dragId){e.preventDefault();e.dataTransfer.dropEffect='move'}}} onDrop={e=>{e.preventDefault();if(draft&&!preview&&!busy&&dragId)setDraft({...draft,widgets:reorderWidgets(draft.widgets,dragId,w.id)});setDragId('')}}>{draft&&!preview?<details className="board-block-editor"><summary>Configurer le bloc</summary><div className="board-edit"><button className="drag-handle" type="button" disabled={busy} draggable={!busy} onDragStart={e=>{setDragId(w.id);e.dataTransfer.setData('text/plain',w.id);e.dataTransfer.effectAllowed='move'}} onDragEnd={()=>setDragId('')} aria-label={'Déplacer '+w.title}>⠿ Déplacer</button><input disabled={busy} aria-label="Titre du bloc" maxLength={120} value={w.title} onChange={e=>update(w.id,{title:e.target.value})}/><div><button title="Monter" aria-label={'Monter '+w.title} disabled={busy||i===0} onClick={()=>move(i,-1)}><ArrowUp size={16}/></button><button title="Descendre" aria-label={'Descendre '+w.title} disabled={busy||i===board.widgets.length-1} onClick={()=>move(i,1)}><ArrowDown size={16}/></button><button title="Changer la largeur" aria-label={'Changer la largeur de '+w.title} aria-pressed={w.wide} disabled={busy} onClick={()=>update(w.id,{span:(w.span||(w.wide?2:1))===1?2:1,wide:!w.wide})}><Maximize2 size={16}/></button><button title="Dupliquer le bloc" aria-label={'Dupliquer '+w.title} disabled={busy||board.widgets.length>=60} onClick={()=>{const widgets=[...draft.widgets];widgets.splice(i+1,0,duplicateWidget(w));setDraft({...draft,widgets})}}>Copier</button><button title="Retirer" aria-label={'Retirer '+w.title} disabled={busy} onClick={()=>removeWidget(w,i)}><Trash2 size={16}/></button></div><WidgetAppearance w={w} disabled={busy} onChange={p=>update(w.id,p)}/></div></details>:!w.hideTitle&&<h3>{w.title}</h3>}{draft&&!preview&&<><h3>{w.title}</h3><WidgetResize w={w} columns={board.columns||3} disabled={busy} onChange={p=>update(w.id,p)}/></>}{draft&&!preview?<details className="board-block-editor"><summary>Modifier le contenu</summary>{draft&&!preview&&['links','checklist','table','chart','heading','embed'].includes(w.type)?<CustomContent w={w} editing disabled={busy} onChange={p=>update(w.id,p)}/>:draft&&!preview&&(w.type==='note'||w.type==='indicator')?<div className="board-fields">{w.type==='indicator'&&<>{(['value','unit','target','date'] as const).map(k=><label key={k}>{{value:'Valeur mesurée',unit:'Unité (%, jours, kg…)',target:'Objectif',date:'Date de mesure'}[k]}<input disabled={busy} type={k==='date'?'date':'text'} maxLength={120} value={w[k]} onChange={e=>update(w.id,{[k]:e.target.value})}/></label>)}</>}<label>{w.type==='note'?'Consignes et décisions':'Commentaire / source de la mesure'}<textarea disabled={busy} maxLength={4000} rows={5} value={w.text} onChange={e=>update(w.id,{text:e.target.value})}/></label>{w.type==='indicator'&&<label>Sens de l’objectif<select disabled={busy} value={w.targetDirection||'at-least'} onChange={e=>update(w.id,{targetDirection:e.target.value as Widget['targetDirection']})}><option value="at-least">Minimum à atteindre (≥)</option><option value="at-most">Maximum à ne pas dépasser (≤)</option></select></label>}{w.type==='indicator'&&<CustomContent w={{...w,type:'chart'}} editing disabled={busy} onChange={p=>update(w.id,p)}/>}</div>:content(w)}</details>:null}{content(w)}</article>)}</div>{!board.widgets.length&&<div className="board-empty">{draft?'Ajoutez un bloc depuis la barre d’édition.':'Ouvrez « Modifier » pour ajouter vos blocs.'}</div>}
 </section>}</>}
    </div>
-  </main><Dialog open={!!dialog} onOpenChange={open=>{if(!open&&!busy)setDialog(null)}}><DialogContent><DialogTitle>{dialog==='team'?(editingTeam?'Modifier l’équipe':'Nouvelle équipe'):'Nouveau tableau de bord'}</DialogTitle><DialogDescription>{dialog==='team'?'Les rangs organisent la navigation. Ils ne changent pas les droits des utilisateurs.':'Chaque service peut contenir plusieurs tableaux personnalisables.'}</DialogDescription><form className="board-fields" onSubmit={submitForm}><label>Nom<input required maxLength={100} disabled={busy} value={formName} onChange={e=>setFormName(e.target.value)}/></label>{dialog==='team'?<><label>Rang<select disabled={busy} value={formRank} onChange={e=>setFormRank(Number(e.target.value))}><option value={1}>Rang 1 · Direction</option><option value={2}>Rang 2 · Service</option></select></label>{formRank===2&&<label>Équipe parente<select required disabled={busy} value={formParent} onChange={e=>setFormParent(e.target.value)}>{teams.filter(t=>t.rank===1&&t.id!==editingTeam?.id).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}</>:<><label>Équipe<select required disabled={busy} value={formTeam} onChange={e=>setFormTeam(e.target.value)}>{teams.filter(t=>account.role==='admin'||editableTeams.includes(t.id)).map(t=><option key={t.id} value={t.id}>{t.name} · rang {t.rank}</option>)}</select></label></>}{formError&&<p role="alert" className="error">{formError}</p>}<button className="primary" disabled={busy}>{busy?'Enregistrement…':editingTeam?'Enregistrer':'Créer'}</button></form></DialogContent></Dialog></div></div>
+  </main>
+  <Dialog open={newBoardOpen} onOpenChange={open=>{if(!open&&!busy)setNewBoardOpen(false)}}>
+   <DialogContent>
+    <DialogTitle>Nouveau tableau de bord</DialogTitle>
+    <DialogDescription>Chaque service peut contenir plusieurs tableaux personnalisables.</DialogDescription>
+    <form className="board-fields" onSubmit={submitForm}>
+     <label>Nom<input required maxLength={100} disabled={busy} value={formName} onChange={e=>setFormName(e.target.value)}/></label>
+     <label>Équipe<select required disabled={busy} value={formTeam} onChange={e=>setFormTeam(e.target.value)}>
+      {teams.filter(t=>account.role==='admin'||editableTeams.includes(t.id)).map(t=>
+       <option key={t.id} value={t.id}>{t.name} · rang {t.rank}</option>)}
+     </select></label>
+     {formError&&<p role="alert" className="error">{formError}</p>}
+     <button className="primary" disabled={busy}>{busy?'Enregistrement…':'Créer'}</button>
+    </form>
+   </DialogContent>
+  </Dialog>
+ </div></div>
 }

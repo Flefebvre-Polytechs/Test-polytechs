@@ -2,15 +2,11 @@
 import {useEffect,useState,type CSSProperties} from 'react';
 import {teamVisual} from '@/lib/ticket-visuals';
 import {gedHref} from '@/lib/navigation';
-import {LayoutDashboard,FileText,ClipboardList,TriangleAlert,HardHat as EpiIcon,Recycle,Leaf,BookOpen,FileCheck2,Sparkles,HeartPulse,ShieldAlert,LayoutList,Users,BriefcaseBusiness,CalendarDays,FlaskConical,Factory,Truck,HardHat,ShoppingCart,HeartHandshake,Wrench,Settings2,Monitor,ShieldCheck,Lightbulb,Network,ChartNoAxesCombined} from 'lucide-react';
-export type Team={id:string;name:string;rank:number;parent_id:string|null;revision:number};
+import {LayoutDashboard,FileText,ClipboardList,TriangleAlert,HardHat as EpiIcon,Recycle,Leaf,BookOpen,FileCheck2,Sparkles,HeartPulse,ShieldAlert,LayoutList,Users,BriefcaseBusiness,CalendarDays,ShoppingCart,Wrench,Settings2,ShieldCheck,ChartNoAxesCombined} from 'lucide-react';
+import {teamGroups,teamSettingsHref,teamsInGroup,type Team} from '@/lib/team-organization';
+import {useCurrentAccount} from '@/components/profile';
+export type {Team} from '@/lib/team-organization';
 export type BoardLink={id:string;team_id:string;title:string;unit_code:string};
-
-const groups=[
-  {name:'Management',ids:['direction','qsse'],accent:'#74369a'},
-  {name:'Réalisation',ids:['commercial','planification','rd','production','laboratoire','logistique'],accent:'#0875bb'},
-  {name:'Support',ids:['travaux-neufs','achats','rh','procedes','maintenance','informatique'],accent:'#df6924'},
-];
 
 const qsseSections=[
   {name:'Prévention',links:[
@@ -37,14 +33,8 @@ const qsseSections=[
     ['Amélioration continue','/qse#'+encodeURIComponent('Amélioration continue'),LayoutList],
   ]},
 ] as const;
-const management=new Set(groups[0].ids);
-const realization=new Set(groups[1].ids);
-function theme(id:string):CSSProperties{
-  const accent=management.has(id)?groups[0].accent:realization.has(id)?groups[1].accent:groups[2].accent;
-  return {'--team-accent':accent} as CSSProperties;
-}
-
 export function TeamTree({teams,boards,selected,disabled,onSelect,onTeam}:{teams:Team[];boards:BoardLink[];selected?:string;disabled?:boolean;onSelect?:(id:string)=>void;onTeam?:(team:Team)=>void}){
+  const canOrganize=useCurrentAccount()?.role==='admin';
   // One permission-filtered registry is shared by every service menu.
   // Server-side GED checks remain authoritative for documents and files.
   const [gedAccess,setGedAccess]=useState<{services:Set<string>;global:boolean}>({services:new Set(),global:false});
@@ -63,11 +53,11 @@ export function TeamTree({teams,boards,selected,disabled,onSelect,onTeam}:{teams
   function teamNode(t:Team){
     const Icon=teamVisual(t.id).Icon;
     const teamBoards=boards.filter(b=>b.team_id===t.id);
-    return <div className={'team-node rank-'+t.rank} key={t.id} style={theme(t.id)}>
+    return <div className={'team-node rank-'+t.rank} key={t.id}>
       <details>
         <summary aria-label={'Afficher les tableaux de '+t.name}>
           <span className="team-pictogram"><Icon size={17} strokeWidth={2}/></span>
-          <span className="team-name">{t.name}</span>
+          <span className="team-name" data-no-translate>{t.name}</span>
           <small>Rang {t.rank}</small>
         </summary>
         <div className="team-boards">
@@ -78,15 +68,13 @@ export function TeamTree({teams,boards,selected,disabled,onSelect,onTeam}:{teams
           {t.id==='qsse'&&teamBoards.length>0&&<p className="qsse-board-label">Tableaux de bord</p>}
           {teamBoards.map(b=>onSelect?<button key={b.id} disabled={disabled} aria-current={selected===b.id?'page':undefined} onClick={()=>onSelect(b.id)}><LayoutDashboard size={14}/><span>{b.title}</span></button>:<a key={b.id} href={'/unites?board='+encodeURIComponent(b.id)}><LayoutDashboard size={14}/><span>{b.title}</span></a>)}
           {onTeam?<button disabled={disabled} className="team-open" onClick={()=>t.id==='maintenance'?location.assign('/maintenance'):onTeam(t)}>Ouvrir {t.rank===1?'la direction':'le service'}</button>:<a className="team-open" href={disabled?undefined:t.id==='maintenance'?'/maintenance':'/unites?team='+encodeURIComponent(t.id)}>Ouvrir {t.rank===1?'la direction':'le service'}</a>}
+          {canOrganize&&!disabled&&<a href={teamSettingsHref(t.id)} aria-label={'Modifier l’équipe '+t.name}><Settings2 size={15} aria-hidden="true"/>Modifier l’équipe</a>}
           {!teamBoards.length&&<small className="team-no-board">Aucun tableau</small>}
         </div>
       </details>
     </div>;
   }
-  const known=new Set(groups.flatMap(g=>g.ids));
-  const sections=groups.map(g=>({...g,items:g.ids.flatMap(id=>teams.filter(t=>t.id===id))}));
-  const other=teams.filter(t=>!known.has(t.id)).sort((a,b)=>a.rank-b.rank||a.name.localeCompare(b.name,'fr'));
-  if(other.length)sections.push({name:'Autres services',ids:[],accent:groups[2].accent,items:other});
-  return <nav className="team-tree" aria-label="Services et tableaux de bord">{sections.filter(g=>g.items.length).map(g=><section className="team-group" key={g.name} style={{'--team-accent':g.accent} as CSSProperties}><h3>{g.name}</h3>{g.items.map(teamNode)}</section>)}</nav>;
+  const sections=teamGroups.map(group=>({...group,items:teamsInGroup(teams,group.id)}));
+  return <nav className="team-tree" aria-label="Services et tableaux de bord">{sections.filter(g=>g.items.length).map(g=><section className="team-group" key={g.id} style={{'--team-accent':g.accent} as CSSProperties}><h3>{g.name}</h3>{g.items.map(teamNode)}</section>)}</nav>;
 }
 export function HomeTeamNavigation(){const [data,setData]=useState<{teams:Team[];boards:BoardLink[]}|null>(null),[error,setError]=useState(false);useEffect(()=>{const c=new AbortController();fetch('/api/dashboards',{signal:c.signal}).then(async r=>{if(!r.ok)throw Error();setData(await r.json())}).catch(e=>{if(e.name!=='AbortError')setError(true)});return()=>c.abort()},[]);return <div className="home-team-navigation"><p className="navlabel">SERVICES ET TABLEAUX</p>{data?<TeamTree teams={data.teams} boards={data.boards}/>:<a href="/unites">{error?'Ouvrir les services':'Chargement des services…'}</a>}</div>}
