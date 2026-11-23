@@ -11,6 +11,11 @@ export type DashboardTicketStats={
  recent:DashboardTicket[];
  updatedAt:string;
 };
+export const ticketIshikawaFamilies = [
+ ['methodes','Méthodes'],['milieu','Milieu'],['materiel','Matériel'],
+ ['matieres','Matières'],['main_oeuvre','Main-d’œuvre'],
+] as const;
+
 export const ticketAnalysisMethods = {
  '5p':{label:'5P · 5 Pourquoi',fields:[
   ['p1','Pourquoi le problème est-il apparu ?'],['p2','Pourquoi cette première cause existe-t-elle ?'],
@@ -25,10 +30,7 @@ export const ticketAnalysisMethods = {
   ['d6','D6 · Mettre en œuvre les actions et vérifier leur efficacité'],
   ['d7','D7 · Prévenir la récidive'],['d8','D8 · Clôturer et reconnaître le travail de l’équipe'],
  ]},
- ishikawa:{label:'Ishikawa · 5M',fields:[
-  ['methodes','Méthodes'],['materiel','Matériel'],['matieres','Matières'],
-  ['main_oeuvre','Main-d’œuvre'],['milieu','Milieu'],['cause','Causes retenues et preuves'],
- ]},
+ ishikawa:{label:'Ishikawa · 5M',fields:[...ticketIshikawaFamilies,['cause','Causes retenues et preuves']]},
  qqoqccp:{label:'QQOQCCP · Cadrage du problème',fields:[
   ['qui','Qui ?'],['quoi','Quoi ?'],['ou','Où ?'],['quand','Quand ?'],
   ['comment','Comment ?'],['combien','Combien ?'],['pourquoi','Pourquoi analyser cet écart ?'],

@@ -1,0 +1,224 @@
+.ticket-ishikawa {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.ticket-ishikawa-board {
+  --rib-width: clamp(24px, 4.4cqi, 38px);
+  --rib-inset: 8px;
+  --spine-color: #356487;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) clamp(115px, 20%, 170px);
+  grid-template-rows: 1fr 2px 1fr;
+  padding: 14px;
+  border: 1px solid #d7e6f1;
+  border-radius: 11px;
+  background: #f3f8fc radial-gradient(#d8e6ef 1px, transparent 1px) 0 0 / 16px 16px;
+}
+
+.ticket-ishikawa-spine {
+  position: relative;
+  grid-area: 2 / 1 / 3 / 7;
+  background: var(--spine-color);
+  border-radius: 2px;
+}
+
+.ticket-ishikawa-spine::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -3px;
+  width: 8px;
+  height: 10px;
+  background: var(--spine-color);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  transform: translateY(-50%);
+}
+
+.ticket-ishikawa-problem {
+  grid-area: 1 / 7 / 4 / 8;
+  align-self: center;
+  display: grid;
+  gap: 5px;
+  z-index: 1;
+  min-width: 0;
+  margin-inline-start: 10px;
+  padding: 11px 12px;
+  border: 1px solid #244f70;
+  border-radius: 9px;
+  background: linear-gradient(125deg, #183955, #255d82);
+  color: #fff;
+  box-shadow: 0 3px 10px #19395426;
+}
+
+.ticket-ishikawa-problem span { color: #cfeafa; font-size: 11px; font-weight: 700; }
+.ticket-ishikawa-problem strong { font-size: 13px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+
+.ticket-ishikawa-family {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+.ticket-ishikawa-family[data-family=methodes] { grid-area: 1 / 1 / 2 / 3; --family-ink: #175d8a; --family-tint: #e9f3fb; --family-line: #6496b7; }
+.ticket-ishikawa-family[data-family=milieu] { grid-area: 1 / 3 / 2 / 5; --family-ink: #11675c; --family-tint: #e6f5f1; --family-line: #649e93; }
+.ticket-ishikawa-family[data-family=materiel] { grid-area: 1 / 5 / 2 / 7; --family-ink: #5b488d; --family-tint: #f1eefb; --family-line: #9b8dbb; }
+.ticket-ishikawa-family[data-family=matieres] { grid-area: 3 / 2 / 4 / 4; --family-ink: #865516; --family-tint: #fff4df; --family-line: #bd9457; }
+.ticket-ishikawa-family[data-family=main_oeuvre] { grid-area: 3 / 4 / 4 / 6; --family-ink: #994265; --family-tint: #fceef4; --family-line: #bf87a1; }
+.ticket-ishikawa-family:is([data-family=matieres], [data-family=main_oeuvre]) { flex-direction: column-reverse; }
+
+.ticket-ishikawa-family-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  min-width: 0;
+  margin-inline-end: calc(var(--rib-width) + var(--rib-inset) - 2px);
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--family-line) 55%, white);
+  border-radius: 7px;
+  background: var(--family-tint);
+  color: var(--family-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: start;
+}
+
+.ticket-ishikawa-family-button svg { flex: none; }
+.ticket-ishikawa-family-button span { flex: 1; min-width: 0; }
+.ticket-ishikawa-family-button:hover:not(:disabled) { background: color-mix(in srgb, var(--family-tint) 86%, var(--family-line)); }
+
+.ticket-ishikawa-rib {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 86px;
+  margin-inline-end: var(--rib-inset);
+}
+.ticket-ishikawa-rib::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: var(--rib-width);
+  background: var(--family-line);
+  clip-path: polygon(0 0, 2px 0, 100% 100%, calc(100% - 2px) 100%);
+  pointer-events: none;
+}
+.ticket-ishikawa-family:is([data-family=matieres], [data-family=main_oeuvre]) .ticket-ishikawa-rib::after {
+  transform: scaleY(-1);
+}
+
+.ticket-ishikawa-causes {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px calc(var(--rib-width) + 6px) 7px 0;
+  list-style: none;
+  clip-path: polygon(0 0, calc(100% - var(--rib-width) + 1px) 0, 100% 100%, 0 100%);
+}
+.ticket-ishikawa-family:is([data-family=matieres], [data-family=main_oeuvre]) .ticket-ishikawa-causes {
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--rib-width) + 1px) 100%, 0 100%);
+}
+.ticket-ishikawa-causes li {
+  position: relative;
+  color: #274861;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: end;
+}
+.ticket-ishikawa-causes li::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline-start: calc(100% + 5px);
+  width: calc(var(--rib-width) + 1px);
+  height: 1px;
+  background: var(--family-line);
+}
+.ticket-ishikawa-causes li > span {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.ticket-ishikawa-more {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--family-tint);
+  color: var(--family-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.ticket-ishikawa-more:hover:not(:disabled) { text-decoration: underline; }
+.ticket-ishikawa-more:focus-visible { outline-offset: -2px; }
+
+.ticket-ishikawa-conclusion { display: grid; gap: 5px; }
+.ticket-ishikawa-conclusion label { color: #28465f; font-size: 13px; font-weight: 650; }
+.ticket-ishikawa-conclusion textarea,
+.ticket-ishikawa-dialog textarea {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #cdddeb;
+  border-radius: 8px;
+  background: white;
+  color: #203c53;
+  resize: vertical;
+}
+
+[data-slot=dialog-content].ticket-ishikawa-dialog {
+  width: min(28rem, calc(100% - 24px));
+  max-width: none;
+  max-height: 90dvh;
+  gap: 9px;
+  overflow: auto;
+  border-color: #d7e6f1;
+  color: #203c53;
+}
+.ticket-ishikawa-dialog form { display: grid; gap: 12px; min-width: 0; }
+.ticket-ishikawa-dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.ticket-ishikawa-dialog footer button { min-height: 44px; }
+
+@container (max-width: 615px) {
+  .ticket-ishikawa-board { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+  .ticket-ishikawa-problem { align-self: stretch; margin: 0; }
+  .ticket-ishikawa-spine { position: absolute; inset: 18px auto 31px 17px; width: 1px; background: #a2bbcf; }
+  .ticket-ishikawa-spine::after { display: none; }
+  .ticket-ishikawa-board .ticket-ishikawa-family {
+    position: relative;
+    flex-direction: column;
+    margin-inline-start: 16px;
+    border: 1px solid color-mix(in srgb, var(--family-line) 45%, white);
+    border-radius: 8px;
+    background: white;
+  }
+  .ticket-ishikawa-family::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: -10px;
+    top: 20px;
+    width: 9px;
+    height: 1px;
+    background: var(--family-line);
+  }
+  .ticket-ishikawa-family-button { margin: 0; min-height: 44px; padding-inline: 10px; border: 0; border-radius: 7px; }
+  .ticket-ishikawa-rib { min-height: 0; margin: 0; }
+  .ticket-ishikawa-rib[data-empty=true],
+  .ticket-ishikawa-rib::after,
+  .ticket-ishikawa-causes li::after { display: none; }
+  .ticket-ishikawa-board .ticket-ishikawa-family .ticket-ishikawa-causes { clip-path: none; padding: 8px 12px; }
+  .ticket-ishikawa-causes li { text-align: start; }
+  .ticket-ishikawa-more { min-height: 34px; }
+  .ticket-ishikawa-conclusion textarea, .ticket-ishikawa-dialog textarea { font-size: 16px; }
+}

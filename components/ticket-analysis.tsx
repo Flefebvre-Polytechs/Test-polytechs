@@ -5,7 +5,8 @@ import {ListChecks,MoreHorizontal,Trash2} from 'lucide-react';
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import {FiveWhyTree} from '@/components/ticket-five-why-tree';
 import {TicketEightD,TicketEightDLegacy} from '@/components/ticket-eight-d';
-import {ticketAnalysisMethods,ticketFiveWhyCauses,type Task,type TicketAnalysis} from '@/lib/hub';
+import {TicketIshikawa} from '@/components/ticket-ishikawa';
+import {ticketAnalysisMethods,ticketFiveWhyCauses,ticketIshikawaFamilies,type Task,type TicketAnalysis} from '@/lib/hub';
 
 export function TicketAnalysisMenu({analysis,disabled,onChange,onRemove,onShow}:{
  analysis?:TicketAnalysis;disabled:boolean;onChange:(analysis:TicketAnalysis)=>void;onRemove:()=>void;onShow:()=>void;
@@ -48,12 +49,14 @@ export function TicketAnalysisFields({analysis,problem,description,actions,actio
   return ()=>cancelAnimationFrame(frame);
  },[showRequest]);
  const causes=analysis.method==='5p'?ticketFiveWhyCauses(analysis):null;
- const filled=method.fields.filter(([key])=>analysis.values[key]?.trim()).length;
+ const ishikawa=analysis.method==='ishikawa';
+ const fields=ishikawa?ticketIshikawaFamilies:method.fields;
+ const filled=fields.filter(([key])=>analysis.values[key]?.trim()).length;
 
  return <section className="ticket-analysis-section" aria-labelledby={id+'-heading'}>
   <header className="ticket-analysis-heading">
    <h3 id={id+'-heading'} ref={heading} tabIndex={-1}><ListChecks size={17} aria-hidden="true"/> Analyse · {method.label}</h3>
-   {analysis.method==='8d'?<small>Rapport de réclamation</small>:<small>{causes?causes.length+(causes.length===1?' cause':' causes'):`${filled}/${method.fields.length} renseignés`}</small>}
+   {analysis.method==='8d'?<small>Rapport de réclamation</small>:<small>{causes?causes.length+(causes.length===1?' cause':' causes'):`${filled}/${fields.length} ${ishikawa?'familles renseignées':'renseignés'}`}</small>}
   </header>
   {analysis.method==='8d'?<TicketEightD analysis={analysis} problem={problem} description={description} actions={actions}
    actionPlan={actionPlan} people={people} readOnly={readOnly} disabled={disabled} onChange={onChange} onViewAction={onViewAction}
@@ -61,6 +64,8 @@ export function TicketAnalysisFields({analysis,problem,description,actions,actio
     disabled={readOnly||disabled} onChange={values=>onChange({...analysis,values})}/>}/>
    :causes?<FiveWhyTree causes={causes} problem={problem} actions={actions} people={people} readOnly={readOnly} disabled={disabled} onViewAction={onViewAction}
    onChange={(next,action)=>onChange({method:'5p',values:{},causes:next},action)}/>
+   :ishikawa?<TicketIshikawa problem={problem} values={analysis.values} readOnly={readOnly} disabled={disabled}
+    onChange={values=>onChange({...analysis,values})}/>
    :<fieldset className="ticket-analysis-fields" disabled={disabled}>
     <legend className="sr-only">{method.label}</legend>
     <AnalysisResponses method={analysis.method} values={analysis.values} readOnly={readOnly}
