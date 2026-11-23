@@ -239,6 +239,38 @@ try{
  }}))).status,200);
  assert.deepEqual(await loadAnalysis(),treeAnalysis);
 
+ const saveCauseAnalysis=(revision,analysis)=>hub.POST(request({
+  action:'ticket',id:regularId,revision,data:{...regularData,analysis},
+ }));
+ const newCauseAnalysis={method:'arbre-causes',values:{}};
+ assert.equal((await saveCauseAnalysis(6,newCauseAnalysis)).status,200);
+ assert.deepEqual(await loadAnalysis(),newCauseAnalysis);
+ const fact=(id,text,kind='variation')=>({id,text,kind});
+ const connection=(antecedentId,effectId,uncertain=false)=>({antecedentId,effectId,uncertain});
+ const causeTree={
+  outcome:'Bac de réception renversé',
+  facts:[
+   fact('glisse','La roue a glissé'),fact('appui','Le frein était desserré'),
+   fact('eau','Une flaque était présente'),fact('zone','La zone est exposée à la pluie','permanent'),
+  ],
+  links:[
+   connection('glisse',lib.causeTreeOutcomeId),connection('appui',lib.causeTreeOutcomeId),
+   connection('eau','glisse'),connection('eau','appui',true),connection('zone','eau'),
+  ],
+ };
+ for(const badTree of [
+  {...causeTree,facts:[...causeTree.facts,fact('isolé','Fait sans lien')]},
+  {...causeTree,facts:[...causeTree.facts,causeTree.facts[0]]},
+  {...causeTree,facts:[...causeTree.facts,fact(lib.causeTreeOutcomeId,'Fait final en double')]},
+  {...causeTree,facts:[{...causeTree.facts[0],text:'   '},...causeTree.facts.slice(1)]},
+  {...causeTree,links:[...causeTree.links,connection('inconnu','eau')]},
+  {...causeTree,links:[...causeTree.links,connection('glisse','zone')]},
+  {...causeTree,links:[...causeTree.links,causeTree.links[0]]},
+ ])assert.equal((await saveCauseAnalysis(7,{...newCauseAnalysis,causeTree:badTree})).status,400);
+ assert.equal((await saveCauseAnalysis(7,{method:'5p',values:{},causeTree})).status,400);
+ assert.equal((await saveCauseAnalysis(7,{...newCauseAnalysis,causeTree})).status,200);
+ assert.deepEqual(await loadAnalysis(),{...newCauseAnalysis,causeTree});
+
  db.exec(`
   INSERT INTO users VALUES ('second-pilot','Deuxième pilote','editor'),('outside','Autre service','editor');
   INSERT INTO team_members VALUES ('qsse','second-pilot','contributor');

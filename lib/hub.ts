@@ -30,6 +30,7 @@ export const ticketAnalysisMethods = {
   ['d6','D6 · Mettre en œuvre les actions et vérifier leur efficacité'],
   ['d7','D7 · Prévenir la récidive'],['d8','D8 · Clôturer et reconnaître le travail de l’équipe'],
  ]},
+ 'arbre-causes':{label:'Arbre des causes',fields:[]},
  ishikawa:{label:'Ishikawa · 5M',fields:[...ticketIshikawaFamilies,['cause','Causes retenues et preuves']]},
  qqoqccp:{label:'QQOQCCP · Cadrage du problème',fields:[
   ['qui','Qui ?'],['quoi','Quoi ?'],['ou','Où ?'],['quand','Quand ?'],
@@ -172,7 +173,81 @@ export const eightDFields = new Map<string,EightDField>([
 
 export type FiveWhyPath={id:string;name:string;values:Record<string,string>};
 export type FiveWhyCause={id:string;parentId:string|null;answer:string;label?:string;conclusion?:string;actionId?:string};
-export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>;paths?:FiveWhyPath[];causes?:FiveWhyCause[]};
+export type TicketAnalysis={method:keyof typeof ticketAnalysisMethods;values:Record<string,string>;paths?:FiveWhyPath[];causes?:FiveWhyCause[];causeTree?:TicketCauseTree};
+
+export const causeTreeOutcomeId = 'final';
+export const maxCauseTreeFacts = 100;
+export const maxCauseTreeLinks = 300;
+export const maxCauseTreeText = 500;
+export type CauseTreeFact = {id:string;text:string;kind:'variation'|'permanent'};
+export type CauseTreeLink = {antecedentId:string;effectId:string;uncertain:boolean};
+export type TicketCauseTree = {outcome:string;facts:CauseTreeFact[];links:CauseTreeLink[]};
+
+export function causeTreeLinksByEffect(links: readonly CauseTreeLink[]) {
+ const grouped = new Map<string, CauseTreeLink[]>();
+ for (const link of links) {
+  const connections = grouped.get(link.effectId);
+  if (connections) connections.push(link);
+  else grouped.set(link.effectId, [link]);
+ }
+ return grouped;
+}
+
+export function causeTreeReachableFacts(links: ReadonlyMap<string, readonly CauseTreeLink[]>, effectId: string) {
+ const seen = new Set([effectId]);
+ const next = [effectId];
+ while (next.length) {
+  for (const {antecedentId} of links.get(next.pop()!) ?? []) {
+   if (seen.has(antecedentId)) continue;
+   seen.add(antecedentId);
+   next.push(antecedentId);
+  }
+ }
+ return seen;
+}
+
+function ticketCauseTreeError(value: unknown) {
+ const invalid = 'Vérifiez les faits et les liens de l’arbre des causes.';
+ if (!isAnalysisRecord(value) || Object.keys(value).some(key => !['outcome','facts','links'].includes(key))) return invalid;
+ const {outcome, facts, links} = value;
+ if (!str(outcome,maxCauseTreeText) || !Array.isArray(facts) || facts.length > maxCauseTreeFacts ||
+  !Array.isArray(links) || links.length > maxCauseTreeLinks) return invalid;
+
+ const factIds = new Set<string>();
+ for (const fact of facts) {
+  if (!isAnalysisRecord(fact) || Object.keys(fact).some(key => !['id','text','kind'].includes(key)) ||
+   !str(fact.id,100,true) || fact.id === causeTreeOutcomeId || factIds.has(fact.id as string) ||
+   !str(fact.text,maxCauseTreeText,true) || (fact.kind !== 'variation' && fact.kind !== 'permanent')) return invalid;
+  factIds.add(fact.id as string);
+ }
+
+ const seenLinks = new Set<string>();
+ for (const link of links) {
+  if (!isAnalysisRecord(link) || Object.keys(link).some(key => !['antecedentId','effectId','uncertain'].includes(key)) ||
+   typeof link.antecedentId !== 'string' || !factIds.has(link.antecedentId) ||
+   typeof link.effectId !== 'string' || (link.effectId !== causeTreeOutcomeId && !factIds.has(link.effectId)) ||
+   typeof link.uncertain !== 'boolean') return invalid;
+  const key = JSON.stringify([link.antecedentId,link.effectId]);
+  if (seenLinks.has(key)) return 'Un antécédent ne peut être relié deux fois au même fait.';
+  seenLinks.add(key);
+ }
+
+ const byEffect = causeTreeLinksByEffect(links);
+ const visited = new Set<string>();
+ const visiting = new Set<string>();
+ function visit(id: string): boolean {
+  if (visiting.has(id)) return false;
+  if (visited.has(id)) return true;
+  visiting.add(id);
+  if ((byEffect.get(id) ?? []).some(link => !visit(link.antecedentId))) return false;
+  visiting.delete(id);
+  visited.add(id);
+  return true;
+ }
+ if (!visit(causeTreeOutcomeId)) return 'Un fait ne peut pas être son propre antécédent, même indirectement.';
+ return visited.size === factIds.size + 1 ? '' : 'Chaque fait doit être relié au fait final.';
+}
+
 const maxFiveWhyPaths=10;
 export const maxFiveWhyDepth=5;
 export const maxFiveWhyCauses=maxFiveWhyPaths*maxFiveWhyDepth;
@@ -197,9 +272,9 @@ export function ticketFiveWhyCauses(analysis:TicketAnalysis):FiveWhyCause[]{
 
 export function ticketAnalysisError(analysis:unknown,actionIds?:ReadonlySet<string>){
  if(analysis===undefined)return '';
- if(!isAnalysisRecord(analysis)||Object.keys(analysis).some(key=>key!=='method'&&key!=='values'&&key!=='paths'&&key!=='causes'))
+ if(!isAnalysisRecord(analysis)||Object.keys(analysis).some(key=>!['method','values','paths','causes','causeTree'].includes(key)))
   return 'Analyse du ticket invalide.';
- const {method,values,paths,causes}=analysis as TicketAnalysis;
+ const {method,values,paths,causes,causeTree}=analysis as TicketAnalysis;
  if(typeof method!=='string'||!Object.hasOwn(ticketAnalysisMethods,method))
   return 'Choisissez une méthode d’analyse valide.';
  const keys=ticketAnalysisMethods[method].fields.map(([id])=>String(id));
@@ -207,6 +282,11 @@ export function ticketAnalysisError(analysis:unknown,actionIds?:ReadonlySet<stri
   .every(([key,value])=>typeof value==='string'&&value.length<=3000&&(keys.includes(key)||method==='8d'&&validEightDValue(key,value)));
  const responseError='Vérifiez les réponses de l’analyse (3 000 caractères maximum par champ).';
  if(!validValues(values))return responseError;
+ if(method==='arbre-causes'){
+  if(paths!==undefined||causes!==undefined)return 'Vérifiez les faits et les liens de l’arbre des causes.';
+  return causeTree===undefined?'':ticketCauseTreeError(causeTree);
+ }
+ if(causeTree!==undefined)return 'Cet arbre ne correspond pas à la méthode d’analyse.';
  if(causes!==undefined){
   if((method!=='5p'&&method!=='8d')||(method==='5p'&&Object.keys(values).length)||paths!==undefined||!Array.isArray(causes)||causes.length>maxFiveWhyCauses)
    return 'L’arbre du 5 Pourquoi est invalide.';
