@@ -52,8 +52,6 @@ export function TicketIshikawa({ problem, values, readOnly, disabled, onChange }
           const [key, label] = family;
           const Icon = familyIcons[key];
           const causes = (values[key] ?? '').split(/\r\n?|\n/).map(line => line.trim()).filter(Boolean);
-          const visible = causes.length > 3 ? causes.slice(0, 2) : causes;
-          const remaining = causes.length - visible.length;
           const EditIcon = causes.length ? Pencil : Plus;
           return (
             <section className="ticket-ishikawa-family" key={key} data-family={key} aria-label={label}>
@@ -65,16 +63,7 @@ export function TicketIshikawa({ problem, values, readOnly, disabled, onChange }
               </button>
               <div className="ticket-ishikawa-rib" data-empty={!causes.length}>
                 {!!causes.length && <ul className="ticket-ishikawa-causes">
-                  {visible.map((cause, index) => (
-                    <li key={index}><span title={cause} data-no-translate>{cause}</span></li>
-                  ))}
-                  {remaining > 0 && <li>
-                    <button className="ticket-ishikawa-more" type="button" aria-haspopup="dialog"
-                      aria-label={label + ' · afficher les ' + causes.length + ' causes'} disabled={disabled}
-                      onClick={event => openFamily(family, event.currentTarget)}>
-                      +{remaining} causes
-                    </button>
-                  </li>}
+                  {causes.map((cause, index) => <li key={index} data-no-translate>{cause}</li>)}
                 </ul>}
               </div>
             </section>
