@@ -13,7 +13,7 @@ const fullDate=new Intl.DateTimeFormat('fr-FR',{dateStyle:'full',timeZone:'Europ
 export function DashboardCover({team,title,activity,custom}:{
   team:Team;title:string;activity:boolean;custom?:boolean;
 }){
-  const {Icon}=teamVisual(team.id);
+  const {Icon}=teamVisual(team.id,team.icon);
   const today=todayParis(),links=moduleLinks[team.id]??[];
   return <header className="board-cover">
     <div className="board-cover-main">

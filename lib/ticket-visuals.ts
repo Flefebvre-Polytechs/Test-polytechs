@@ -1,4 +1,11 @@
-import {ShieldCheck,Leaf,Factory,FileCheck2,HeartHandshake,Wrench,Lightbulb,Tag,BriefcaseBusiness,CalendarDays,FlaskConical,Truck,HardHat,ShoppingCart,Network,Monitor,Users,type LucideIcon} from 'lucide-react';
+import {
+  BadgeCheck, BookOpen, BriefcaseBusiness, Building2, CalendarDays, ChartColumn,
+  ClipboardCheck, Cog, Construction, Cpu, Euro, Factory, FileCheck2, FlaskConical,
+  GraduationCap, HardHat, Headphones, HeartHandshake, HeartPulse, Leaf, Lightbulb,
+  MapPin, Monitor, Network, Package, Recycle, ShieldCheck, ShoppingCart, Tag,
+  Toolbox, Truck, Users, Warehouse, Wrench, type LucideIcon,
+} from 'lucide-react';
+import type { TeamIcon } from './team-organization';
 export const categoryVisuals: Record<string, {Icon:LucideIcon; tone:string}> = {
   'Sécurité': {Icon:ShieldCheck,tone:'safety'},
   'Environnement': {Icon:Leaf,tone:'environment'},
@@ -9,6 +16,41 @@ export const categoryVisuals: Record<string, {Icon:LucideIcon; tone:string}> = {
   'R&D': {Icon:Lightbulb,tone:'research'},
   'Autre': {Icon:Tag,tone:'other'},
 };
+
+export const teamIcons = {
+  briefcase: BriefcaseBusiness,
+  shield: ShieldCheck,
+  calendar: CalendarDays,
+  lightbulb: Lightbulb,
+  users: Users,
+  factory: Factory,
+  flask: FlaskConical,
+  truck: Truck,
+  'hard-hat': HardHat,
+  cart: ShoppingCart,
+  'heart-handshake': HeartHandshake,
+  network: Network,
+  wrench: Wrench,
+  monitor: Monitor,
+  leaf: Leaf,
+  recycle: Recycle,
+  package: Package,
+  warehouse: Warehouse,
+  cog: Cog,
+  toolbox: Toolbox,
+  construction: Construction,
+  building: Building2,
+  clipboard: ClipboardCheck,
+  badge: BadgeCheck,
+  book: BookOpen,
+  chart: ChartColumn,
+  'heart-pulse': HeartPulse,
+  graduation: GraduationCap,
+  headphones: Headphones,
+  euro: Euro,
+  chip: Cpu,
+  pin: MapPin,
+} satisfies Record<TeamIcon, LucideIcon>;
 
 const teamVisuals: Record<string, {Icon:LucideIcon; family:string}> = {
   direction:{Icon:BriefcaseBusiness,family:'management'},
@@ -26,4 +68,7 @@ const teamVisuals: Record<string, {Icon:LucideIcon; family:string}> = {
   maintenance:{Icon:Wrench,family:'support'},
   informatique:{Icon:Monitor,family:'support'},
 };
-export function teamVisual(id:string){return teamVisuals[id]??{Icon:Users,family:'support'}}
+export function teamVisual(id: string, icon?: TeamIcon | '') {
+  const visual = teamVisuals[id] ?? { Icon: Users, family: 'support' };
+  return icon && Object.hasOwn(teamIcons, icon) ? { ...visual, Icon: teamIcons[icon] } : visual;
+}

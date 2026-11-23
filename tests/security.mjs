@@ -15,7 +15,9 @@ db.exec(fs.readFileSync(fs.readdirSync('drizzle').filter(x=>x.startsWith('0003_'
 db.exec(`CREATE TABLE teams(id TEXT PRIMARY KEY,name TEXT,rank INTEGER,parent_id TEXT,revision INTEGER NOT NULL DEFAULT 1);CREATE TABLE team_access(team_id TEXT PRIMARY KEY,restricted INTEGER);CREATE TABLE team_members(team_id TEXT,user_id TEXT,level TEXT,PRIMARY KEY(team_id,user_id));INSERT INTO teams(id,name,rank,parent_id) VALUES('direction','Direction',1,NULL),('qsse','QSSE',2,'direction'),('rh','RH',2,'direction'),('production','Production',2,'direction'),('research-pp','R&D PP',2,'direction');INSERT INTO team_access VALUES('production',0);CREATE TABLE records(id TEXT PRIMARY KEY,title TEXT,kind TEXT,source_id TEXT,details TEXT,created TEXT);CREATE TABLE record_history(id TEXT,record_id TEXT,revision INTEGER,snapshot TEXT,saved_at TEXT);CREATE TABLE team_dashboards(id TEXT,team_id TEXT,unit_code TEXT,data TEXT,revision INTEGER,updated_at TEXT,updated_by TEXT);INSERT INTO team_dashboards VALUES('production-board','production','*','{"widgets":[]}',2,'','');`);
 db.exec(fs.readFileSync('drizzle/0018_chemical_inhumans.sql','utf8'));
 db.exec(fs.readFileSync('drizzle/0047_team_navigation.sql','utf8'));
+db.exec(fs.readFileSync('drizzle/0048_team_icons.sql','utf8'));
 assert.equal(db.prepare('SELECT navigation_group FROM teams WHERE id=?').get('research-pp').navigation_group,'other');
+assert.equal(db.prepare('SELECT icon FROM teams WHERE id=?').get('research-pp').icon,'');
 db.exec(fs.readFileSync('drizzle/0023_email_auth.sql','utf8'));db.exec(fs.readFileSync('drizzle/0034_idle_session_timeout.sql','utf8'));db.exec(fs.readFileSync('drizzle/0025_epi_managers.sql','utf8'));db.exec("CREATE TABLE member_function_roles(user_id TEXT,role TEXT,granted_by TEXT,granted_at TEXT,PRIMARY KEY(user_id,role));");
 db.exec("CREATE TABLE user_profiles(user_id TEXT PRIMARY KEY,locale TEXT DEFAULT 'fr',photo_key TEXT DEFAULT '',photo_mime TEXT DEFAULT '',photo_updated_at TEXT DEFAULT '')");
 assert.equal(db.prepare("SELECT restricted FROM team_access WHERE team_id='qsse'").get().restricted,1);
@@ -151,9 +153,11 @@ assert.equal((await post(boards,organizationEdit,{cookie:adminCookie})).status,4
 assert.equal((await post(boards,{...organizationEdit,revision:2,parentId:'production'},{cookie:adminCookie})).status,400);
 assert.equal((await post(boards,{...organizationEdit,revision:2,group:'invented'},{cookie:adminCookie})).status,400);
 assert.equal((await post(boards,{...organizationEdit,revision:2,afterId:'qsse'},{cookie:adminCookie})).status,409);
+assert.equal((await post(boards,{...organizationEdit,revision:2,icon:'flask'},{cookie:leadCookie})).status,403);
 
 const saveOrganization=fields=>post(boards,{...organizationEdit,revision:2,...fields},{cookie:adminCookie});
-const simultaneous=await Promise.all([saveOrganization({}),saveOrganization({})]);
+for(const icon of [null,'unknown','__proto__',42]) assert.equal((await saveOrganization({icon})).status,400);
+const simultaneous=await Promise.all([saveOrganization({icon:'flask'}),saveOrganization({icon:'flask'})]);
 assert.deepEqual(simultaneous.map(item=>item.status).sort(),[200,409]);
 assert.equal(teamById('production').name,'Fabrication site 1');
 assert.equal(teamById('production').navigation_group,'support');
@@ -162,12 +166,14 @@ assert.equal(teamById('rh').navigation_order,1);
 assert.equal(db.prepare('SELECT team_id FROM team_dashboards WHERE id=?').get(embedId).team_id,'production');
 assert.equal(db.prepare("SELECT level FROM team_members WHERE team_id='production' AND user_id='lead'").get().level,'team_admin');
 assert.equal(db.prepare("SELECT count(*) AS n FROM security_events WHERE action='team_updated'").get().n,1);
+assert.equal(teamById('production').icon,'flask');
 
-const newDirection=await post(boards,{action:'team',name:'Direction opérations',rank:1,group:'management',afterId:''},{cookie:adminCookie});
+const newDirection=await post(boards,{action:'team',name:'Direction opérations',rank:1,group:'management',afterId:'',icon:'building'},{cookie:adminCookie});
 assert.equal(newDirection.status,200);
 const directionId=(await newDirection.json()).id;
 assert.equal(teamById(directionId).parent_id,null);
 assert.equal(teamById(directionId).navigation_order,1);
+assert.equal(teamById(directionId).icon,'building');
 assert.equal(teamById('direction').navigation_order,2,'Placing a direction first shifts the next row');
 const moveService=await saveOrganization({revision:teamById('production').revision,parentId:directionId,group:'operations',afterId:''});
 assert.equal(moveService.status,200);
@@ -182,7 +188,11 @@ assert.equal((await boards.GET(new Request('https://example.test/api?id=rh-board
 const teamCatalog=await (await boards.GET(req({cookie:adminCookie}))).json();
 assert.equal(teamCatalog.teams.find(team=>team.id==='rh').navigation_group,'management');
 assert.equal(teamCatalog.teams.find(team=>team.id==='production').name,'Fabrication site 1');
-console.log('Team organization: existing placement, revision conflicts, hierarchy, access scope and stable references passed.');
+assert.equal(teamCatalog.teams.find(team=>team.id==='production').icon,'flask','Omitting the icon preserves the chosen pictogram');
+const service=teamById('production');
+assert.equal((await saveOrganization({revision:service.revision,parentId:service.parent_id,group:service.navigation_group,afterId:'',icon:''})).status,200);
+assert.equal(teamById('production').icon,'','Restoring the default clears the override');
+console.log('Team organization: placement, hierarchy, access, concurrency, stable references and pictograms passed.');
 assert.equal((await accessibleTeams({id:'member',role:'editor'},true)).has('production'),false,'Explicit user role overrides open-team write inheritance');
 assert.equal((await accessibleTeams({id:'member',role:'editor'},true,'contribute')).has('production'),true);
 assert.equal((await accessibleTeams({id:'member',role:'editor'},true,'manage')).has('production'),false);

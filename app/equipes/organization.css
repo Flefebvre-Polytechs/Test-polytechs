@@ -49,7 +49,7 @@
 }
 
 .team-directory :is(.team-directory-search, .team-directory-select select),
-.team-editor-fields :is(input, select) {
+.team-editor-fields :is(input:not([type=radio]), select) {
   min-height: 44px;
   border: 1px solid #cfdeea;
   border-radius: 9px;
@@ -135,11 +135,62 @@
   padding: 19px 21px;
 }
 
-.team-editor-fields label { display: grid; gap: 6px; min-width: 0; font-size: .875rem; font-weight: 600; }
-.team-editor-fields :is(input, select) { width: 100%; min-width: 0; padding: 9px 10px; color: #17334a; font-size: 1rem; font-weight: 400; }
-.team-editor-fields :is(input, select):focus-visible { outline: 2px solid #237db5; outline-offset: 2px; }
+.team-editor-fields label:not(.team-icon-option) { display: grid; gap: 6px; min-width: 0; font-size: .875rem; font-weight: 600; }
+.team-editor-fields :is(input:not([type=radio]), select) { width: 100%; min-width: 0; padding: 9px 10px; color: #17334a; font-size: 1rem; font-weight: 400; }
+.team-editor-fields :is(input:not([type=radio]), select):focus-visible { outline: 2px solid #237db5; outline-offset: 2px; }
 .team-editor-wide { grid-column: 1 / -1; }
 .team-editor-hint { margin-top: -7px; color: #50677c; font-size: .875rem; }
+.team-icon-preview {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid #cfdeea;
+  border-radius: 9px;
+  background: white;
+  color: #17334a;
+  text-align: left;
+}
+.team-icon-preview:hover { background: #f5f9fd; }
+.team-icon-preview-label { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.team-icon-preview-label strong { font-size: .875rem; font-weight: 600; }
+.team-icon-preview-label small { color: #50677c; font-size: .8125rem; }
+.team-icon-chevron { color: #50677c; flex: none; }
+.team-icon-preview[aria-expanded=true] .team-icon-chevron { transform: rotate(180deg); }
+.team-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid #dce7ef;
+  border-radius: 10px;
+  background: #f5f9fd;
+}
+.team-icon-default { grid-column: span 2; }
+.team-icon-option { position: relative; min-width: 0; }
+.team-icon-option > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 44px;
+  border: 1px solid #dce7ef;
+  border-radius: 8px;
+  background: white;
+  color: var(--team-group-color);
+  font-size: .75rem;
+  cursor: pointer;
+}
+.team-icon-option svg { flex: none; }
+.team-icon-option:hover > span { background: color-mix(in srgb, var(--team-group-color) 7%, white); }
+.team-icon-option input:checked + span {
+  border-color: var(--team-group-color);
+  background: color-mix(in srgb, var(--team-group-color) 13%, white);
+  box-shadow: inset 0 0 0 1px var(--team-group-color);
+}
+.team-icon-preview:focus-visible, .team-icon-option input:focus-visible + span { outline: 2px solid #237db5; outline-offset: 2px; }
 .team-editor-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 14px 21px; border-top: 1px solid #e4edf5; }
 .team-editor-footer button { min-height: 44px; }
 

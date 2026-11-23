@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { Network, Pencil, Plus, Search, X } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { ChevronDown, Network, Pencil, Plus, Search, X } from 'lucide-react';
 import { AccountGate } from '@/components/account-gate';
 import { HubFrame, hubRequest } from '@/components/hub-layout';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useConfirmation } from '@/components/use-confirmation';
-import { teamGroups, teamsInGroup, type Team, type TeamGroup } from '@/lib/team-organization';
-import { teamVisual } from '@/lib/ticket-visuals';
+import { teamGroups, teamIconChoices, teamsInGroup, type Team, type TeamGroup, type TeamIcon } from '@/lib/team-organization';
+import { teamIcons, teamVisual } from '@/lib/ticket-visuals';
 import './organization.css';
 
 type TeamDraft = {
@@ -16,6 +16,7 @@ type TeamDraft = {
   parentId: string;
   group: TeamGroup;
   afterId: string;
+  icon: TeamIcon | '';
 };
 
 function initialDraft(team: Team | null, teams: Team[]): TeamDraft {
@@ -30,7 +31,52 @@ function initialDraft(team: Team | null, teams: Team[]): TeamDraft {
     parentId: team ? team.parent_id ?? '' : parent?.id ?? '',
     group,
     afterId: groupTeams[position - 1]?.id ?? '',
+    icon: team?.icon ?? '',
   };
+}
+
+function TeamIconPicker({ teamId, group, value, onChange }: {
+  teamId: string;
+  group: TeamGroup;
+  value: TeamDraft['icon'];
+  onChange: (icon: TeamDraft['icon']) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const DefaultIcon = teamVisual(teamId).Icon;
+  const PreviewIcon = teamVisual(teamId, value).Icon;
+  const selectedName = teamIconChoices.find(choice => choice.id === value)?.name ?? 'Par défaut';
+  const accent = teamGroups.find(section => section.id === group)?.accent;
+  return (
+    <div className="team-editor-wide" style={{ '--team-group-color': accent } as CSSProperties}>
+      <button type="button" className="team-icon-preview" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+        <span className="team-directory-icon"><PreviewIcon size={19} aria-hidden="true" /></span>
+        <span className="team-icon-preview-label">
+          <strong>Pictogramme</strong>
+          <small>{selectedName}</small>
+        </span>
+        <ChevronDown size={17} className="team-icon-chevron" aria-hidden="true" />
+      </button>
+      <div id={id} hidden={!open}>
+        <div className="team-icon-grid" role="radiogroup" aria-label="Pictogramme de l’équipe">
+          <label className="team-icon-option team-icon-default">
+            <input className="sr-only" type="radio" name={id} value="" checked={!value} onChange={() => onChange('')} />
+            <span><DefaultIcon size={19} aria-hidden="true" /> Par défaut</span>
+          </label>
+          {teamIconChoices.map(choice => {
+            const Icon = teamIcons[choice.id];
+            return (
+              <label key={choice.id} className="team-icon-option" title={choice.name}>
+                <input className="sr-only" type="radio" name={id} value={choice.id} aria-label={choice.name}
+                  checked={value === choice.id} onChange={() => onChange(choice.id)} />
+                <span><Icon size={19} aria-hidden="true" /></span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TeamEditor({ team, teams, close, onSaved, restoreFocus }: {
@@ -138,6 +184,7 @@ function TeamEditor({ team, teams, close, onSaved, restoreFocus }: {
                   {groupTeams.map(item => <option key={item.id} value={item.id} data-no-translate>{'Après ' + item.name}</option>)}
                 </select>
               </label>
+              <TeamIconPicker teamId={team?.id ?? ''} group={draft.group} value={draft.icon} onChange={icon => patch({ icon })} />
               {error && <p className="error team-editor-wide" role="alert">{error}</p>}
             </fieldset>
             <footer className="team-editor-footer">
@@ -208,7 +255,7 @@ function TeamDirectory({ teams, error, reload }: { teams: Team[] | undefined; er
         <span className="team-directory-mark"><Network size={25} aria-hidden="true" /></span>
         <div>
           <h1>Équipes et services</h1>
-          <p>Gérez les noms, les rattachements et l’ordre d’affichage dans la barre latérale.</p>
+          <p>Gérez les noms, les pictogrammes et l’organisation de la barre latérale.</p>
         </div>
         <button type="button" className="primary" disabled={!teams} onClick={event => openEditor(null, event.currentTarget)}>
           <Plus size={17} aria-hidden="true" /> Ajouter un service
@@ -240,7 +287,7 @@ function TeamDirectory({ teams, error, reload }: { teams: Team[] | undefined; er
               <h2 id={'directory-' + group.id}>{group.name}</h2>
               <ul>
                 {group.teams.map(team => {
-                  const Icon = teamVisual(team.id).Icon;
+                  const Icon = teamVisual(team.id, team.icon).Icon;
                   const parent = byId.get(team.parent_id ?? '');
                   return (
                     <li key={team.id} className="team-directory-row">

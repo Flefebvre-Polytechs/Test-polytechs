@@ -4,7 +4,7 @@ import {checkOrigin,requireRole} from '@/lib/access';
 import {boardError,recordMeasurement,validMeasurement} from '@/lib/unit-dashboard';
 import {accessibleTeams,teamsAllowed} from '@/lib/team-access';
 import {epiCanManage} from '@/lib/epi-access';
-import {teamGroups,teamsInGroup,type Team} from '@/lib/team-organization';
+import {isTeamIcon,teamGroups,teamsInGroup,type Team} from '@/lib/team-organization';
 const fail=(error:string,status=400)=>Response.json({error},{status});
 const response=(data:unknown)=>Response.json(data,{headers:{'Cache-Control':'no-store'}});
 async function saveTeam(db: D1Database, values: Record<string, unknown>, actorId: string) {
@@ -25,6 +25,8 @@ async function saveTeam(db: D1Database, values: Record<string, unknown>, actorId
  const groupId = values.group === undefined ? previous?.navigation_group ?? 'other' : values.group;
  const group = teamGroups.find(section => section.id === groupId);
  if (!group) return fail('Choisissez une rubrique de navigation.');
+ const icon = values.icon === undefined ? previous?.icon ?? '' : values.icon;
+ if (icon !== '' && !isTeamIcon(icon)) return fail('Choisissez un pictogramme de la liste.');
  const currentOrder = teamsInGroup(teams, group.id);
  const siblings = currentOrder.filter(team => team.id !== id);
  let position = siblings.length;
@@ -45,7 +47,7 @@ async function saveTeam(db: D1Database, values: Record<string, unknown>, actorId
   const next = order.indexOf(team.id) + 1;
   return team.navigation_order === next ? [] : [{id: team.id, position: next}];
  });
- const fields = [name, rank, parentKey, group.id, position + 1];
+ const fields = [name, rank, parentKey, group.id, position + 1, icon];
  // The hierarchy and destination order must be validated against the same
  // snapshot as the write, including changes to teams other than the edited row.
  const snapshot = JSON.stringify(teams.map(team => [team.id, team.revision]));
@@ -56,13 +58,13 @@ async function saveTeam(db: D1Database, values: Record<string, unknown>, actorId
    WHERE t.revision IS NOT json_extract(expected.value,'$[1]')
   )`;
  const write = previous
-  ? db.prepare(`UPDATE teams SET name=?,rank=?,parent_id=?,navigation_group=?,navigation_order=?,revision=revision+1
+  ? db.prepare(`UPDATE teams SET name=?,rank=?,parent_id=?,navigation_group=?,navigation_order=?,icon=?,revision=revision+1
       WHERE id=? AND ${unchanged}`).bind(...fields,savedId,snapshot,snapshot)
-  : db.prepare(`INSERT INTO teams (id,name,rank,parent_id,navigation_group,navigation_order)
-      SELECT ?,?,?,?,?,? WHERE ${unchanged}`).bind(savedId,...fields,snapshot,snapshot);
+  : db.prepare(`INSERT INTO teams (id,name,rank,parent_id,navigation_group,navigation_order,icon)
+      SELECT ?,?,?,?,?,?,? WHERE ${unchanged}`).bind(savedId,...fields,snapshot,snapshot);
  const audit = db.prepare('INSERT INTO security_events (id,action,user_id,detail,created_at) SELECT ?,?,?,?,? WHERE changes()=1')
   .bind(crypto.randomUUID(),previous?'team_updated':'team_created',actorId,
-   JSON.stringify({id:savedId,name,rank,parentId:parentKey,group:group.id,position:position+1}),new Date().toISOString());
+   JSON.stringify({id:savedId,name,rank,parentId:parentKey,group:group.id,position:position+1,icon}),new Date().toISOString());
  const [result] = await db.batch([write,audit,db.prepare(`WITH positions AS (
    SELECT json_extract(value,'$.id') AS id,json_extract(value,'$.position') AS position FROM json_each(?)
   )

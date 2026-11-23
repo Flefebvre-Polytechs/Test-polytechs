@@ -51,12 +51,12 @@ export function TeamTree({teams,boards,selected,disabled,onSelect,onTeam}:{teams
     return href.includes('scope=global')?gedAccess.global:gedAccess.services.has('qsse');
   }
   function teamNode(t:Team){
-    const Icon=teamVisual(t.id).Icon;
+    const Icon=teamVisual(t.id,t.icon).Icon;
     const teamBoards=boards.filter(b=>b.team_id===t.id);
     return <div className={'team-node rank-'+t.rank} key={t.id}>
       <details>
         <summary aria-label={'Afficher les tableaux de '+t.name}>
-          <span className="team-pictogram"><Icon size={17} strokeWidth={2}/></span>
+          <span className="team-pictogram"><Icon size={17} strokeWidth={2} aria-hidden="true"/></span>
           <span className="team-name" data-no-translate>{t.name}</span>
           <small>Rang {t.rank}</small>
         </summary>
