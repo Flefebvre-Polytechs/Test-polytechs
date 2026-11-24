@@ -2,6 +2,7 @@ import {mkdir,readFile,readdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync,randomBytes,randomUUID} from 'node:crypto';
+import {emailMfaExemptEmail,emailMfaRequired} from '../lib/security-mail.ts';
 import {installQualitySource} from './render-quality-source.mjs';
 
 const dir=process.env.POLYTECHS_DATA_DIR;
@@ -26,6 +27,17 @@ if(count===0){
   const salt=randomBytes(16),hash=pbkdf2Sync(password,salt,600000,32,'sha256');
   db.prepare('INSERT INTO users(id,username,display_name,role,password_hash,must_change_password,created_at,email) VALUES (?,?,?,?,?,1,?,?)').run(randomUUID(),username,email?'Administrateur':username,'admin',`pbkdf2:600000:${salt.toString('hex')}:${hash.toString('hex')}`,new Date().toISOString(),email||null);
   console.log('Initial administrator created; change the password on first login.');
+}
+const exemptEmail=emailMfaExemptEmail();
+const matches=exemptEmail&&emailMfaRequired()
+  ? db.prepare('SELECT id FROM users WHERE lower(trim(email))=? LIMIT 2').all(exemptEmail)
+  : [];
+const exemptAccount=matches.length===1?matches[0]:undefined;
+// Removing the setting invalidates old exemption sessions, including after a later reactivation.
+db.prepare('DELETE FROM sessions WHERE email_mfa_exempt=1 AND user_id IS NOT ?').run(exemptAccount?.id??null);
+if(process.env.POLYTECHS_EMAIL_MFA_EXEMPT_EMAIL){
+  if(exemptAccount)console.log('Email MFA exemption active for one account.');
+  else console.warn('Email MFA exemption inactive: expected one matching account with email MFA enabled.');
 }
 db.close();
 

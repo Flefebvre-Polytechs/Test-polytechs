@@ -6,7 +6,8 @@ function statement(sql,args=[]){return {bind(...v){return statement(sql,v)},asyn
 globalThis.emailAuthDb={prepare:statement,async batch(ss){beforeBatch?.();beforeBatch=undefined;db.exec('BEGIN IMMEDIATE');try{const out=[];for(const s of ss)out.push(await s.run());db.exec('COMMIT');return out}catch(e){db.exec('ROLLBACK');throw e}}};
 globalThis.emailAfterTasks=[];const originalFetch=globalThis.fetch,messages=[];let mailFails=false;
 globalThis.fetch=async(url,options)=>{if(String(url).startsWith('https://login.microsoftonline.com/'))return Response.json({access_token:'test-only'});assert.ok(String(url).startsWith('https://graph.microsoft.com/'));if(mailFails)return new Response('',{status:503});messages.push(JSON.parse(options.body).message);return new Response(null,{status:202})};
-const envKeys=['POLYTECHS_EMAIL_MFA_REQUIRED','POLYTECHS_MAIL_TENANT_ID','POLYTECHS_MAIL_CLIENT_ID','POLYTECHS_MAIL_CLIENT_SECRET','POLYTECHS_MAIL_FROM','POLYTECHS_PUBLIC_ORIGIN'],saved=Object.fromEntries(envKeys.map(k=>[k,process.env[k]]));
+const envKeys=['POLYTECHS_EMAIL_MFA_REQUIRED','POLYTECHS_EMAIL_MFA_EXEMPT_EMAIL','POLYTECHS_MAIL_TENANT_ID','POLYTECHS_MAIL_CLIENT_ID','POLYTECHS_MAIL_CLIENT_SECRET','POLYTECHS_MAIL_FROM','POLYTECHS_PUBLIC_ORIGIN'],saved=Object.fromEntries(envKeys.map(k=>[k,process.env[k]]));
+delete process.env.POLYTECHS_EMAIL_MFA_EXEMPT_EMAIL;
 Object.assign(process.env,{POLYTECHS_EMAIL_MFA_REQUIRED:'true',POLYTECHS_MAIL_TENANT_ID:'test-tenant',POLYTECHS_MAIL_CLIENT_ID:'test-client',POLYTECHS_MAIL_CLIENT_SECRET:'test-secret-not-real',POLYTECHS_MAIL_FROM:'security@example.test',POLYTECHS_PUBLIC_ORIGIN:'https://example.test'});
 function compile(name,file){let s=fs.readFileSync(file,'utf8');for(const [a,b] of [['@/lib/function-roles','./function-roles.mjs'],['./function-role-labels','./function-role-labels.mjs'],['@/lib/team-access','./team-access.mjs'],['./team-access','./team-access.mjs'],['@/lib/epi-access','./epi-access.mjs'],['./epi-access','./epi-access.mjs'],['@/lib/epi-session','./epi-session.mjs'],['next/server','./after.mjs'],['@/db/raw','./raw.mjs'],['@/lib/access','./access.mjs'],['@/lib/email-auth','./email-auth.mjs'],['@/lib/security-mail','./security-mail.mjs'],['./access','./access.mjs'],['./security-mail','./security-mail.mjs'],['./auth-config','./config.mjs']])s=s.replaceAll("'"+a+"'","'"+b+"'");fs.writeFileSync(path.join(dir,name+'.mjs'),ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)}
 try{
@@ -63,13 +64,55 @@ try{
  const replacement='Another-secure-password-2026!';assert.equal((await post({action:'reset-password',token,newPassword:replacement})).status,200);assert.equal(await access.currentUser(req(cookie)),null);assert.equal((await (await auth.GET(new Request('https://example.test/api/auth?scope=epi-scan',{headers:{cookie:epiDevice}}))).json()).account,null,'Password reset revokes remembered EPI devices');assert.equal(await access.checkPassword(replacement,db.prepare("SELECT password_hash FROM users WHERE id='admin'").get().password_hash),true);assert.equal((await post({action:'reset-password',token,newPassword:replacement})).status,410);
  const once=await emailAuth.startChallenge(await access.userByName('reader'),'reset');const attempts=await Promise.all([post({action:'reset-password',token:once.challenge,newPassword:replacement}),post({action:'reset-password',token:once.challenge,newPassword:replacement})]);assert.deepEqual(attempts.map(r=>r.status).sort(),[200,410]);
  mailFails=true;assert.equal((await login()).status,401);assert.equal((await post({action:'login',email:'admin@example.test',password:replacement})).status,503);assert.equal((await post({action:'login',email:'admin@example.test',password:replacement})).headers.get('set-cookie'),null);mailFails=false;
- const readerCookie=await access.issueSession('reader',true);assert.equal((await post({action:'email',id:'admin',email:'evil@example.test',currentPassword:replacement},readerCookie,'https://example.test',users)).status,403);
- const adminCookie=await access.issueSession('admin',true);assert.equal((await post({action:'email',id:'missing',email:'reader@example.test',currentPassword:replacement},adminCookie,'https://example.test',users)).status,409);assert.equal((await post({action:'email',id:'missing',email:'missing@example.test',currentPassword:'wrong'},adminCookie,'https://example.test',users)).status,401);
+ const readerCookie=await access.issueSession('reader','email-verified');assert.equal((await post({action:'email',id:'admin',email:'evil@example.test',currentPassword:replacement},readerCookie,'https://example.test',users)).status,403);
+ const adminCookie=await access.issueSession('admin','email-verified');assert.equal((await post({action:'email',id:'missing',email:'reader@example.test',currentPassword:replacement},adminCookie,'https://example.test',users)).status,409);assert.equal((await post({action:'email',id:'missing',email:'missing@example.test',currentPassword:'wrong'},adminCookie,'https://example.test',users)).status,401);
  assert.equal((await post({action:'email',id:'missing',email:'missing@example.test',currentPassword:replacement},adminCookie,'https://example.test',users)).status,200);
  const beforePasswordRace=db.prepare("SELECT password_hash FROM users WHERE id='admin'").get().password_hash;
  beforeBatch=()=>db.prepare("UPDATE users SET password_hash=? WHERE id='admin'").run(hash);
  const passwordRace=await post({action:'password',oldPassword:replacement,newPassword:'Concurrent-password-2026!'},adminCookie);assert.equal(passwordRace.status,409);assert.equal(passwordRace.headers.get('set-cookie'),null);assert.equal(db.prepare("SELECT password_hash FROM users WHERE id='admin'").get().password_hash,hash);
  db.prepare("UPDATE users SET password_hash=? WHERE id='admin'").run(beforePasswordRace);
+
+ const exemptEmail='selected.account@example.test';
+ db.prepare('INSERT INTO users(id,username,display_name,role,password_hash,must_change_password,created_at,email) VALUES(?,?,?,?,?,0,?,?)')
+  .run('selected','selected','Selected account','admin',hash,new Date().toISOString(),exemptEmail);
+ const oldSession=await access.issueSession('selected');
+ process.env.POLYTECHS_EMAIL_MFA_EXEMPT_EMAIL=' SELECTED.ACCOUNT@EXAMPLE.TEST ';
+ assert.equal(await access.currentUser(req(oldSession)),null,'The setting never revives a legacy session');
+ assert.equal(await access.touchSession(req(oldSession)),false);
+ const protectedLogin=await post({action:'login',email:'reader@example.test',password:replacement});
+ assert.equal(protectedLogin.headers.get('set-cookie'),null);
+ assert.equal((await protectedLogin.json()).requiresEmailCode,true,'The other account still needs its email code');
+ const mailCount=messages.length;
+ assert.equal((await post({action:'login',email:exemptEmail,password:'wrong'})).status,401);
+ const exemptLogin=await post({action:'login',email:exemptEmail,password});
+ const exemptSession=exemptLogin.headers.get('set-cookie')?.split(';')[0];
+ assert.equal(exemptLogin.status,200);
+ assert.equal((await exemptLogin.json()).account.id,'selected');
+ assert.equal(messages.length,mailCount);
+ assert.equal((await access.currentUser(req(exemptSession))).id,'selected');
+ assert.equal(await access.touchSession(req(exemptSession)),true);
+ const exemptSessionKey=await access.notificationSessionKey(req(exemptSession));
+ const storedExemption=db.prepare('SELECT email_verified,email_mfa_exempt FROM sessions WHERE token_hash=?').get(exemptSessionKey);
+ assert.equal(storedExemption.email_verified,0);
+ assert.equal(storedExemption.email_mfa_exempt,1);
+ assert.equal(db.prepare("SELECT count(*) AS n FROM security_events WHERE action='login_mfa_exempt' AND user_id='selected'").get().n,1);
+ const changedSelected=await post({action:'password',oldPassword:password,newPassword:replacement},exemptSession);
+ assert.equal(changedSelected.status,200);
+ const changedSelectedSession=changedSelected.headers.get('set-cookie').split(';')[0];
+ assert.equal(await access.currentUser(req(exemptSession)),null,'Changing the password revokes the prior session');
+ assert.equal((await access.currentUser(req(changedSelectedSession))).id,'selected');
+ db.prepare("UPDATE users SET email='new.address@example.test' WHERE id='selected'").run();
+ assert.equal(await access.currentUser(req(changedSelectedSession)),null,'The exception cannot follow a changed address');
+ db.prepare("UPDATE users SET email=? WHERE id='selected'").run(exemptEmail);
+ delete process.env.POLYTECHS_EMAIL_MFA_EXEMPT_EMAIL;
+ assert.equal(await access.currentUser(req(changedSelectedSession)),null);
+ assert.equal(await access.touchSession(req(changedSelectedSession)),false);
+ assert.equal(await access.notificationSessionKey(req(changedSelectedSession)),'');
+ const restored=await post({action:'login',email:exemptEmail,password:replacement});
+ assert.equal((await restored.json()).requiresEmailCode,true);
+ assert.equal(restored.headers.get('set-cookie'),null);
+ assert.equal((await access.currentUser(req(adminCookie))).role,'admin');
+
  process.env.POLYTECHS_EMAIL_MFA_REQUIRED='false';assert.equal((await post({action:'login',email:'admin@example.test',password:replacement})).status,200,'Staged rollout retains existing login before activation');
  assert.equal((await post({action:'login',email:' ADMIN@EXAMPLE.TEST ',password:replacement})).status,200,'Email login trims whitespace and ignores case');
  assert.equal((await post({action:'login',username:'admin',password:replacement})).status,401,'A mapped account no longer accepts the old username');

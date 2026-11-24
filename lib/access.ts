@@ -1,6 +1,7 @@
 import {pbkdf2Async} from '@noble/hashes/pbkdf2.js';
 import {sha256} from '@noble/hashes/sha2.js';
 import {trustSiteIdentity} from './auth-config';
+import {emailMfaExemptEmail,emailMfaRequired} from './security-mail';
 import {database} from '@/db/raw';
 
 export type Role='admin'|'editor'|'reader';
@@ -8,9 +9,27 @@ export type Account={id:string;username:string;displayName:string;role:Role;must
 export type DbUser={id:string;username:string;display_name:string;role:Role;password_hash:string;must_change_password:number;email:string|null};
 const encoder=new TextEncoder();
 const COOKIE='qse_session';
-const emailMfaRequired=()=>process.env.POLYTECHS_EMAIL_MFA_REQUIRED==='true';
 const DAYS=7*24*60*60*1000;
 export const SESSION_IDLE_MS=15*60*1000;
+
+function sessionMfaFilter() {
+ if (!emailMfaRequired()) return {sql:'1',args:[]};
+ const exemptEmail=emailMfaExemptEmail();
+ if (!exemptEmail) return {sql:'s.email_verified=1',args:[]};
+ // An exemption session is distinct from an email-verified or legacy session.
+ return {
+  sql:`(s.email_verified=1 OR (
+   s.email_mfa_exempt=1 AND EXISTS (
+    SELECT 1 FROM users WHERE id=s.user_id AND lower(trim(email))=?
+   )
+  ))`,
+  args:[exemptEmail],
+ };
+}
+
+export function emailMfaExempt(email: string | null | undefined) {
+ return emailMfaRequired() && !!email && email.trim().toLowerCase()===emailMfaExemptEmail();
+}
 
 function hex(bytes:Uint8Array){return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('')}
 function unhex(value:string){return Uint8Array.from(value.match(/.{2}/g)??[],x=>parseInt(x,16))}
@@ -32,7 +51,14 @@ export async function throttle(key:string,max=5,window=15*60*1000){const now=Dat
 export async function clearThrottle(key:string){await database().prepare('DELETE FROM security_limits WHERE key=?').bind(key).run()}
 export function account(user:DbUser):Account{return {id:user.id,username:user.username,displayName:user.display_name,role:user.role,mustChangePassword:!!user.must_change_password,email:user.email||null}}
 function cookieValue(req:Request){return req.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1)||''}
-export async function currentUser(req:Request):Promise<Account|null>{const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token)){const row=await database().prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND s.last_activity_at>? AND (?=0 OR s.email_verified=1)').bind(await sha(token),Date.now(),Date.now()-SESSION_IDLE_MS,emailMfaRequired()?1:0).first<DbUser>();if(row)return account(row)}
+export async function currentUser(req:Request):Promise<Account|null>{
+ const token=cookieValue(req);
+ if(/^[a-f0-9]{64}$/.test(token)){
+  const {sql,args}=sessionMfaFilter(), now=Date.now();
+  const row=await database().prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND s.last_activity_at>? AND '+sql)
+   .bind(await sha(token),now,now-SESSION_IDLE_MS,...args).first<DbUser>();
+  if(row)return account(row);
+ }
 const identity=siteIdentity(req);if(identity&&!emailMfaRequired()){const row=await database().prepare('SELECT u.* FROM site_identities s JOIN users u ON u.id=s.user_id WHERE s.identity_id=? AND s.expires_at>?').bind(identity,Date.now()).first<DbUser>();if(row)return account(row)}
 return null}
 export async function requireRole(req:Request,role:Role='reader'){const user=await currentUser(req);if(!user)return {error:Response.json({error:'Connexion nécessaire.'},{status:401})};if(!['reader','editor','admin'].includes(user.role))return {error:Response.json({error:'Rôle invalide.'},{status:403})};if(user.mustChangePassword)return {error:Response.json({error:'Changez votre mot de passe avant de continuer.'},{status:403})};if(({reader:0,editor:1,admin:2})[user.role]<({reader:0,editor:1,admin:2})[role])return {error:Response.json({error:'Accès non autorisé pour votre rôle.'},{status:403})};return {user}}
@@ -42,21 +68,31 @@ export function checkOrigin(req:Request){const origin=req.headers.get('origin');
 export async function touchSession(req:Request){
  const token=cookieValue(req);
  if(!/^[a-f0-9]{64}$/.test(token))return false;
- const now=Date.now();
+ const now=Date.now(),{sql,args}=sessionMfaFilter();
  const result=await database().prepare(
-  'UPDATE sessions SET last_activity_at=? WHERE token_hash=? AND expires_at>? AND last_activity_at>? AND (?=0 OR email_verified=1)'
- ).bind(now,await sha(token),now,now-SESSION_IDLE_MS,emailMfaRequired()?1:0).run();
+  'UPDATE sessions AS s SET last_activity_at=? WHERE token_hash=? AND expires_at>? AND last_activity_at>? AND '+sql
+ ).bind(now,await sha(token),now,now-SESSION_IDLE_MS,...args).run();
  return !!result.meta.changes;
 }
 export async function sessionMaterial(){const token=hex(crypto.getRandomValues(new Uint8Array(32))),now=Date.now();return {hash:await sha(token),expires:now+DAYS,lastActivityAt:now,cookie:`${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${DAYS/1000}`}}
-export async function issueSession(userId:string,emailVerified=false){const material=await sessionMaterial();await database().prepare('INSERT INTO sessions (token_hash,user_id,expires_at,email_verified,last_activity_at) VALUES (?,?,?,?,?)').bind(material.hash,userId,material.expires,emailVerified?1:0,material.lastActivityAt).run();return material.cookie}
+export async function issueSession(userId:string,verification:'password'|'email-verified'|'email-mfa-exempt'='password'){
+ const material=await sessionMaterial();
+ await database().prepare('INSERT INTO sessions (token_hash,user_id,expires_at,email_verified,email_mfa_exempt,last_activity_at) VALUES (?,?,?,?,?,?)')
+  .bind(material.hash,userId,material.expires,Number(verification==='email-verified'),Number(verification==='email-mfa-exempt'),material.lastActivityAt).run();
+ return material.cookie;
+}
 export async function endSession(req:Request){const id=siteIdentity(req);if(id)await database().prepare('DELETE FROM site_identities WHERE identity_id=?').bind(id).run();const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token))await database().prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha(token)).run()}
 export const clearCookie=`${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0`;
 export async function userByName(username:string){return database().prepare('SELECT * FROM users WHERE username=?').bind(username).first<DbUser>()}
 
 // Internal, opaque session key for reminders. Never return the cookie or this key to the browser.
 export async function notificationSessionKey(req:Request){
- const token=cookieValue(req);if(/^[a-f0-9]{64}$/.test(token)){const hash=await sha(token);if(await database().prepare('SELECT 1 FROM sessions WHERE token_hash=? AND expires_at>? AND last_activity_at>?').bind(hash,Date.now(),Date.now()-SESSION_IDLE_MS).first())return hash;}
+ const token=cookieValue(req);
+ if(/^[a-f0-9]{64}$/.test(token)){
+  const hash=await sha(token),{sql,args}=sessionMfaFilter(),now=Date.now();
+  if(await database().prepare('SELECT 1 FROM sessions s WHERE token_hash=? AND expires_at>? AND last_activity_at>? AND '+sql)
+   .bind(hash,now,now-SESSION_IDLE_MS,...args).first())return hash;
+ }
  const identity=siteIdentity(req);if(identity){const row=await database().prepare('SELECT expires_at FROM site_identities WHERE identity_id=? AND expires_at>?').bind(identity,Date.now()).first<{expires_at:number}>();if(row)return sha('site:'+identity+':'+row.expires_at)}
  return '';
 }

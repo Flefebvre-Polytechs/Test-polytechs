@@ -4,7 +4,7 @@ import {after} from 'next/server';
 import {startChallenge,consumeChallenge,digest} from '@/lib/email-auth';
 import {emailMfaRequired,mailConfigured,validEmail} from '@/lib/security-mail';
 import {database} from '@/db/raw';
-import {account,needsRehash,linkSiteIdentity,throttle,clearThrottle,securityEvent,checkOrigin,checkPassword,clearCookie,currentUser,endSession,hashPassword,issueSession,sessionMaterial,touchSession,userByName} from '@/lib/access';
+import {account,needsRehash,linkSiteIdentity,throttle,clearThrottle,securityEvent,checkOrigin,checkPassword,clearCookie,currentUser,emailMfaExempt,endSession,hashPassword,issueSession,sessionMaterial,touchSession,userByName} from '@/lib/access';
 
 const fail=(error:string,status=400)=>Response.json({error},{status,headers:{'Cache-Control':'private, no-store'}});
 export async function GET(req:Request){try{return Response.json({account:await (new URL(req.url).searchParams.get('scope')==='epi-scan'?currentEpiUser(req):currentUser(req))},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error(e);return fail('Service de connexion indisponible.',503)}}
@@ -33,7 +33,8 @@ if(action==='login'){const username=String(body.email||body.username||'').trim()
  await securityEvent('login_epi',user.id);
  return Response.json({account:scoped},{headers:{'Cache-Control':'private, no-store','Set-Cookie':await rememberEpiDevice(req,scoped)}});
 }
-if(emailMfaRequired()){
+const mfaExempt=emailMfaExempt(user.email);
+if(emailMfaRequired()&&!mfaExempt){
  if(!user.email||!validEmail(user.email))return fail('Aucune adresse e-mail n’est associée à votre compte. Contactez un administrateur.',403);
  if(!mailConfigured())return fail('La vérification par e-mail est temporairement indisponible. Contactez un administrateur.',503);
  if(await throttle('mfa-send:'+user.id,3,10*60000))return fail('Trop de codes demandés. Réessayez dans 10 minutes.',429);
@@ -41,16 +42,24 @@ if(emailMfaRequired()){
  const refreshed=await userByName(user.username);if(!refreshed)return fail('Compte indisponible.',401);
  const challenge=await startChallenge(refreshed,'login');await securityEvent('login_code_requested',user.id);return Response.json({requiresEmailCode:true,...challenge},{headers:{'Cache-Control':'private, no-store'}});
 }
-await linkSiteIdentity(req,user.id);await securityEvent('login',user.id);const response=Response.json({account:account(user)});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',await issueSession(user.id));return response}
+if(!mfaExempt)await linkSiteIdentity(req,user.id);
+await securityEvent(mfaExempt?'login_mfa_exempt':'login',user.id);
+return Response.json({account:account(user)},{headers:{
+ 'Cache-Control':'private, no-store',
+ 'Set-Cookie':await issueSession(user.id,mfaExempt?'email-mfa-exempt':'password'),
+}});
+}
 if(action==='logout'){await endSession(req);await endEpiSession(req);const response=Response.json({ok:true});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',clearCookie);response.headers.append('Set-Cookie',clearEpiCookie);return response}
 if(action==='password'){const epiOnly=body.scope==='epi-scan';const user=await (epiOnly?currentEpiAccount(req):currentUser(req));if(!user)return fail('Connexion nécessaire.',401);if(epiOnly&&!await epiCanRead(user))return fail('Accès EPI non autorisé.',403);const oldPassword=String(body.oldPassword||''),newPassword=String(body.newPassword||'');if(newPassword.length<12||newPassword.length>256||(newPassword.toLowerCase()===user.username||newPassword.toLowerCase()===user.email?.toLowerCase()))return fail('Choisissez un mot de passe de 12 caractères minimum, différent de votre adresse e-mail.');const row=await userByName(user.username);if(await throttle('password:'+user.id))return fail('Trop de tentatives. Réessayez dans 15 minutes.',429);if(!row||!await checkPassword(oldPassword,row.password_hash))return fail('Mot de passe actuel incorrect.',401);const db=database(),nextHash=await hashPassword(newPassword),session=await sessionMaterial();
 const updated="EXISTS (SELECT 1 FROM users WHERE id=? AND password_hash=?)";
+const mfaExempt=emailMfaExempt(user.email);
 const result=await db.batch([
  db.prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=? AND password_hash=?').bind(nextHash,user.id,row.password_hash),
  db.prepare(`DELETE FROM sessions WHERE user_id=? AND ${updated}`).bind(user.id,user.id,nextHash),
  db.prepare(`DELETE FROM site_identities WHERE user_id=? AND ${updated}`).bind(user.id,user.id,nextHash),
  db.prepare(`DELETE FROM auth_challenges WHERE user_id=? AND ${updated}`).bind(user.id,user.id,nextHash),
- ...(epiOnly?[]:[db.prepare(`INSERT INTO sessions(token_hash,user_id,expires_at,email_verified,last_activity_at) SELECT ?,?,?,?,? WHERE ${updated}`).bind(session.hash,user.id,session.expires,emailMfaRequired()?1:0,session.lastActivityAt,user.id,nextHash)])
+ ...(epiOnly?[]:[db.prepare(`INSERT INTO sessions(token_hash,user_id,expires_at,email_verified,email_mfa_exempt,last_activity_at) SELECT ?,?,?,?,?,? WHERE ${updated}`)
+  .bind(session.hash,user.id,session.expires,Number(emailMfaRequired()&&!mfaExempt),Number(mfaExempt),session.lastActivityAt,user.id,nextHash)])
 ]);if(!result[0].meta.changes)return fail('Le compte a changé. Reconnectez-vous avant de réessayer.',409);
-await clearThrottle('password:'+user.id);if(!epiOnly)await linkSiteIdentity(req,user.id);await securityEvent('password_changed',user.id);const response=Response.json({account:{...user,mustChangePassword:false}});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',epiOnly?await rememberEpiDevice(req,{...user,mustChangePassword:false}):session.cookie);return response}
+await clearThrottle('password:'+user.id);if(!epiOnly&&!mfaExempt)await linkSiteIdentity(req,user.id);await securityEvent('password_changed',user.id);const response=Response.json({account:{...user,mustChangePassword:false}});response.headers.set('Cache-Control','private, no-store');response.headers.set('Set-Cookie',epiOnly?await rememberEpiDevice(req,{...user,mustChangePassword:false}):session.cookie);return response}
 return fail('Action inconnue.');}catch(e){console.error(e);return fail('Opération impossible. Réessayez.',503)}}

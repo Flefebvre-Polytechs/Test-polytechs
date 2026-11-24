@@ -8,6 +8,10 @@ export function mailConfigured(){
  return provider()==='microsoft'&&['POLYTECHS_MAIL_TENANT_ID','POLYTECHS_MAIL_CLIENT_ID','POLYTECHS_MAIL_CLIENT_SECRET','POLYTECHS_MAIL_FROM'].every(key=>!!process.env[key]);
 }
 export function emailMfaRequired(){return process.env.POLYTECHS_EMAIL_MFA_REQUIRED==='true'}
+export function emailMfaExemptEmail() {
+ const email=(process.env.POLYTECHS_EMAIL_MFA_EXEMPT_EMAIL??'').trim().toLowerCase();
+ return validEmail(email)?email:null;
+}
 export function publicOrigin(){const value=process.env.POLYTECHS_PUBLIC_ORIGIN||process.env.RENDER_EXTERNAL_URL;if(!value)throw Error('Configure POLYTECHS_PUBLIC_ORIGIN.');const url=new URL(value);if(url.protocol!=='https:'||url.username||url.password)throw Error('HTTPS origin required.');return url.origin}
 export async function sendSecurityMail(to:string,subject:string,text:string){
  if(!mailConfigured()||!validEmail(to))throw Error('Security mail unavailable.');

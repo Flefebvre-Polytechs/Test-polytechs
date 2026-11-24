@@ -16,6 +16,7 @@ db.exec(`CREATE TABLE teams(id TEXT PRIMARY KEY,name TEXT,rank INTEGER,parent_id
 db.exec(fs.readFileSync('drizzle/0018_chemical_inhumans.sql','utf8'));
 db.exec(fs.readFileSync('drizzle/0047_team_navigation.sql','utf8'));
 db.exec(fs.readFileSync('drizzle/0048_team_icons.sql','utf8'));
+db.exec(fs.readFileSync('drizzle/0049_email_mfa_exemption.sql','utf8'));
 assert.equal(db.prepare('SELECT navigation_group FROM teams WHERE id=?').get('research-pp').navigation_group,'other');
 assert.equal(db.prepare('SELECT icon FROM teams WHERE id=?').get('research-pp').icon,'');
 db.exec(fs.readFileSync('drizzle/0023_email_auth.sql','utf8'));db.exec(fs.readFileSync('drizzle/0034_idle_session_timeout.sql','utf8'));db.exec(fs.readFileSync('drizzle/0025_epi_managers.sql','utf8'));db.exec("CREATE TABLE member_function_roles(user_id TEXT,role TEXT,granted_by TEXT,granted_at TEXT,PRIMARY KEY(user_id,role));");
