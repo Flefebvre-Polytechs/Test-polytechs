@@ -179,7 +179,7 @@ const commands=draft?<>
 
 return <div className="team-workspace dashboard-workspace">
  <a className="skip-link" href="#workspace-content">Aller au contenu</a>
- <ServiceSidebar {...missions} rhAccess={teams.some(t=>t.id==='rh')}>
+ <ServiceSidebar {...missions}>
   <p className="navlabel">SERVICES ET TABLEAUX</p>
   <TeamTree teams={teams} boards={boards} selected={selected} disabled={!!draft||busy} onSelect={chooseBoard} onTeam={selectTeam}/>
   {account.role==='admin'&&<button className="outline" disabled={!!draft||busy} onClick={()=>location.assign('/equipes?nouvelle=1')}><Plus size={16}/> Ajouter un service</button>}

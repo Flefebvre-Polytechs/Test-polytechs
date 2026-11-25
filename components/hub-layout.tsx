@@ -47,7 +47,7 @@ export function HubFrame({active,children,className='',teamId}:{
  },[version]);
  return <div className={'team-workspace hub-workspace '+className}>
   <a className="skip-link" href="#workspace-content">Aller au contenu</a>
-  <ServiceSidebar budgetManager={!!tree?.budgetManager} epiManager={!!tree?.epiManager} pdpAccess={!!tree?.pdpAccess} rhAccess={!!tree?.teams.some(t=>t.id==='rh')}>
+  <ServiceSidebar budgetManager={!!tree?.budgetManager} epiManager={!!tree?.epiManager} pdpAccess={!!tree?.pdpAccess}>
    <p className="navlabel">SERVICES ET MODULES</p>
    {tree?<TeamTree teams={tree.teams} boards={tree.boards}/>:<div className="service-nav-state">
     <p role={error?'alert':'status'}>{error||'Chargement des services…'}</p><a href="/unites">Ouvrir les services</a>
