@@ -1,1 +1,48 @@
 .ticket-label-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;padding:10px 0;margin:4px 0 10px;border-block:1px solid #e4ebf3}.ticket-label-group{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}.ticket-label-group>label{display:flex;align-items:center;gap:5px;color:#3b6085;font-size:12px;white-space:nowrap}.ticket-label-group.location>label{color:#65509c}.ticket-label-group>[data-slot=combobox-chips]{flex:1;min-width:120px;min-height:32px;max-height:90px;overflow-y:auto;font-size:12px}.ticket-label-empty{color:#96a5b3;font-size:12px}.ticket-label-error{grid-column:1/-1;display:flex;align-items:center;gap:10px;color:#a86739;font-size:12px}.ticket-label-error button{display:flex;align-items:center;gap:5px;background:transparent;border:0;cursor:pointer}.ticket-label-group>small{color:#ad8050;font-size:11px}.ticket-label-fields :is(button,input):focus-visible{outline:2px solid #7db1dc;outline-offset:2px}@media(max-width:600px){.ticket-label-fields{grid-template-columns:1fr}}
+
+.ticket-label-group .ticket-label-add {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cedff0;
+  border-radius: 8px;
+  background: #edf5fc;
+  color: #155d92;
+}
+.ticket-label-group.location .ticket-label-add {
+  border-color: #cce5df;
+  background: #edf7f5;
+  color: #116a61;
+}
+.ticket-label-group .ticket-label-add:hover:not(:disabled) { filter: brightness(.95); }
+
+[data-slot="dialog-content"].ticket-label-dialog {
+  width: min(calc(100% - 24px), 450px);
+  max-height: 92dvh;
+  overflow-y: auto;
+  gap: 20px;
+  border-color: #d6e4f0;
+  border-radius: 14px;
+  background: white;
+  padding: clamp(16px, 4vw, 24px);
+  color: #183853;
+}
+.ticket-label-dialog-heading { display: flex; align-items: center; gap: 11px; }
+.ticket-label-dialog-heading > span {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 10px;
+  background: #e8f2fb;
+  color: #175d8f;
+}
+.ticket-label-dialog-heading[data-kind="location"] > span { background: #e7f5f2; color: #126a62; }
+.ticket-label-dialog-heading [data-slot="dialog-title"] { margin: 0; color: #183853; font-size: 1.18rem; line-height: 1.25; }
+.ticket-label-dialog-heading [data-slot="dialog-description"] { margin: 4px 0 0; color: #526b81; font-size: .88rem; }
+@media (max-width: 600px) {
+  .ticket-label-group .ticket-label-add { width: 40px; height: 40px; }
+}

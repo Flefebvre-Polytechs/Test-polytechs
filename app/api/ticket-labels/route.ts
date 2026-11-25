@@ -1,7 +1,44 @@
 import {database} from '@/db/raw';
 import {requireRole,checkOrigin} from '@/lib/access';
 import {hasFunctionRole} from '@/lib/function-roles';
-import {labelInputError,labelKey} from '@/lib/ticket-labels';
+import {labelInputError,labelKey,type TicketLabel} from '@/lib/hub';
+
 const fail=(error:string,status=400)=>Response.json({error},{status});
-export async function GET(req:Request){try{const gate=await requireRole(req);if(gate.error)return gate.error;const canCreate=await hasFunctionRole(gate.user!,'ticket_label_creator');return Response.json({labels:(await database().prepare('SELECT id,kind,category,name FROM ticket_labels ORDER BY kind,category,name').all()).results,canCreate},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error(e);return fail('Étiquettes indisponibles.',503)}}
-export async function POST(req:Request){try{if(!checkOrigin(req))return fail('Origine non autorisée.',403);const gate=await requireRole(req,'editor');if(gate.error)return gate.error;if(!await hasFunctionRole(gate.user!,'ticket_label_creator'))return fail('Le rôle Créateur d’étiquettes est nécessaire.',403);const body=await req.json() as Record<string,unknown>;const error=labelInputError(body.kind,body.category,body.name);if(error)return fail(error);const kind=String(body.kind),category=String(body.category),name=String(body.name).trim().replace(/\s+/g,' '),key=labelKey(name),db=database();await db.prepare('INSERT OR IGNORE INTO ticket_labels(id,kind,category,name,name_key,created_by,created_at) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),kind,category,name,key,gate.user!.id,new Date().toISOString()).run();const label=await db.prepare('SELECT id,kind,category,name FROM ticket_labels WHERE kind=? AND category=? AND name_key=?').bind(kind,category,key).first();return Response.json({label},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error(e);return fail('Création de l’étiquette impossible.',503)}}
+const privateHeaders={'Cache-Control':'private, no-store'};
+
+export async function GET(req:Request){
+ try{
+  const gate=await requireRole(req);
+  if(gate.error)return gate.error;
+  const canCreate=await hasFunctionRole(gate.user!,'ticket_label_creator');
+  const {results:labels}=await database().prepare('SELECT id,kind,category,name FROM ticket_labels ORDER BY kind,category,name').all();
+  return Response.json({labels,canCreate},{headers:privateHeaders});
+ }catch(e){
+  console.error(e);
+  return fail('Étiquettes indisponibles.',503);
+ }
+}
+
+export async function POST(req:Request){
+ try{
+  if(!checkOrigin(req))return fail('Origine non autorisée.',403);
+  const gate=await requireRole(req,'editor');
+  if(gate.error)return gate.error;
+  if(!await hasFunctionRole(gate.user!,'ticket_label_creator'))return fail('Le rôle Créateur d’étiquettes est nécessaire.',403);
+  const body=await req.json().catch(()=>null) as Record<string,unknown>|null;
+  const error=labelInputError(body?.kind,body?.category,body?.name);
+  if(!body||error)return fail(error);
+  const kind=String(body.kind),category=String(body.category);
+  const name=String(body.name).trim().replace(/\s+/g,' '),key=labelKey(name);
+  const db=database();
+  const saved=await db.prepare('INSERT OR IGNORE INTO ticket_labels(id,kind,category,name,name_key,created_by,created_at) VALUES(?,?,?,?,?,?,?)')
+   .bind(crypto.randomUUID(),kind,category,name,key,gate.user!.id,new Date().toISOString()).run();
+  const label=await db.prepare('SELECT id,kind,category,name FROM ticket_labels WHERE kind=? AND category=? AND name_key=?')
+   .bind(kind,category,key).first<TicketLabel>();
+  if(!label)return fail('Création de l’étiquette impossible.',503);
+  return Response.json({label,created:!!saved.meta.changes},{headers:privateHeaders});
+ }catch(e){
+  console.error(e);
+  return fail('Création de l’étiquette impossible.',503);
+ }
+}

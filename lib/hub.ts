@@ -2,6 +2,13 @@ export const categories=['Sécurité','Environnement','Production','Qualité','R
 export const ticketStatuses=['Ouvert','En cours','À vérifier','Clôturé'];
 export type Task={id:string;title:string;done:boolean;pilot:string;due:string};
 export type TicketLabel={id:string;kind:'topic'|'location';category:string;name:string};
+export const labelKey=(name:string)=>name.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLocaleLowerCase('fr').replace(/\s+/g,' ').trim();
+export function labelInputError(kind:unknown,category:unknown,name:unknown){
+ if((kind!=='topic'&&kind!=='location')||typeof name!=='string'||name.trim().length<2||name.trim().length>60||/[\x00-\x1f]/.test(name)||!labelKey(name))return 'Indiquez une étiquette de 2 à 60 caractères.';
+ if(kind==='topic'&&(typeof category!=='string'||!categories.includes(category)))return 'Choisissez un thème valide pour cette étiquette.';
+ if(kind==='location'&&category!=='')return 'Une étiquette de lieu ne dépend pas d’un thème.';
+ return '';
+}
 export type Ticket={analysis?:TicketAnalysis;topicTags?:string[];locationTags?:string[];gmaoOrderId?:string;archivedAt?:string;archivedBy?:string;qualityActionId?:string;title:string;category:string;description:string;teams:string[];pilot:string;due:string;status:string;actions:Task[];responsibles:string[];source?:{routineId:string;date:string;questionId?:string}};
 export type DashboardTicket=Pick<Ticket,'title'|'category'|'status'|'due'> & {id:string;updated_at:string;archived?:boolean};
 export type DashboardTicketStats={

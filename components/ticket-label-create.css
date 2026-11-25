@@ -1,0 +1,80 @@
+.ticket-label-create {
+  --label-cta: #075c99;
+  display: grid;
+  min-width: 0;
+  gap: 15px;
+  color: #223d56;
+}
+
+.ticket-label-create[data-kind="location"] { --label-cta: #0b716d; }
+
+.ticket-label-create label {
+  display: grid;
+  gap: 6px;
+  font-size: .86rem;
+  font-weight: 650;
+}
+
+.ticket-label-create :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid #c9d9e7;
+  border-radius: 9px;
+  background: #f8fafc;
+  padding: 9px 11px;
+  color: #193753;
+  font: inherit;
+  font-weight: 400;
+}
+
+.ticket-label-create input::placeholder { color: #647a8e; }
+
+.ticket-label-create :is(input, select):focus-visible {
+  outline: 2px solid var(--label-cta);
+  outline-offset: 1px;
+}
+
+.ticket-label-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ticket-label-create-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 43px;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 8px 15px;
+  font-size: .87rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.ticket-label-create-actions .ticket-label-submit { background: var(--label-cta); color: white; }
+.ticket-label-create-actions .ticket-label-submit:hover:not(:disabled) { filter: brightness(.93); }
+.ticket-label-create-actions .ticket-label-submit:disabled { background: #e0ebf3; color: #4b647a; opacity: 1; }
+.ticket-label-create-actions .ticket-label-cancel { border-color: #d4e0ec; background: white; color: #2d4a66; }
+.ticket-label-create-actions .ticket-label-cancel:hover:not(:disabled) { background: #eff5fa; }
+
+.ticket-label-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  border-radius: 9px;
+  padding: 9px 11px;
+  background: #f1f5fa;
+  color: #36536e;
+  font-size: .82rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.ticket-label-feedback svg { flex: none; }
+.ticket-label-feedback[data-error="true"] { background: #fff0ed; color: #922b20; }
