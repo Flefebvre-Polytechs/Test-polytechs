@@ -145,6 +145,7 @@ try{
  assert.equal((await auditTicket()).status,403);
  db.exec("UPDATE team_members SET level='contributor' WHERE user_id='editor'");
  db.exec("CREATE TABLE hub_notifications(id TEXT PRIMARY KEY,user_id TEXT,title TEXT,href TEXT,seen INTEGER,created_at TEXT); CREATE TABLE ticket_labels(id TEXT,kind TEXT,category TEXT,name TEXT); INSERT INTO ticket_labels VALUES('dechets','topic','Environnement','Déchets')");
+ db.exec(fs.readFileSync('drizzle/0050_ticket_label_removal.sql','utf8'));
  const ticketData={...lib.newTicket(),title:'Écart précis',description:'Constat',category:'Environnement',teams:['qsse'],
   pilot:'editor',status:'En cours',due:auditToday,topicTags:['dechets'],analysis:{method:'5p',values:{},paths:[
    {id:'tri',name:'Consigne de tri',values:{p1:'Bac non identifié',cause:'Absence de standard de marquage'}},

@@ -20,6 +20,7 @@ function LabelPicker({kind,options,value,onChange,disabled,onCreate}:{
 }){
  const id=useId(),anchor=useComboboxAnchor(),[query,setQuery]=useState('');
  const selected=options.filter(option=>value.includes(option.id));
+ const available=options.filter(option=>!option.deletedAt);
  const isTopic=kind==='topic';
  const label=isTopic?'Sujets':'Lieux';
  const createLabel=isTopic?'Créer un sujet':'Créer un lieu';
@@ -27,14 +28,16 @@ function LabelPicker({kind,options,value,onChange,disabled,onCreate}:{
  return (
   <div className={'ticket-label-group '+kind}>
    <label htmlFor={id}>{isTopic?<Tags size={14} aria-hidden="true"/>:<MapPin size={14} aria-hidden="true"/>} {label}</label>
-   <Combobox multiple items={options} value={selected} onValueChange={items=>{
+   <Combobox multiple items={available} value={selected} onValueChange={items=>{
     if(items.length<=20)onChange(items.map(option=>option.id));
     setQuery('');
    }} inputValue={query} onInputValueChange={setQuery} itemToStringLabel={option=>option.name}
     isItemEqualToValue={(a,b)=>a.id===b.id} filter={(option,q)=>labelKey(option.name).includes(labelKey(q))} disabled={disabled}>
     <ComboboxChips ref={anchor}>
      <ComboboxValue>{(items:TicketLabel[])=>items.map(option=>(
-      <ComboboxChip key={option.id} showRemove={!disabled}>{option.name}</ComboboxChip>
+      <ComboboxChip key={option.id} showRemove={!disabled}>
+       {option.name}{option.deletedAt&&<span className="ticket-label-retired">Supprimée</span>}
+      </ComboboxChip>
      ))}</ComboboxValue>
      {disabled&&!selected.length?<span className="ticket-label-empty">Aucun</span>:
       <ComboboxChipsInput id={id} aria-label={label} placeholder={selected.length?'Ajouter…':'Sélectionner…'} disabled={disabled}/>}
@@ -57,8 +60,8 @@ function LabelPicker({kind,options,value,onChange,disabled,onCreate}:{
  );
 }
 
-export function TicketLabelFields({ticket,onChange,disabled}:{ticket:Ticket;onChange:(patch:Partial<Ticket>)=>void;disabled:boolean}){
- const {labels,ready,canCreate,loadError,reload,remember,revokeCreation}=useTicketLabelCatalog();
+export function TicketLabelFields({ticketId,ticket,onChange,disabled}:{ticketId:string;ticket:Ticket;onChange:(patch:Partial<Ticket>)=>void;disabled:boolean}){
+ const {labels,ready,canCreate,loadError,reload,remember,revokeCreation}=useTicketLabelCatalog(ticketId);
  const [draft,setDraft]=useState<TicketLabel['kind']|null>(null);
  const [creating,setCreating]=useState(false);
  const [message,setMessage]=useState('');

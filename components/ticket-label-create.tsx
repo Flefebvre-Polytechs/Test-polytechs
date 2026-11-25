@@ -7,7 +7,7 @@ import './ticket-label-create.css';
 
 type Catalog={labels:TicketLabel[];canCreate:boolean};
 
-export function useTicketLabelCatalog(){
+export function useTicketLabelCatalog(ticketId=''){
  const [catalog,setCatalog]=useState<Catalog|null>(null);
  const [loadError,setLoadError]=useState('');
  const [attempt,setAttempt]=useState(0);
@@ -16,7 +16,8 @@ export function useTicketLabelCatalog(){
   const controller=new AbortController();
   async function load(){
    try{
-    const response=await fetch('/api/ticket-labels',{cache:'no-store',signal:controller.signal});
+    const suffix=ticketId?'?ticketId='+encodeURIComponent(ticketId):'';
+    const response=await fetch('/api/ticket-labels'+suffix,{cache:'no-store',signal:controller.signal});
     const data=await response.json().catch(()=>null) as (Catalog&{error?:string})|null;
     if(!response.ok||!Array.isArray(data?.labels))throw Error(data?.error||'Catalogue indisponible.');
     if(!controller.signal.aborted)setCatalog({labels:data.labels,canCreate:data.canCreate===true});
@@ -26,19 +27,22 @@ export function useTicketLabelCatalog(){
   }
   void load();
   return ()=>controller.abort();
- },[attempt]);
+ },[attempt,ticketId]);
 
  function reload(){
   setLoadError('');
   setAttempt(value=>value+1);
  }
  function remember(label:TicketLabel){
-  setCatalog(current=>current&&!current.labels.some(row=>row.id===label.id)?{...current,labels:[...current.labels,label]}:current);
+  setCatalog(current=>current?{...current,labels:[...current.labels.filter(row=>row.id!==label.id),label]}:current);
+ }
+ function forget(id:string){
+  setCatalog(current=>current?{...current,labels:current.labels.filter(row=>row.id!==id)}:current);
  }
  function revokeCreation(){
   setCatalog(current=>current?{...current,canCreate:false}:current);
  }
- return {labels:catalog?.labels??[],ready:catalog!==null,canCreate:catalog?.canCreate===true,loadError,reload,remember,revokeCreation};
+ return {labels:catalog?.labels??[],ready:catalog!==null,canCreate:catalog?.canCreate===true,loadError,reload,remember,forget,revokeCreation};
 }
 
 export function TicketLabelCreateForm({
@@ -60,7 +64,7 @@ export function TicketLabelCreateForm({
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const key=labelKey(name);
- const existing=key?labels.find(label=>label.kind===kind&&label.category===category&&labelKey(label.name)===key):undefined;
+ const existing=key?labels.find(label=>!label.deletedAt&&label.kind===kind&&label.category===category&&labelKey(label.name)===key):undefined;
  const canAttach=!!existing&&!!attached&&!attached.includes(existing.id);
  const validation=labelInputError(kind,category,name);
  const hint=existing

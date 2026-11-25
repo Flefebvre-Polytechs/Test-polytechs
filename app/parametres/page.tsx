@@ -1,10 +1,11 @@
 'use client';
 
-import {useState} from 'react';
-import {ArrowUpRight,Check,CheckCircle2,LockKeyhole,MapPin,RefreshCw,Search,Tag,Tags,UsersRound} from 'lucide-react';
+import {useRef,useState,type FormEvent} from 'react';
+import {ArrowUpRight,Check,CheckCircle2,LockKeyhole,MapPin,RefreshCw,Search,Tag,Tags,Trash2,UsersRound} from 'lucide-react';
 import {AccountGate} from '@/components/account-gate';
 import {HubFrame} from '@/components/hub-layout';
 import {TicketLabelCreateForm,useTicketLabelCatalog} from '@/components/ticket-label-create';
+import {Dialog,DialogContent,DialogDescription,DialogTitle} from '@/components/ui/dialog';
 import {categories,labelKey,type TicketLabel} from '@/lib/hub';
 import {categoryVisuals} from '@/lib/ticket-visuals';
 import './style.css';
@@ -15,13 +16,20 @@ const labelTypes=[
 ] as const;
 
 function LabelSettings({admin}:{admin:boolean}){
- const {labels,ready,canCreate,loadError,reload,remember,revokeCreation}=useTicketLabelCatalog();
+ const {labels,ready,canCreate,loadError,reload,remember,forget,revokeCreation}=useTicketLabelCatalog();
  const [kind,setKind]=useState<TicketLabel['kind']>('topic');
  const [category,setCategory]=useState('');
  const [filter,setFilter]=useState('');
  const [query,setQuery]=useState('');
  const [creating,setCreating]=useState(false);
  const [lastSaved,setLastSaved]=useState<{label:TicketLabel;created:boolean}|null>(null);
+ const [deleteTarget,setDeleteTarget]=useState<TicketLabel|null>(null);
+ const [deleteText,setDeleteText]=useState('');
+ const [deleting,setDeleting]=useState(false);
+ const [deleteError,setDeleteError]=useState('');
+ const [removed,setRemoved]=useState('');
+ const deleteTrigger=useRef<HTMLButtonElement>(null);
+ const catalogSearch=useRef<HTMLInputElement>(null);
  const isTopic=kind==='topic';
  const term=labelKey(query);
  const topicCount=labels.filter(label=>label.kind==='topic').length;
@@ -37,6 +45,7 @@ function LabelSettings({admin}:{admin:boolean}){
   setKind(nextKind);
   setQuery('');
   setLastSaved(null);
+  setRemoved('');
  }
  function changeFilter(theme:string){
   setFilter(theme);
@@ -47,6 +56,39 @@ function LabelSettings({admin}:{admin:boolean}){
   setQuery('');
   if(label.kind==='topic'&&filter&&filter!==label.category)setFilter(label.category);
   setLastSaved({label,created});
+  setRemoved('');
+ }
+ function confirmDeletion(label:TicketLabel,trigger:HTMLButtonElement){
+  deleteTrigger.current=trigger;
+  setDeleteTarget(label);
+  setDeleteText('');
+  setDeleteError('');
+ }
+ async function deleteLabel(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();
+  if(!deleteTarget||deleting||!canCreate||deleteText!=='SUPPRIMER')return;
+  setDeleting(true);
+  setDeleteError('');
+  try{
+   const response=await fetch('/api/ticket-labels',{
+    method:'DELETE',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:deleteTarget.id,confirmation:deleteText}),
+   });
+   if(!response.ok){
+    const data=await response.json().catch(()=>null) as {error?:string}|null;
+    if(response.status===403)revokeCreation();
+    throw Error(data?.error||'Suppression de l’étiquette impossible.');
+   }
+   forget(deleteTarget.id);
+   if(lastSaved?.label.id===deleteTarget.id)setLastSaved(null);
+   setRemoved(deleteTarget.name);
+   setDeleteTarget(null);
+  }catch(e){
+   setDeleteError((e as Error).message||'Suppression de l’étiquette impossible.');
+  }finally{
+   setDeleting(false);
+  }
  }
 
  return (
@@ -91,7 +133,7 @@ function LabelSettings({admin}:{admin:boolean}){
          onCategoryChange={setCategory} onComplete={showSaved} onForbidden={revokeCreation} onBusyChange={setCreating}/>
        ):(
         <p className="label-create-access"><LockKeyhole size={17} aria-hidden="true"/>
-         <span>Le rôle <strong>Créateur d’étiquettes</strong> est requis pour créer un sujet ou un lieu.</span>
+         <span>Le rôle <strong>Créateur d’étiquettes</strong> est requis pour créer ou supprimer une étiquette.</span>
         </p>
        )}
        {lastSaved&&(
@@ -107,7 +149,7 @@ function LabelSettings({admin}:{admin:boolean}){
        <div className="label-library-filters">
         <label className="label-library-search">
          <Search size={17} aria-hidden="true"/><span className="sr-only">Rechercher une étiquette</span>
-         <input type="search" placeholder="Rechercher une étiquette…" value={query} onChange={event=>setQuery(event.target.value)}/>
+         <input ref={catalogSearch} type="search" placeholder="Rechercher une étiquette…" value={query} onChange={event=>setQuery(event.target.value)}/>
         </label>
         {isTopic&&(
          <select aria-label="Filtrer par thème" value={filter} onChange={event=>changeFilter(event.target.value)} disabled={creating}>
@@ -116,6 +158,10 @@ function LabelSettings({admin}:{admin:boolean}){
          </select>
         )}
        </div>
+       {removed&&<p className="label-creation-result label-removal-result" role="status">
+        <CheckCircle2 size={17} aria-hidden="true"/>
+        <span><strong data-no-translate>« {removed} »</strong> a été supprimée du catalogue.</span>
+       </p>}
        {(term||isTopic&&filter)&&<p className="label-library-results" role="status">{resultCount} résultat{resultCount!==1?'s':''}</p>}
        {groups.length?(
         <div className="label-library-groups">
@@ -129,6 +175,13 @@ function LabelSettings({admin}:{admin:boolean}){
               <li key={label.id} data-saved={lastSaved?.label.id===label.id}>
                {lastSaved?.label.id===label.id&&<Check size={14} aria-hidden="true"/>}
                <span data-no-translate>{label.name}</span>
+               {canCreate&&(
+                <button type="button" className="label-remove-button" title="Supprimer l’étiquette"
+                 aria-label={'Supprimer l’étiquette '+label.name} disabled={creating||deleting}
+                 onClick={event=>confirmDeletion(label,event.currentTarget)}>
+                 <Trash2 size={13} aria-hidden="true"/>
+                </button>
+               )}
               </li>
              ))}
             </ul>
@@ -147,6 +200,34 @@ function LabelSettings({admin}:{admin:boolean}){
      </div>
     </>
    )}
+   <Dialog open={!!deleteTarget} onOpenChange={open=>{if(!open&&!deleting)setDeleteTarget(null)}}>
+    <DialogContent className="label-delete-dialog" showCloseButton={false}
+     onCloseAutoFocus={event=>{
+      event.preventDefault();
+      const button=deleteTrigger.current;
+      if(button?.isConnected)button.focus();
+      else catalogSearch.current?.focus();
+     }}>
+     <DialogTitle>Supprimer l’étiquette</DialogTitle>
+     <DialogDescription>
+      <strong data-no-translate>« {deleteTarget?.name} »</strong>{deleteTarget?.category?' · '+deleteTarget.category:''} sera retirée du catalogue.
+      Les tickets qui la portent déjà conserveront cette étiquette.
+     </DialogDescription>
+     <form className="label-delete-form" onSubmit={deleteLabel}>
+      <label>Saisissez <strong>SUPPRIMER</strong> pour confirmer
+       <input value={deleteText} onChange={event=>setDeleteText(event.target.value)}
+        autoComplete="off" spellCheck={false} disabled={deleting}/>
+      </label>
+      {deleteError&&<p className="ticket-label-feedback" data-error="true" role="alert">{deleteError}</p>}
+      <div className="ticket-label-create-actions">
+       <button type="button" className="ticket-label-cancel" disabled={deleting} onClick={()=>setDeleteTarget(null)}>Annuler</button>
+       <button type="submit" className="label-delete-submit" disabled={deleting||deleteText!=='SUPPRIMER'||!canCreate}>
+        <Trash2 size={16} aria-hidden="true"/>{deleting?'Suppression…':'Supprimer l’étiquette'}
+       </button>
+      </div>
+     </form>
+    </DialogContent>
+   </Dialog>
   </section>
  );
 }

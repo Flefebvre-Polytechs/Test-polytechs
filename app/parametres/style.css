@@ -285,3 +285,47 @@
   .label-manage-access { grid-column: 2; justify-self: start; }
   .label-type-picker button { flex: 1; }
 }
+
+.label-library-group li:has(.label-remove-button) { padding: 2px 3px 2px 9px; }
+.label-remove-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #526b81;
+}
+.label-remove-button:hover:not(:disabled) { background: #fbe6e2; color: #9a3029; }
+.label-removal-result { margin: 0 0 13px; }
+.label-removal-result svg { flex: none; }
+
+[data-slot="dialog-content"].label-delete-dialog {
+  max-height: 90dvh;
+  overflow-y: auto;
+  border-radius: 14px;
+  border-color: #d6e4ef;
+  background: white;
+  color: #17344f;
+}
+.label-delete-dialog [data-slot="dialog-description"] { color: #506a81; overflow-wrap: anywhere; }
+.label-delete-form { display: grid; gap: 15px; }
+.label-delete-form label { display: block; color: #254660; font-size: .88rem; }
+.label-delete-form input {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 7px;
+  border: 1px solid #cad9e6;
+  border-radius: 9px;
+  background: #f8fafc;
+  padding: 9px 11px;
+}
+.label-delete-form input:focus-visible { outline: 2px solid #1769a3; outline-offset: 1px; }
+.label-delete-submit { background: #a13230; color: white; }
+.label-delete-submit:hover:not(:disabled) { background: #8a2826; }
+
+@media (pointer: coarse) {
+  .label-remove-button { width: 35px; height: 35px; }
+}

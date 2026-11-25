@@ -1,7 +1,7 @@
 export const categories=['Sécurité','Environnement','Production','Qualité','Ressources humaines','Maintenance','R&D','Autre'];
 export const ticketStatuses=['Ouvert','En cours','À vérifier','Clôturé'];
 export type Task={id:string;title:string;done:boolean;pilot:string;due:string};
-export type TicketLabel={id:string;kind:'topic'|'location';category:string;name:string};
+export type TicketLabel={id:string;kind:'topic'|'location';category:string;name:string;deletedAt?:string|null};
 export const labelKey=(name:string)=>name.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLocaleLowerCase('fr').replace(/\s+/g,' ').trim();
 export function labelInputError(kind:unknown,category:unknown,name:unknown){
  if((kind!=='topic'&&kind!=='location')||typeof name!=='string'||name.trim().length<2||name.trim().length>60||/[\x00-\x1f]/.test(name)||!labelKey(name))return 'Indiquez une étiquette de 2 à 60 caractères.';

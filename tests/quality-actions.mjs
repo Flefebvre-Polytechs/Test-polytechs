@@ -54,13 +54,18 @@ console.log('Import privé : 628 actions, identifiants et répartitions vérifi�
 
 // Ticket tags must survive the real ticket save path and reject cross-theme IDs.
 db.exec(fs.readFileSync('drizzle/0029_ticket_labels.sql','utf8'));
+db.exec(fs.readFileSync('drizzle/0050_ticket_label_removal.sql','utf8'));
 globalThis.qaUser={id:'admin',displayName:'QSSE',role:'admin'};globalThis.qaAllowed=true;
 const {newTicket,eightDProgress}=await import(path.join(dir,'hub.mjs'));
 const tagged={...newTicket(),title:'Fuite atelier',category:'Environnement',teams:['qsse'],topicTags:['env-water','env-spill'],locationTags:['place-maris-51']};
 let labelSave=await post(hub,{action:'ticket',data:tagged});assert.equal(labelSave.status,200);
 const taggedId=(await labelSave.json()).id;let stored=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(taggedId).data);assert.deepEqual(stored.topicTags,tagged.topicTags);assert.deepEqual(stored.locationTags,tagged.locationTags);
 assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:1,data:{...stored,category:'Sécurité'}})).status,400);
-assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:1,data:{...stored,topicTags:[],locationTags:[]}})).status,200);
+db.prepare('UPDATE ticket_labels SET deleted_at=? WHERE id=?').run('2026-11-25T10:00:00Z','env-water');
+assert.equal((await post(hub,{action:'ticket',data:tagged})).status,400);
+assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:1,data:{...stored,description:'Constat complété'}})).status,200);
+assert.deepEqual(JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(taggedId).data).topicTags,tagged.topicTags);
+assert.equal((await post(hub,{action:'ticket',id:taggedId,revision:2,data:{...stored,topicTags:[],locationTags:[]}})).status,200);
 stored=JSON.parse(db.prepare('SELECT data FROM hub_tickets WHERE id=?').get(taggedId).data);assert.deepEqual(stored.topicTags,[]);assert.deepEqual(stored.locationTags,[]);
 // The ticket endpoint must preserve both report layouts and reject invalid controls.
 const report={...newTicket(),title:'Réclamation client',category:'Qualité',teams:['qsse'],

@@ -13,6 +13,8 @@ async function recipients(ids:unknown){if(!Array.isArray(ids)||ids.length>100||i
 async function notify(ids:string[],title:string,href:string){if(!ids.length)return '';try{const db=database();await db.batch([...new Set(ids)].map(id=>db.prepare('INSERT INTO hub_notifications (id,user_id,title,href,seen,created_at) VALUES (?,?,?,?,0,?)').bind(crypto.randomUUID(),id,title,href,new Date().toISOString())));return ''}catch(e){console.error(e);return 'Enregistrement réussi, mais les notifications n’ont pas pu être créées. Utilisez « Notifier » pour réessayer.'}}
 
 async function saveTicket(db:D1Database,mutation:D1PreparedStatement,id:string,ticket:Ticket,now:string,previous?:Ticket){
+ const labelsError=await ticketLabelError(ticket,previous);
+ if(labelsError)return {error:fail(labelsError)} as const;
  const priorPilots=new Map((previous?.actions??[]).map(action=>[action.id,action.pilot]));
  const assignments=ticket.actions.filter(action=>action.pilot&&priorPilots.get(action.id)!==action.pilot);
  const assignedIds=[...new Set(assignments.map(action=>action.pilot))];
@@ -212,7 +214,6 @@ if(b.action==='audit-ticket'){
  if(teams.some(id=>!knownTeams.some(team=>team.id===id)))return fail('Équipe inconnue.');
  const recipientIds=[...new Set([pilot,...responsibles,...actions.map(action=>action.pilot)].filter(Boolean))];
  if(!await recipients(recipientIds))return fail('Pilote ou responsable inconnu.');
- const labelsError=await ticketLabelError(ticket);if(labelsError)return fail(labelsError);
  const matching=`json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?
   AND json_extract(data,'$.source.questionId')=?`;
  const linkArgs=[b.routineId,b.date,b.questionId];
@@ -267,10 +268,7 @@ let linked:any=null;if(kind==='ticket'&&b.id){const r=await db.prepare('SELECT d
  const keepArchivedLink=sourceRoutine?.archivedAt&&b.id&&await db.prepare(`SELECT id FROM hub_tickets WHERE id=?
   AND json_extract(data,'$.source.routineId')=? AND json_extract(data,'$.source.date')=?`).bind(b.id,v.source.routineId,v.source.date).first();
  if(!sourceRoutine||(!keepArchivedLink&&!occurrenceDates(sourceRoutine,v.source.date,v.source.date).length))return fail('Routine d’origine introuvable.');}
-if(kind==='ticket'){
- if(!b.id){delete v.archivedAt;delete v.archivedBy;delete v.qualityActionId;delete v.gmaoOrderId}
- const labelsError=await ticketLabelError(v);if(labelsError)return fail(labelsError);
-}
+if(kind==='ticket'&&!b.id){delete v.archivedAt;delete v.archivedBy;delete v.qualityActionId;delete v.gmaoOrderId}
 const id=b.id||crypto.randomUUID(),table=tables[kind];
 let previousTicket:Ticket|undefined;
 let mutation:D1PreparedStatement;
