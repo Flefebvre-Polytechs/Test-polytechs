@@ -29,7 +29,7 @@ function Dashboard({account,logout}:{account:Account;logout:()=>void}){
 const [showOverview,setShowOverview]=useState(true),[zoom,setZoom]=useState<number>(dashboardZoom.initial),[playing,setPlaying]=useState(false),[nativeFullscreen,setNativeFullscreen]=useState(false),[expanded,setExpanded]=useState(false),[defaultBoardId,setDefaultBoardId]=useState('');
 const fullscreen=nativeFullscreen||expanded;
 const stageRef=useRef<HTMLElement>(null);
-const [editableTeams,setEditableTeams]=useState<string[]>([]);
+const [editableTeams,setEditableTeams]=useState<string[]>([]),[managedTeams,setManagedTeams]=useState<string[]>([]);
 const [catalogReady,setCatalogReady]=useState(false);
 const [missions,setMissions]=useState({epiManager:false,pdpAccess:false,budgetManager:false});
 const [teams,setTeams]=useState<Team[]>([]),[boards,setBoards]=useState<BoardLink[]>([]),[selected,setSelected]=useState(''),[activeTeam,setActiveTeam]=useState(''),[data,setData]=useState<Payload|null>(null),[draft,setDraft]=useState<Board|null>(null),[scope,setScope]=useState(''),[targetTeam,setTargetTeam]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[tick,setTick]=useState(0),[year,setYear]=useState(new Date().getFullYear()),[addType,setAddType]=useState<Widget['type']>('indicator'),[newBoardOpen,setNewBoardOpen]=useState(false),[formName,setFormName]=useState(''),[formTeam,setFormTeam]=useState('direction'),[formError,setFormError]=useState(''),[dragId,setDragId]=useState(''),[preview,setPreview]=useState(false),[removed,setRemoved]=useState<{w:Widget;i:number}|null>(null);
@@ -39,7 +39,7 @@ useEffect(()=>{
   if(controller.signal.aborted)return;
   const availableTeams=d.teams as Team[],availableBoards=d.boards as BoardLink[];
   setMissions({epiManager:!!d.epiManager,pdpAccess:!!d.pdpAccess,budgetManager:!!d.budgetManager});
-  setTeams(availableTeams);setBoards(availableBoards);setEditableTeams(d.editableTeams||[]);setCatalogReady(true);
+  setTeams(availableTeams);setBoards(availableBoards);setEditableTeams(d.editableTeams||[]);setManagedTeams(d.managedTeams||[]);setCatalogReady(true);
   const query=new URLSearchParams(location.search);
   const requestedBoard=query.get('board')||(query.get('unit')?'legacy-'+query.get('unit'):'');
   const service=availableTeams.find(t=>t.id===query.get('team'))||availableTeams.find(t=>t.id==='direction')||availableTeams[0];
@@ -181,7 +181,7 @@ return <div className="team-workspace dashboard-workspace">
  <a className="skip-link" href="#workspace-content">Aller au contenu</a>
  <ServiceSidebar {...missions}>
   <p className="navlabel">SERVICES ET TABLEAUX</p>
-  <TeamTree teams={teams} boards={boards} selected={selected} disabled={!!draft||busy} onSelect={chooseBoard} onTeam={selectTeam}/>
+  <TeamTree teams={teams} boards={boards} managedTeams={managedTeams} selected={selected} disabled={!!draft||busy} onSelect={chooseBoard} onTeam={selectTeam}/>
   {account.role==='admin'&&<button className="outline" disabled={!!draft||busy} onClick={()=>location.assign('/equipes?nouvelle=1')}><Plus size={16}/> Ajouter un service</button>}
   <div className="hub-account">{account.displayName}<button disabled={!!draft||busy} onClick={logout}>Déconnexion</button></div>
  </ServiceSidebar>

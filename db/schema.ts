@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, primaryKey, uniqueIndex, real, check } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, primaryKey, uniqueIndex, real, check, foreignKey } from 'drizzle-orm/sqlite-core';
 import {sql} from 'drizzle-orm';
 import type { TeamIcon } from '../lib/team-organization';
 export const smiStandards=sqliteTable('smi_standards',{id:text('id').primaryKey(),data:text('data').notNull(),revision:integer('revision').notNull().default(1)});
@@ -90,3 +90,31 @@ export const epiTechnicalSheets=sqliteTable('epi_technical_sheets',{code:text('c
 export const qsseBudgetYears=sqliteTable('qsse_budget_years',{year:integer('year').primaryKey(),asOfMonth:integer('as_of_month').notNull().default(12),createdAt:text('created_at').notNull()});
 export const qsseBudgetAnnual=sqliteTable('qsse_budget_annual',{id:text('id').primaryKey(),year:integer('year').notNull().references(()=>qsseBudgetYears.year),data:text('data').notNull(),revision:integer('revision').notNull().default(1),updatedAt:text('updated_at').notNull(),updatedBy:text('updated_by').notNull()});
 export const qsseBudgetYearImport=sqliteTable('qsse_budget_year_import',{id:integer('id').primaryKey()});
+
+export const competenceSkills=sqliteTable('competence_skills',{
+  id:text('id').primaryKey(),teamId:text('team_id').notNull().references(()=>teams.id),
+  name:text('name').notNull(),nameKey:text('name_key').notNull(),family:text('family').notNull(),
+  target:integer('target').notNull().default(2),revision:integer('revision').notNull().default(1),
+},t=>[
+  uniqueIndex('competence_skill_name').on(t.teamId,t.nameKey),
+  uniqueIndex('competence_skill_team').on(t.teamId,t.id),
+  check('competence_skill_target',sql`${t.target} BETWEEN 1 AND 99`),
+]);
+export const competencePeople=sqliteTable('competence_people',{
+  id:text('id').primaryKey(),teamId:text('team_id').notNull().references(()=>teams.id),
+  name:text('name').notNull(),nameKey:text('name_key').notNull(),active:integer('active').notNull().default(1),
+  revision:integer('revision').notNull().default(1),
+},t=>[
+  uniqueIndex('competence_person_name').on(t.teamId,t.nameKey),
+  check('competence_person_active',sql`${t.active} IN (0,1)`),
+]);
+export const competenceAssessments=sqliteTable('competence_assessments',{
+  teamId:text('team_id').notNull(),skillId:text('skill_id').notNull(),personId:text('person_id').notNull(),
+  level:text('level').notNull(),revision:integer('revision').notNull().default(1),
+  assessedAt:text('assessed_at').notNull(),assessedBy:text('assessed_by').references(()=>users.id,{onDelete:'set null'}),
+},t=>[
+  primaryKey({columns:[t.skillId,t.personId]}),
+  foreignKey({columns:[t.teamId,t.skillId],foreignColumns:[competenceSkills.teamId,competenceSkills.id]}),
+  check('competence_assessment_level',sql`${t.level} IN ('','I','L','U')`),
+  index('competence_assessments_relay').on(t.teamId,t.level,t.skillId),
+]);

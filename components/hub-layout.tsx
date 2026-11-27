@@ -27,6 +27,7 @@ type WorkspaceDirectory={
  teams:Team[];
  boards:BoardLink[];
  editableTeams?:string[];
+ managedTeams?:string[];
  epiManager?:boolean;
  budgetManager?:boolean;
  pdpAccess?:boolean;
@@ -49,7 +50,7 @@ export function HubFrame({active,children,className='',teamId}:{
   <a className="skip-link" href="#workspace-content">Aller au contenu</a>
   <ServiceSidebar budgetManager={!!tree?.budgetManager} epiManager={!!tree?.epiManager} pdpAccess={!!tree?.pdpAccess}>
    <p className="navlabel">SERVICES ET MODULES</p>
-   {tree?<TeamTree teams={tree.teams} boards={tree.boards}/>:<div className="service-nav-state">
+   {tree?<TeamTree teams={tree.teams} boards={tree.boards} managedTeams={tree.managedTeams}/>:<div className="service-nav-state">
     <p role={error?'alert':'status'}>{error||'Chargement des services…'}</p><a href="/unites">Ouvrir les services</a>
    </div>}
   </ServiceSidebar>

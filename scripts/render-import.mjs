@@ -27,6 +27,7 @@ const newerOptionalTables=[
  'ticket_import_reversals',
  'hr_people','hr_authorizations','hr_authorization_files','hr_authorization_events',
  'env_consumption_records','env_consumption_history',
+ 'competence_skills','competence_people','competence_assessments',
  'vgp_records','vgp_history','vgp_files','vgp_passages',
  ...(legacyBudget ? budgetTables : [])
 ];
