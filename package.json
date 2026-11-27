@@ -10,7 +10,10 @@
     "dev": "node scripts/run-framework.mjs dev",
     "build": "node scripts/run-framework.mjs build",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
-    "start:render": "node scripts/render-migrate.mjs && npm start",
+    "start:render": "node scripts/render-migrate.mjs && node scripts/render-start.mjs",
+    "backup:export": "node scripts/render-backup.mjs export",
+    "backup:verify": "node scripts/render-backup.mjs verify",
+    "backup:restore": "node scripts/render-backup.mjs restore",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test:security": "node tests/security.mjs"

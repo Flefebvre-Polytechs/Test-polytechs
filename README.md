@@ -655,3 +655,50 @@ Vérification : `node tests/audit-builder.mjs`, `node tests/audit-reports.mjs`,
 suite métier complète, build Next.js et vérification HTTP du serveur compilé.
 Les interactions du constructeur ont été exercées dans un aperçu isolé avec des
 données fictives (modèle, ajout, déplacement, essai du score et verrouillage).
+
+### Sauvegarde indépendante de Polytechs Connect
+
+Le service Render produit au maximum une sauvegarde vérifiée par période de
+24 heures. La tâche tourne dans le service qui monte le disque. Elle utilise
+la sauvegarde en ligne de SQLite et inclut les pièces jointes de
+`objects/` ainsi que les sources privées de `private/`. Elle retente la
+capture si les données changent pendant la copie. Les sessions et les
+codes de connexion sont purgés de la copie.
+
+L’archive est chiffrée en AES-256-GCM avant envoi. La tâche relit l’objet
+depuis R2 et compare son empreinte SHA-256 avant de consigner le succès.
+Le journal Render affiche alors `[backup] Copie R2 vérifiée`.
+Une tâche peut être retentée au prochain passage, toutes les 30 minutes.
+
+Configurer un bucket **privé** sur le compte Cloudflare de Polytechs, avec la
+juridiction **Union européenne** et la classe **Standard**. Créer des accès S3
+**Object Read & Write** limités à ce bucket. Configurer les variables dans
+l’environnement du service Render.
+
+| Variable | Valeur |
+| --- | --- |
+| `POLYTECHS_BACKUP_R2_ENDPOINT` | Endpoint S3 UE indiqué par Cloudflare |
+| `POLYTECHS_BACKUP_R2_BUCKET` | Nom du bucket dédié |
+| `POLYTECHS_BACKUP_R2_ACCESS_KEY_ID` | Identifiant S3 |
+| `POLYTECHS_BACKUP_R2_SECRET_ACCESS_KEY` | Clé secrète S3 |
+| `POLYTECHS_BACKUP_KEY` | 32 octets aléatoires en Base64, par exemple générés avec `openssl rand -base64 32` |
+| `POLYTECHS_BACKUP_ENABLED` | `true` une fois les accès et la clé disponibles |
+
+Conserver la clé de chiffrement dans le coffre de Polytechs, hors de Render.
+Conserver les anciennes clés tant que des archives correspondantes sont
+disponibles. Configurer la durée de conservation dans R2. Les commandes
+utilisent Node.js, `tar` et `curl` avec la signature AWS SigV4. Le service
+Render utilise également `flock` pour éviter le chevauchement des tâches.
+
+Pour vérifier une archive téléchargée depuis le bucket, fournir
+`POLYTECHS_BACKUP_KEY` à un environnement de restauration isolé.
+
+```sh
+npm run backup:verify -- sauvegarde.tar.gz.enc
+npm run backup:restore -- sauvegarde.tar.gz.enc ./donnees-restaurees
+```
+
+`verify` restaure dans un dossier temporaire puis vérifie les empreintes des
+fichiers et l’intégrité SQLite. `restore` crée un nouveau dossier et refuse
+d’écraser un dossier existant. Effectuer un premier test à partir d’un objet
+réellement téléchargé depuis R2 avant de compter sur ce stockage en production.
