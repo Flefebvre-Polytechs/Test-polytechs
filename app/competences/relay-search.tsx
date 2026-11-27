@@ -87,7 +87,7 @@ export function RelaySearch({teamId,teams,skill}:{
                 <li key={relay.skillId+'-'+relay.personId}>
                   <PersonAvatar id={relay.userId??undefined} name={relay.name} size={38}/>
                   <div><strong data-no-translate>{relay.name}</strong>
-                    <span>{relay.team} · {relay.skill}</span></div>
+                    <span>{relay.teams.join(', ')} · {relay.skill}</span></div>
                   <span className="skills-relay-level"><span className="skills-level" data-level="U">U</span>
                     <time dateTime={relay.assessedAt}>Évalué le {formatAssessmentDate(relay.assessedAt)}</time>
                   </span>

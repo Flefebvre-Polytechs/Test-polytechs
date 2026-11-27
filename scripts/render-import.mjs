@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
+import {migrateCompetenceLibrary} from './competence-library-migration.mjs';
 
 const [filename]=process.argv.slice(2),dir=process.env.POLYTECHS_DATA_DIR;
 if(!filename||!dir)throw Error('Usage: POLYTECHS_DATA_DIR=/persistent/path node scripts/render-import.mjs export.json');
@@ -18,6 +19,8 @@ if(source.tables.some(x=>!checkName(x.name)||!Array.isArray(x.rows)||!Array.isAr
 // reject the import instead of silently losing its data.
 const budgetTables=['qsse_budget_owner','qsse_budget_data','qsse_budget_history','qsse_budget_import'];
 const legacyBudget=budgetTables.every(name=>!source.tables.some(table=>table.name===name));
+const sharedCompetences=['competence_library','competence_team_skills','competence_evaluations'];
+const legacyCompetences=sharedCompetences.every(name=>!source.tables.some(table=>table.name===name));
 const newerOptionalTables=[
  'team_invitations','hub_run_history','record_deletions',
  'qsse_budget_years','qsse_budget_annual','qsse_budget_year_import',
@@ -29,6 +32,7 @@ const newerOptionalTables=[
  'env_consumption_records','env_consumption_history',
  'competence_skills','competence_people','competence_assessments',
  'vgp_records','vgp_history','vgp_files','vgp_passages',
+ ...(legacyCompetences ? sharedCompetences : []),
  ...(legacyBudget ? budgetTables : [])
 ];
 // Migration 0029 creates seven built-in labels. They are configuration defaults,
@@ -61,8 +65,8 @@ for(const name of newerOptionalTables){
 }
 if(new Set(source.tables.map(t=>t.name)).size!==source.tables.length)throw Error('Duplicate tables in export');
 if(source.tables.length!==tables.size-protectedTables.size)throw Error('Incomplete export: expected all persistent tables');
-const business=['hub_tickets','evrp_risks','ged_documents'];
-if(business.some(t=>db.prepare(`SELECT count(*) AS n FROM "${t}"`).get().n!==0))throw Error('Target already contains business data; import refused');
+const business=['hub_tickets','evrp_risks','ged_documents','competence_skills','competence_people',...sharedCompetences];
+if(business.some(t=>tables.has(t)&&db.prepare(`SELECT count(*) AS n FROM "${t}"`).get().n!==0))throw Error('Target already contains business data; import refused');
 const existingUsers=db.prepare('SELECT username,email FROM users').all();
 const expectedEmail=process.env.RENDER_INITIAL_ADMIN_EMAIL?.trim().toLowerCase();
 const expectedUsername=process.env.RENDER_INITIAL_ADMIN_USERNAME?.trim().toLowerCase();
@@ -86,6 +90,7 @@ try{
       INSERT INTO member_function_roles
       SELECT user_id,'budget_manager',NULL,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM qsse_budget_owner;`);
   }
+  if(legacyCompetences&&tables.has('competence_library'))migrateCompetenceLibrary(db);
   db.exec(readFileSync(new URL('../drizzle/0041_gmao_rh_scope.sql',import.meta.url),'utf8'));
   db.exec(readFileSync(new URL('../drizzle/0044_water_city_readings.sql',import.meta.url),'utf8'));
   const failures=db.prepare('PRAGMA foreign_key_check').all();

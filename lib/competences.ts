@@ -6,7 +6,8 @@ export const competenceLevels = {
 
 export type CompetenceLevel = keyof typeof competenceLevels;
 export type CompetenceTeam = {id:string;name:string};
-export type CompetenceSkill = {id:string;name:string;family:string;target:number;revision:number};
+export type CompetenceLibrarySkill = {id:string;name:string;family:string;revision:number};
+export type CompetenceSkill = CompetenceLibrarySkill & {target:number};
 export type CompetencePerson = {id:string;name:string;userId:string|null;active:number;revision:number};
 export type CompetenceAssessment = {
   skillId:string;
@@ -19,6 +20,8 @@ export type CompetenceAssessment = {
 export type CompetenceMatrix = {
   teams:CompetenceTeam[];
   teamId:string;
+  library:CompetenceLibrarySkill[];
+  canEditLibrary:boolean;
   skills:CompetenceSkill[];
   people:CompetencePerson[];
   assessments:CompetenceAssessment[];
@@ -27,14 +30,16 @@ export type CompetenceRelay = {
   skillId:string;
   skill:string;
   family:string;
-  teamId:string;
-  team:string;
+  teams:string[];
   personId:string;
   name:string;
   userId:string|null;
   assessedAt:string;
 };
 export type CompetenceSearch = {relays:CompetenceRelay[];truncated:boolean};
+export type CompetenceProfileSkill = {
+  id:string;name:string;family:string;level:CompetenceLevel;assessedAt:string;inMatrix:boolean;
+};
 
 export function isCompetenceLevel(value:unknown):value is CompetenceLevel {
   return typeof value==='string'&&Object.hasOwn(competenceLevels,value);

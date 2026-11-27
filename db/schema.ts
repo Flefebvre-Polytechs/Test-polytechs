@@ -118,3 +118,26 @@ export const competenceAssessments=sqliteTable('competence_assessments',{
   check('competence_assessment_level',sql`${t.level} IN ('','I','L','U')`),
   index('competence_assessments_relay').on(t.teamId,t.level,t.skillId),
 ]);
+export const competenceLibrary=sqliteTable('competence_library',{
+  id:text('id').primaryKey(),name:text('name').notNull(),nameKey:text('name_key').notNull(),
+  family:text('family').notNull(),familyKey:text('family_key').notNull(),revision:integer('revision').notNull().default(1),
+},t=>[uniqueIndex('competence_library_name_family').on(t.nameKey,t.familyKey)]);
+export const competenceTeamSkills=sqliteTable('competence_team_skills',{
+  teamId:text('team_id').notNull().references(()=>teams.id),skillId:text('skill_id').notNull().references(()=>competenceLibrary.id),
+  target:integer('target').notNull().default(2),active:integer('active').notNull().default(1),revision:integer('revision').notNull().default(1),
+},t=>[
+  primaryKey({columns:[t.teamId,t.skillId]}),
+  check('competence_team_skill_target',sql`${t.target} BETWEEN 1 AND 99`),
+  check('competence_team_skill_active',sql`${t.active} IN (0,1)`),
+]);
+export const competenceEvaluations=sqliteTable('competence_evaluations',{
+  skillId:text('skill_id').notNull().references(()=>competenceLibrary.id),personId:text('person_id').notNull(),
+  level:text('level').notNull(),revision:integer('revision').notNull().default(1),assessedAt:text('assessed_at').notNull(),
+  assessedBy:text('assessed_by').references(()=>users.id,{onDelete:'set null'}),
+  assessedTeamId:text('assessed_team_id').notNull().references(()=>teams.id),
+},t=>[
+  primaryKey({columns:[t.skillId,t.personId]}),
+  check('competence_evaluation_level',sql`${t.level} IN ('','I','L','U')`),
+  index('competence_evaluations_person').on(t.personId,t.skillId),
+  index('competence_evaluations_relay').on(t.level,t.skillId,t.personId),
+]);

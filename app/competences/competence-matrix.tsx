@@ -6,11 +6,12 @@ import {PersonAvatar} from '@/components/person-avatar';
 import {competenceLevels,type CompetenceAssessment,type CompetenceMatrix,type CompetencePerson,type CompetenceSkill} from '@/lib/competences';
 import {labelKey} from '@/lib/hub';
 
-export function SkillsMatrix({matrix,editSkill,assess,findRelay}:{
+export function SkillsMatrix({matrix,editSkill,assess,findRelay,viewPerson}:{
   matrix:CompetenceMatrix;
   editSkill:(skill:CompetenceSkill)=>void;
   assess:(skill:CompetenceSkill,person:CompetencePerson,assessment?:CompetenceAssessment)=>void;
   findRelay:(skill:CompetenceSkill)=>void;
+  viewPerson:(person:CompetencePerson)=>void;
 }) {
   const [query,setQuery]=useState(''),[coverage,setCoverage]=useState<'all'|'below'|'no-relay'>('all');
   const people=matrix.people.filter(person=>person.active);
@@ -67,7 +68,7 @@ export function SkillsMatrix({matrix,editSkill,assess,findRelay}:{
         </div>
         {!skills.length?(
           <div className="skills-empty"><Layers3 size={26}/><h2>Aucune compétence dans ce service</h2>
-            <p>Ajoutez une compétence pour commencer la matrice.</p></div>
+            <p>Choisissez les compétences à suivre dans la bibliothèque commune.</p></div>
         ):!groups.size?(
           <div className="skills-empty"><Search size={26}/><h2>Aucune compétence trouvée</h2>
             <button className="skills-button" onClick={()=>{setQuery('');setCoverage('all')}}>Effacer les filtres</button></div>
@@ -80,8 +81,10 @@ export function SkillsMatrix({matrix,editSkill,assess,findRelay}:{
                   <th scope="col">Compétence</th>
                   <th scope="col">Autonomes <span>/ cible</span></th>
                   {people.map(person=><th scope="col" key={person.id}>
-                    <span className="skills-person-heading"><PersonAvatar id={person.userId??undefined} name={person.name} size={29}/>
-                      <span data-no-translate>{person.name}</span></span>
+                    <button type="button" className="skills-person-heading" onClick={()=>viewPerson(person)}
+                      aria-label={'Voir les acquis de '+person.name} title="Voir les compétences acquises">
+                      <PersonAvatar id={person.userId??undefined} name={person.name} size={29}/>
+                      <span data-no-translate>{person.name}</span></button>
                   </th>)}
                 </tr></thead>
                 {[...groups.entries()].map(([key,family])=>(
@@ -92,7 +95,7 @@ export function SkillsMatrix({matrix,editSkill,assess,findRelay}:{
                     {family.map(skill=>(
                       <tr key={skill.id}>
                         <th scope="row"><button type="button" className="skills-skill-name"
-                          aria-label={'Modifier la compétence '+skill.name} onClick={()=>editSkill(skill)}>{skill.name}</button></th>
+                          aria-label={'Modifier la cible pour '+skill.name} onClick={()=>editSkill(skill)}>{skill.name}</button></th>
                         <td>
                           <button type="button" className="skills-coverage" data-met={skill.autonomous>=skill.target}
                             aria-label={'Voir les relais pour '+skill.name+' · '+skill.autonomous+' autonomes sur '+skill.target}

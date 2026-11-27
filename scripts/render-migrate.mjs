@@ -3,6 +3,7 @@ import {resolve,join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync,randomBytes,randomUUID} from 'node:crypto';
 import {emailMfaExemptEmail,emailMfaRequired} from '../lib/security-mail.ts';
+import {migrateCompetenceLibrary} from './competence-library-migration.mjs';
 import {installQualitySource} from './render-quality-source.mjs';
 
 const dir=process.env.POLYTECHS_DATA_DIR;
@@ -14,7 +15,12 @@ for(const name of (await readdir('drizzle')).filter(x=>/^\d{4}_.+\.sql$/.test(x)
   if(db.prepare('SELECT 1 FROM render_schema_migrations WHERE name=?').get(name))continue;
   const sql=await readFile(join('drizzle',name),'utf8');
   db.exec('BEGIN IMMEDIATE');
-  try{db.exec(sql);db.prepare('INSERT INTO render_schema_migrations VALUES (?,?)').run(name,new Date().toISOString());db.exec('COMMIT')}
+  try{
+    db.exec(sql);
+    if(name==='0052_competence_library.sql')migrateCompetenceLibrary(db);
+    db.prepare('INSERT INTO render_schema_migrations VALUES (?,?)').run(name,new Date().toISOString());
+    db.exec('COMMIT');
+  }
   catch(error){db.exec('ROLLBACK');throw Error(`Migration ${name} failed`,{cause:error})}
   console.log('Applied',name);
 }

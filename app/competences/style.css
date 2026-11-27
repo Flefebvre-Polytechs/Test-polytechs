@@ -138,7 +138,7 @@
 .skills-filters select,
 .skills-relay-form :is(input,select),
 .skills-relay-results-heading select,
-.skills-form :is(input:not([type=radio]),select) {
+.skills-form :is(input:not([type=radio],[type=checkbox]),select) {
   min-height: 41px;
   min-width: 0;
   max-width: 100%;
@@ -190,6 +190,7 @@
 .skills-table tbody tr:not(.skills-family):hover > :is(th,td) { background: #eef5fb; }
 .skills-table tbody:last-child tr:last-child > * { border-bottom: 0; }
 .skills-person-heading { display: grid; justify-items: center; align-content: center; gap: 4px; max-width: 132px; margin-inline: auto; text-align: center; font-size: .77rem; font-weight: 680; overflow-wrap: anywhere; }
+.skills-person-heading:hover > span:last-child { color: var(--skills-blue); text-decoration: underline; }
 .skills-family th { padding: 9px 13px; background: #e7eff7; color: #244c6e; text-align: left; }
 .skills-family th :is(svg,span) { display: inline-block; vertical-align: middle; }
 .skills-family th svg { margin-right: 6px; }
@@ -248,6 +249,33 @@
 .skills-relay-list li > div span,.skills-relay-level time { color: var(--skills-muted); font-size: .76rem; }
 .skills-relay-level { display: grid; justify-items: end; gap: 4px; max-width: 102px; text-align: right; }
 
+.skills-library > header { padding: clamp(15px, 3cqi, 25px); padding-bottom: 0; }
+.skills-library .skills-library-filters { padding-inline: clamp(15px, 3cqi, 25px); }
+.skills-library-groups { display: grid; gap: 14px; padding: clamp(15px, 3cqi, 25px); }
+.skills-library-group { border: 1px solid var(--skills-border); border-radius: 11px; min-width: 0; }
+.skills-library-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px 10px 0 0;
+  background: #ebf3fa;
+  color: #284e6e;
+  font-size: .84rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.skills-library-group h3 svg { flex: none; }
+.skills-library-group ul,.skills-profile-list { list-style: none; margin: 0; padding: 0; }
+.skills-library-group li { display: flex; min-height: 54px; align-items: center; gap: 8px; padding: 6px 12px; }
+.skills-library-group li + li { border-top: 1px solid #e5edf3; }
+.skills-library-group li strong { flex: 1; min-width: 0; font-size: .89rem; overflow-wrap: anywhere; }
+.skills-library-group .skills-button { min-height: 36px; }
+.skills-library-included { display: inline-flex; align-items: center; gap: 5px; color: #1f6652; font-size: .8rem; }
+.skills-icon-button { width: 36px; padding-inline: 0; flex: none; }
+.skills-library .skills-empty h3 { margin: 0; color: var(--skills-ink); font-size: 1.07rem; }
+
 [data-slot="dialog-content"].skills-dialog {
   gap: 14px;
   border: 1px solid #d6e4ee;
@@ -264,6 +292,8 @@
 .skills-dialog header [data-slot="dialog-description"] { margin: 6px 0 0; color: #526b81; font-size: .86rem; line-height: 1.45; overflow-wrap: anywhere;}
 .skills-form,.skills-level-options { display: grid; gap: 11px; min-width: 0; }
 .skills-form .skills-error { margin: 0; }
+.skills-form > .skills-checkline { display: flex; align-items: center; gap: 8px; padding-block: 5px; }
+.skills-checkline input { width: 17px; height: 17px; accent-color: #0c679f; flex: none; }
 .skills-dialog-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .skills-level-options label {
   display: flex;
@@ -282,9 +312,19 @@
 .skills-evaluation-date { margin: 0; }
 .skills-roster-form { grid-template-columns: minmax(0,1fr) auto; align-items: end; }
 .skills-roster { display: grid; margin: 0; padding: 0; list-style: none; overflow: auto; max-height: min(44dvh, 310px); }
-.skills-roster li { display: flex; align-items: center; gap: 8px; padding-block: 7px; border-bottom: 1px solid #e7eef4; }
-.skills-roster li > span:nth-child(2) { display: grid; flex: 1; font-size: .85rem; gap: 2px; overflow-wrap: anywhere; }
+.skills-roster li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-block: 7px; border-bottom: 1px solid #e7eef4; }
+.skills-roster-person { display: grid; flex: 1 1 90px; min-width: 0; font-size: .85rem; gap: 2px; overflow-wrap: anywhere; }
+.skills-text-action { justify-self: start; text-align: left; font-weight: 680; color: #13598c; overflow-wrap: anywhere; }
+.skills-text-action:hover { text-decoration: underline; }
+.skills-remove-action { color: #943a2e; font-size: .84rem; }
+.skills-roster-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-left: auto; }
 .skills-roster li .skills-button { font-size: .77rem; min-height: 34px; }
+.skills-profile-list { overflow: auto; max-height: min(56dvh, 420px); }
+.skills-profile-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 0; border-bottom: 1px solid #e7eef4; }
+.skills-profile-list li > div { flex: 1 1 130px; min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.skills-profile-list li strong { font-size: .89rem; }
+.skills-profile-list :is(small,time) { color: #526b81; font-size: .77rem; }
+.skills-profile-list time { margin-left: auto; }
 
 @container skills (max-width: 620px) {
   .skills-cover { gap: 11px; }
@@ -293,6 +333,7 @@
   .skills-team-selector { margin-left: 0; flex: 1 1 100%; }
   .skills-tabs,.skills-toolbar-actions { width: 100%; }
   .skills-tabs button,.skills-toolbar-actions .skills-button { flex: 1; }
+  .skills-tabs button { padding-inline: 6px; }
   .skills-legend { margin-left: 0; width: 100%; }
   .skills-metrics > div { align-items: flex-start; flex-direction: column; gap: 6px; }
   .skills-table :is(thead,tbody) tr:not(.skills-family) > th:first-child { min-width: 126px; max-width: 150px; }
@@ -303,4 +344,8 @@
   .skills-filters :is(.skills-searchbox, select) { flex: 1 1 100%; max-width: none; }
   .skills-relay-form > * { flex: 1 1 100%; }
   .skills-toolbar-actions .skills-button { padding-inline: 7px; font-size: .8rem; }
+  .skills-tabs { gap: 3px; }
+  .skills-tabs button { flex-basis: 0; min-width: 0; flex-direction: column; gap: 4px; font-size: .77rem; }
+  .skills-library-group li { padding-inline: 8px; }
+  .skills-library-included { max-width: 85px; }
 }
